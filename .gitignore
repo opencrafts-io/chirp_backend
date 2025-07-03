@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+*.venv
+venv/
+env/
+ENV/
+*.sqlite3
+
+# Django
+*.log
+staticfiles/
+media/
+db.sqlite3
+
+# VSCode
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Others
+*.swp
+*.bak
+.idea/
+*.egg-info/
+
+# OpenAPI/Docs
+chirp_openapi.json
