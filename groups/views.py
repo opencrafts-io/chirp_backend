@@ -31,6 +31,13 @@ class GroupAddMemberView(APIView):
             if user_id and user_id not in group.members:
                 group.members.append(user_id)
                 group.save()
+                # Send notification to group about new member
+                notification = f"User {user_id} has been added to the group."
+                # TO DO!!!!! NOTIFICATION SYSTEM LINKING
+                return Response({
+                    'group': GroupSerializer(group).data,
+                    'notification': notification
+                })
             return Response(GroupSerializer(group).data)
         except Group.DoesNotExist:
             return Response({'error': 'Group Not Found'}, status=status.HTTP_404_NOT_FOUND)
