@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import sys
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -42,25 +43,21 @@ INSTALLED_APPS = [
     'groups',
     'dmessages'
 ]
+
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [],
     'DEFAULT_AUTHENTICATION_CLASSES': [],
 }
 
-from decouple import config
-SECRET_KEY = config('SECRET_KEY')
-JWT_PUBLIC_KEY = config('JWT_PUBLIC_KEY')
+# JWT Configuration
+try:
+    from decouple import config
+    SECRET_KEY = config('SECRET_KEY', default='django-insecure-_27eto_6&*cz6cx26valns6lqv*v4am224r3j9y5@hoz*58=_-')
+    JWT_PUBLIC_KEY = config('JWT_PUBLIC_KEY', default='test_jwt_key_for_testing')
+except ImportError:
+    # Fallback for tests or when decouple is not available
+    JWT_PUBLIC_KEY = 'test_jwt_key_for_testing'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME', default='chirp'),
-        'USER': config('DB_USER', default=''),
-        'PASSWORD': config('DB_PASSWORD', default=''),
-        'HOST': config('DB_HOST', default='localhost'),
-        'PORT': config('DB_PORT', default='5432'),
-    }
-}
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -69,7 +66,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # 'statuses.middleware.JWTDecodeMiddleware',
+    'tweets.middleware.JWTDecodeMiddleware',
 ]
 
 ROOT_URLCONF = 'chirp.urls'
@@ -91,10 +88,10 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'chirp.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# Use SQLite for development and testing
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -102,6 +99,12 @@ DATABASES = {
     }
 }
 
+# Use in-memory database for tests
+if 'test' in sys.argv:
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': ':memory:',
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

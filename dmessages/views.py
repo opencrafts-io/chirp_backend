@@ -6,11 +6,19 @@ from .serializers import MessageSerializer
 
 class MessageListCreateView(APIView):
     def get(self, request):
+        # Require authentication for viewing messages
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
         messages = Message.objects.filter(recipient_id=request.user_id)
         serializer = MessageSerializer(messages, many=True)
         return Response(serializer.data)
 
     def post(self, request):
+        # Require authentication for sending messages
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
         data = request.data.copy()
         data['sender_id'] = request.user_id
         serializer = MessageSerializer(data=data)
