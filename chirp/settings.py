@@ -53,10 +53,20 @@ REST_FRAMEWORK = {
 try:
     from decouple import config
     SECRET_KEY = config('SECRET_KEY', default='django-insecure-_27eto_6&*cz6cx26valns6lqv*v4am224r3j9y5@hoz*58=_-')
-    JWT_PUBLIC_KEY = config('JWT_PUBLIC_KEY', default='test_jwt_key_for_testing')
+    JWT_PUBLIC_KEY = config('JWT_PUBLIC_KEY', default='test_jwt_secret_key_for_chirp_testing')
 except ImportError:
     # Fallback for tests or when decouple is not available
-    JWT_PUBLIC_KEY = 'test_jwt_key_for_testing'
+    JWT_PUBLIC_KEY = 'test_jwt_secret_key_for_chirp_testing'
+
+# JWT Testing Configuration
+JWT_TEST_SECRET = 'test_jwt_secret_key_for_chirp_testing'
+JWT_ALGORITHM = 'HS256'
+
+# For production, you would configure these for your external JWT provider:
+# JWT_PUBLIC_KEY = 'your_production_rsa_public_key'
+# JWT_ALGORITHM = 'RS256'
+# Note: For HS256 (symmetric), use same secret for signing and verification
+# For RS256 (asymmetric), use private key for signing, public key for verification
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

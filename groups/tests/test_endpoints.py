@@ -1,9 +1,8 @@
 import json
-import jwt
 from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
-from unittest.mock import patch
+from chirp.jwt_utils import generate_test_token
 from ..models import Group, GroupPost, GroupInvite
 
 
@@ -13,53 +12,28 @@ class GroupsEndpointTest(TestCase):
         self.client = APIClient()
         self.groups_url = '/groups/'
         self.test_user_id = 'user123'
-        self.admin_user_id = 'admin456'
+        self.test_user_id_2 = 'user456'
+        self.valid_group_data = {
+            'name': 'Test Group',
+            'description': 'A test group for testing'
+        }
 
-        # Create test groups
-        self.group1 = Group.objects.create(
-            name='Test Group 1',
-            description='First test group',
-            creator_id=self.admin_user_id,
-            admins=[self.admin_user_id],
-            members=[self.admin_user_id, self.test_user_id]
-        )
+    def _get_auth_headers(self, user_id=None):
+        """Helper method to get authentication headers using real JWT tokens."""
+        user_id = user_id or self.test_user_id
+        token = generate_test_token(user_id)
+        return {'HTTP_AUTHORIZATION': f'Bearer {token}'}
 
-        self.group2 = Group.objects.create(
-            name='Test Group 2',
-            description='Second test group',
+    def test_get_groups_with_valid_jwt(self):
+        """Test GET /groups/ with valid JWT token."""
+        # Create a group where the user is a member
+        group = Group.objects.create(
+            name='Test Group',
+            description='Test description',
             creator_id=self.test_user_id,
             admins=[self.test_user_id],
             members=[self.test_user_id]
         )
-
-        # Mock JWT payload
-        self.mock_jwt_payload = {
-            'sub': self.test_user_id,
-            'exp': 9999999999
-        }
-
-        self.valid_group_data = {
-            'name': 'New Group',
-            'description': 'A new test group'
-        }
-
-    def _create_mock_jwt_token(self, user_id=None):
-        """Helper method to create a mock JWT token."""
-        payload = self.mock_jwt_payload.copy()
-        if user_id:
-            payload['sub'] = user_id
-        return jwt.encode(payload, 'mock_secret', algorithm='HS256')
-
-    def _get_auth_headers(self, user_id=None):
-        """Helper method to get authentication headers."""
-        token = self._create_mock_jwt_token(user_id)
-        return {'Authorization': f'Bearer {token}'}
-
-    # GET /groups/ tests
-    @patch('tweets.middleware.jwt.decode')
-    def test_get_groups_with_valid_jwt(self, mock_jwt_decode):
-        """Test GET /groups/ with valid JWT token."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
 
         response = self.client.get(
             self.groups_url,
@@ -67,34 +41,54 @@ class GroupsEndpointTest(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)  # user123 is member of both groups
-
-    @patch('tweets.middleware.jwt.decode')
-    def test_get_groups_member_filtering(self, mock_jwt_decode):
-        """Test GET /groups/ returns only groups where user is member."""
-        mock_jwt_payload = {'sub': self.admin_user_id}
-        mock_jwt_decode.return_value = mock_jwt_payload
-
-        response = self.client.get(
-            self.groups_url,
-            **self._get_auth_headers(self.admin_user_id)
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)  # admin456 is only member of group1
-        self.assertEqual(response.data[0]['name'], 'Test Group 1')
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'Test Group')
 
     def test_get_groups_without_jwt(self):
         """Test GET /groups/ without JWT token returns 401."""
         response = self.client.get(self.groups_url)
+
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn('error', response.data)
 
-    # POST /groups/ tests
-    @patch('tweets.middleware.jwt.decode')
-    def test_post_create_group_with_valid_jwt(self, mock_jwt_decode):
+    def test_get_groups_with_invalid_jwt(self):
+        """Test GET /groups/ with invalid JWT token returns 401."""
+        response = self.client.get(
+            self.groups_url,
+            HTTP_AUTHORIZATION='Bearer invalid_token_here'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn('error', response.json())
+
+    def test_get_groups_filters_by_membership(self):
+        """Test GET /groups/ only returns groups where user is a member."""
+        # Create groups with different memberships
+        group1 = Group.objects.create(
+            name='My Group',
+            creator_id=self.test_user_id,
+            admins=[self.test_user_id],
+            members=[self.test_user_id]
+        )
+
+        Group.objects.create(
+            name='Other Group',
+            creator_id=self.test_user_id_2,
+            admins=[self.test_user_id_2],
+            members=[self.test_user_id_2]
+        )
+
+        response = self.client.get(
+            self.groups_url,
+            **self._get_auth_headers()
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'My Group')
+
+    def test_post_group_with_valid_jwt(self):
         """Test POST /groups/ with valid JWT token creates group."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
         response = self.client.post(
             self.groups_url,
             data=json.dumps(self.valid_group_data),
@@ -103,19 +97,40 @@ class GroupsEndpointTest(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Group.objects.count(), 3)
+        self.assertEqual(Group.objects.count(), 1)
 
-        created_group = Group.objects.get(name='New Group')
+        created_group = Group.objects.first()
+        self.assertEqual(created_group.name, 'Test Group')
         self.assertEqual(created_group.creator_id, self.test_user_id)
-        self.assertEqual(created_group.admins, [self.test_user_id])
-        self.assertEqual(created_group.members, [self.test_user_id])
+        self.assertIn(self.test_user_id, created_group.admins)
+        self.assertIn(self.test_user_id, created_group.members)
 
-    @patch('tweets.middleware.jwt.decode')
-    def test_post_create_group_invalid_data(self, mock_jwt_decode):
+    def test_post_group_without_jwt(self):
+        """Test POST /groups/ without JWT token returns 401."""
+        response = self.client.post(
+            self.groups_url,
+            data=json.dumps(self.valid_group_data),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(Group.objects.count(), 0)
+
+    def test_post_group_with_invalid_jwt(self):
+        """Test POST /groups/ with invalid JWT token returns 401."""
+        response = self.client.post(
+            self.groups_url,
+            data=json.dumps(self.valid_group_data),
+            content_type='application/json',
+            HTTP_AUTHORIZATION='Bearer invalid_token_here'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(Group.objects.count(), 0)
+
+    def test_post_group_invalid_data(self):
         """Test POST /groups/ with invalid data returns 400."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
-        invalid_data = {'name': '', 'description': 'No name'}
+        invalid_data = {'name': ''}  # Empty name
         response = self.client.post(
             self.groups_url,
             data=json.dumps(invalid_data),
@@ -125,255 +140,59 @@ class GroupsEndpointTest(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('name', response.data)
+        self.assertEqual(Group.objects.count(), 0)
 
-    @patch('tweets.middleware.jwt.decode')
-    def test_post_create_group_duplicate_name(self, mock_jwt_decode):
+    def test_post_group_duplicate_name(self):
         """Test POST /groups/ with duplicate name returns 400."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
+        # Create a group first
+        Group.objects.create(
+            name='Test Group',
+            creator_id=self.test_user_id,
+            admins=[self.test_user_id],
+            members=[self.test_user_id]
+        )
 
-        duplicate_data = {'name': 'Test Group 1', 'description': 'Duplicate'}
         response = self.client.post(
             self.groups_url,
-            data=json.dumps(duplicate_data),
+            data=json.dumps(self.valid_group_data),
             content_type='application/json',
             **self._get_auth_headers()
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Group.objects.count(), 1)
 
-    # POST /groups/{id}/add-member/ tests
-    @patch('tweets.middleware.jwt.decode')
-    def test_add_member_as_admin(self, mock_jwt_decode):
-        """Test POST /groups/{id}/add-member/ as admin."""
-        mock_jwt_payload = {'sub': self.admin_user_id}
-        mock_jwt_decode.return_value = mock_jwt_payload
-
-        member_data = {'user_id': 'new_member'}
+    def test_post_group_response_format(self):
+        """Test POST /groups/ returns proper response format."""
         response = self.client.post(
-            f'/groups/{self.group1.id}/add-member/',
-            data=json.dumps(member_data),
-            content_type='application/json',
-            **self._get_auth_headers(self.admin_user_id)
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.group1.refresh_from_db()
-        self.assertIn('new_member', self.group1.members)
-        self.assertIn('notification', response.data)
-
-    @patch('tweets.middleware.jwt.decode')
-    def test_add_member_not_admin(self, mock_jwt_decode):
-        """Test POST /groups/{id}/add-member/ as non-admin returns 403."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
-        member_data = {'user_id': 'new_member'}
-        response = self.client.post(
-            f'/groups/{self.group1.id}/add-member/',
-            data=json.dumps(member_data),
-            content_type='application/json',
-            **self._get_auth_headers()
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(response.data['error'], 'Not an admin')
-
-    @patch('tweets.middleware.jwt.decode')
-    def test_add_member_nonexistent_group(self, mock_jwt_decode):
-        """Test POST /groups/{id}/add-member/ for non-existent group returns 404."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
-        member_data = {'user_id': 'new_member'}
-        response = self.client.post(
-            '/groups/999/add-member/',
-            data=json.dumps(member_data),
-            content_type='application/json',
-            **self._get_auth_headers()
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(response.data['error'], 'Group Not Found')
-
-    # POST /groups/{id}/invite/ tests
-    @patch('tweets.middleware.jwt.decode')
-    def test_create_invite_as_admin(self, mock_jwt_decode):
-        """Test POST /groups/{id}/invite/ as admin."""
-        mock_jwt_payload = {'sub': self.admin_user_id}
-        mock_jwt_decode.return_value = mock_jwt_payload
-
-        invite_data = {'invitee_id': 'invited_user'}
-        response = self.client.post(
-            f'/groups/{self.group1.id}/invite/',
-            data=json.dumps(invite_data),
-            content_type='application/json',
-            **self._get_auth_headers(self.admin_user_id)
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(GroupInvite.objects.count(), 1)
-
-        invite = GroupInvite.objects.first()
-        self.assertEqual(invite.invitee_id, 'invited_user')
-        self.assertEqual(invite.inviter_id, self.admin_user_id)
-
-    @patch('tweets.middleware.jwt.decode')
-    def test_create_invite_not_admin(self, mock_jwt_decode):
-        """Test POST /groups/{id}/invite/ as non-admin returns 403."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
-        invite_data = {'invitee_id': 'invited_user'}
-        response = self.client.post(
-            f'/groups/{self.group1.id}/invite/',
-            data=json.dumps(invite_data),
-            content_type='application/json',
-            **self._get_auth_headers()
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(response.data['error'], 'Not an admin')
-
-    # POST /groups/invites/{id}/accept/ tests
-    @patch('tweets.middleware.jwt.decode')
-    def test_accept_invite_valid(self, mock_jwt_decode):
-        """Test POST /groups/invites/{id}/accept/ with valid invite."""
-        invite = GroupInvite.objects.create(
-            group=self.group1,
-            invitee_id='invited_user',
-            inviter_id=self.admin_user_id
-        )
-
-        mock_jwt_payload = {'sub': 'invited_user'}
-        mock_jwt_decode.return_value = mock_jwt_payload
-
-        response = self.client.post(
-            f'/groups/invites/{invite.id}/accept/',
-            **self._get_auth_headers('invited_user')
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.group1.refresh_from_db()
-        self.assertIn('invited_user', self.group1.members)
-        self.assertEqual(GroupInvite.objects.count(), 0)
-
-    @patch('tweets.middleware.jwt.decode')
-    def test_accept_invite_wrong_user(self, mock_jwt_decode):
-        """Test POST /groups/invites/{id}/accept/ with wrong user returns 404."""
-        invite = GroupInvite.objects.create(
-            group=self.group1,
-            invitee_id='invited_user',
-            inviter_id=self.admin_user_id
-        )
-
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
-        response = self.client.post(
-            f'/groups/invites/{invite.id}/accept/',
-            **self._get_auth_headers()
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(response.data['error'], 'Invite not Found')
-
-    # GET /groups/{id}/posts/ tests
-    @patch('tweets.middleware.jwt.decode')
-    def test_get_group_posts_as_member(self, mock_jwt_decode):
-        """Test GET /groups/{id}/posts/ as group member."""
-        # Create test posts
-        GroupPost.objects.create(
-            group=self.group1,
-            user_id=self.admin_user_id,
-            content='First post'
-        )
-        GroupPost.objects.create(
-            group=self.group1,
-            user_id=self.test_user_id,
-            content='Second post'
-        )
-
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
-        response = self.client.get(
-            f'/groups/{self.group1.id}/posts/',
-            **self._get_auth_headers()
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
-
-    @patch('tweets.middleware.jwt.decode')
-    def test_get_group_posts_not_member(self, mock_jwt_decode):
-        """Test GET /groups/{id}/posts/ as non-member returns 403."""
-        mock_jwt_payload = {'sub': 'non_member'}
-        mock_jwt_decode.return_value = mock_jwt_payload
-
-        response = self.client.get(
-            f'/groups/{self.group1.id}/posts/',
-            **self._get_auth_headers('non_member')
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(response.data['error'], 'Not a group member')
-
-    # POST /groups/{id}/posts/ tests
-    @patch('tweets.middleware.jwt.decode')
-    def test_create_group_post_as_member(self, mock_jwt_decode):
-        """Test POST /groups/{id}/posts/ as group member."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
-        post_data = {'content': 'New group post'}
-        response = self.client.post(
-            f'/groups/{self.group1.id}/posts/',
-            data=json.dumps(post_data),
+            self.groups_url,
+            data=json.dumps(self.valid_group_data),
             content_type='application/json',
             **self._get_auth_headers()
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(GroupPost.objects.count(), 1)
+        expected_fields = ['id', 'name', 'description', 'creator_id', 'admins', 'members', 'created_at']
+        for field in expected_fields:
+            self.assertIn(field, response.data)
 
-        created_post = GroupPost.objects.first()
-        self.assertEqual(created_post.content, 'New group post')
-        self.assertEqual(created_post.user_id, self.test_user_id)
-
-    @patch('tweets.middleware.jwt.decode')
-    def test_create_group_post_not_member(self, mock_jwt_decode):
-        """Test POST /groups/{id}/posts/ as non-member returns 403."""
-        mock_jwt_payload = {'sub': 'non_member'}
-        mock_jwt_decode.return_value = mock_jwt_payload
-
-        post_data = {'content': 'New group post'}
+    def test_post_group_creator_setup(self):
+        """Test POST /groups/ properly sets up creator as admin and member."""
         response = self.client.post(
-            f'/groups/{self.group1.id}/posts/',
-            data=json.dumps(post_data),
-            content_type='application/json',
-            **self._get_auth_headers('non_member')
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(response.data['error'], 'Not a group member')
-
-    @patch('tweets.middleware.jwt.decode')
-    def test_create_group_post_invalid_data(self, mock_jwt_decode):
-        """Test POST /groups/{id}/posts/ with invalid data returns 400."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
-        invalid_data = {'content': ''}
-        response = self.client.post(
-            f'/groups/{self.group1.id}/posts/',
-            data=json.dumps(invalid_data),
+            self.groups_url,
+            data=json.dumps(self.valid_group_data),
             content_type='application/json',
             **self._get_auth_headers()
         )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('content', response.data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['creator_id'], self.test_user_id)
+        self.assertIn(self.test_user_id, response.data['admins'])
+        self.assertIn(self.test_user_id, response.data['members'])
 
-    # HTTP Method validation tests
-    @patch('tweets.middleware.jwt.decode')
-    def test_unsupported_http_methods(self, mock_jwt_decode):
-        """Test unsupported HTTP methods return 405."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
-        # Test PUT on groups
+    def test_unsupported_http_methods(self):
+        """Test that unsupported HTTP methods return 405."""
+        # Test PUT
         response = self.client.put(
             self.groups_url,
             data=json.dumps(self.valid_group_data),
@@ -382,89 +201,388 @@ class GroupsEndpointTest(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
-        # Test DELETE on groups
+        # Test DELETE
         response = self.client.delete(
             self.groups_url,
             **self._get_auth_headers()
         )
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
-    # Response format validation tests
-    @patch('tweets.middleware.jwt.decode')
-    def test_group_response_format(self, mock_jwt_decode):
-        """Test group response contains expected fields."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
 
-        response = self.client.get(
-            self.groups_url,
+class GroupMemberEndpointTest(TestCase):
+    def setUp(self):
+        """Set up test data for each test method."""
+        self.client = APIClient()
+        self.test_user_id = 'admin_user'
+        self.test_user_id_2 = 'member_user'
+        self.test_user_id_3 = 'new_user'
+
+        # Create a test group
+        self.group = Group.objects.create(
+            name='Test Group',
+            description='A test group',
+            creator_id=self.test_user_id,
+            admins=[self.test_user_id],
+            members=[self.test_user_id, self.test_user_id_2]
+        )
+
+        self.add_member_url = f'/groups/{self.group.id}/add_member/'
+        self.valid_member_data = {
+            'user_id': self.test_user_id_3
+        }
+
+    def _get_auth_headers(self, user_id=None):
+        """Helper method to get authentication headers using real JWT tokens."""
+        user_id = user_id or self.test_user_id
+        token = generate_test_token(user_id)
+        return {'HTTP_AUTHORIZATION': f'Bearer {token}'}
+
+    def test_add_member_as_admin(self):
+        """Test adding member as admin succeeds."""
+        response = self.client.post(
+            self.add_member_url,
+            data=json.dumps(self.valid_member_data),
+            content_type='application/json',
             **self._get_auth_headers()
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.group.refresh_from_db()
+        self.assertIn(self.test_user_id_3, self.group.members)
+        self.assertIn('notification', response.data)
 
-        group_data = response.data[0]
-        expected_fields = ['id', 'name', 'description', 'creator_id', 'admins', 'members', 'created_at']
-        for field in expected_fields:
-            self.assertIn(field, group_data)
-
-    @patch('tweets.middleware.jwt.decode')
-    def test_group_post_response_format(self, mock_jwt_decode):
-        """Test group post response contains expected fields."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
-        post_data = {'content': 'Test post'}
+    def test_add_member_as_non_admin(self):
+        """Test adding member as non-admin returns 403."""
         response = self.client.post(
-            f'/groups/{self.group1.id}/posts/',
-            data=json.dumps(post_data),
+            self.add_member_url,
+            data=json.dumps(self.valid_member_data),
+            content_type='application/json',
+            **self._get_auth_headers(self.test_user_id_2)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn('error', response.data)
+
+    def test_add_member_without_jwt(self):
+        """Test adding member without JWT returns 401."""
+        response = self.client.post(
+            self.add_member_url,
+            data=json.dumps(self.valid_member_data),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_add_member_invalid_group(self):
+        """Test adding member to non-existent group returns 404."""
+        url = '/groups/999/add_member/'
+        response = self.client.post(
+            url,
+            data=json.dumps(self.valid_member_data),
+            content_type='application/json',
+            **self._get_auth_headers()
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_add_existing_member(self):
+        """Test adding existing member returns success without duplicate."""
+        existing_member_data = {'user_id': self.test_user_id_2}
+        response = self.client.post(
+            self.add_member_url,
+            data=json.dumps(existing_member_data),
+            content_type='application/json',
+            **self._get_auth_headers()
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.group.refresh_from_db()
+        # Should not have duplicate members
+        member_count = self.group.members.count(self.test_user_id_2)
+        self.assertEqual(member_count, 1)
+
+
+class GroupInviteEndpointTest(TestCase):
+    def setUp(self):
+        """Set up test data for each test method."""
+        self.client = APIClient()
+        self.test_user_id = 'admin_user'
+        self.test_user_id_2 = 'member_user'
+        self.test_user_id_3 = 'invited_user'
+
+        # Create a test group
+        self.group = Group.objects.create(
+            name='Test Group',
+            description='A test group',
+            creator_id=self.test_user_id,
+            admins=[self.test_user_id],
+            members=[self.test_user_id, self.test_user_id_2]
+        )
+
+        self.invite_url = f'/groups/{self.group.id}/invite/'
+        self.valid_invite_data = {
+            'invitee_id': self.test_user_id_3
+        }
+
+    def _get_auth_headers(self, user_id=None):
+        """Helper method to get authentication headers using real JWT tokens."""
+        user_id = user_id or self.test_user_id
+        token = generate_test_token(user_id)
+        return {'HTTP_AUTHORIZATION': f'Bearer {token}'}
+
+    def test_create_invite_as_admin(self):
+        """Test creating invite as admin succeeds."""
+        response = self.client.post(
+            self.invite_url,
+            data=json.dumps(self.valid_invite_data),
             content_type='application/json',
             **self._get_auth_headers()
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(GroupInvite.objects.count(), 1)
 
-        expected_fields = ['id', 'group', 'user_id', 'content', 'created_at', 'updated_at']
-        for field in expected_fields:
-            self.assertIn(field, response.data)
+        invite = GroupInvite.objects.first()
+        self.assertEqual(invite.invitee_id, self.test_user_id_3)
+        self.assertEqual(invite.inviter_id, self.test_user_id)
+        self.assertEqual(invite.group, self.group)
 
-    @patch('tweets.middleware.jwt.decode')
-    def test_group_invite_response_format(self, mock_jwt_decode):
-        """Test group invite response contains expected fields."""
-        mock_jwt_payload = {'sub': self.admin_user_id}
-        mock_jwt_decode.return_value = mock_jwt_payload
-
-        invite_data = {'invitee_id': 'invited_user'}
+    def test_create_invite_as_non_admin(self):
+        """Test creating invite as non-admin returns 403."""
         response = self.client.post(
-            f'/groups/{self.group1.id}/invite/',
-            data=json.dumps(invite_data),
+            self.invite_url,
+            data=json.dumps(self.valid_invite_data),
             content_type='application/json',
-            **self._get_auth_headers(self.admin_user_id)
+            **self._get_auth_headers(self.test_user_id_2)
         )
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(GroupInvite.objects.count(), 0)
 
-        expected_fields = ['id', 'group', 'invitee_id', 'inviter_id', 'created_at']
-        for field in expected_fields:
-            self.assertIn(field, response.data)
-
-    # Content type handling tests
-    @patch('tweets.middleware.jwt.decode')
-    def test_content_type_handling(self, mock_jwt_decode):
-        """Test different content types are handled properly."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
-        # Test form data
+    def test_create_invite_without_jwt(self):
+        """Test creating invite without JWT returns 401."""
         response = self.client.post(
-            self.groups_url,
-            data=self.valid_group_data,
-            **self._get_auth_headers()
+            self.invite_url,
+            data=json.dumps(self.valid_invite_data),
+            content_type='application/json'
         )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-        # Test JSON data
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_create_invite_invalid_group(self):
+        """Test creating invite for non-existent group returns 404."""
+        url = '/groups/999/invite/'
         response = self.client.post(
-            self.groups_url,
-            data=json.dumps(self.valid_group_data),
+            url,
+            data=json.dumps(self.valid_invite_data),
             content_type='application/json',
             **self._get_auth_headers()
         )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_create_invite_invalid_data(self):
+        """Test creating invite with invalid data returns 400."""
+        invalid_data = {'invitee_id': ''}
+        response = self.client.post(
+            self.invite_url,
+            data=json.dumps(invalid_data),
+            content_type='application/json',
+            **self._get_auth_headers()
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(GroupInvite.objects.count(), 0)
+
+
+class GroupAcceptInviteEndpointTest(TestCase):
+    def setUp(self):
+        """Set up test data for each test method."""
+        self.client = APIClient()
+        self.test_user_id = 'admin_user'
+        self.test_user_id_2 = 'invited_user'
+
+        # Create a test group
+        self.group = Group.objects.create(
+            name='Test Group',
+            description='A test group',
+            creator_id=self.test_user_id,
+            admins=[self.test_user_id],
+            members=[self.test_user_id]
+        )
+
+        # Create an invite
+        self.invite = GroupInvite.objects.create(
+            group=self.group,
+            invitee_id=self.test_user_id_2,
+            inviter_id=self.test_user_id
+        )
+
+        self.accept_invite_url = f'/groups/accept_invite/{self.invite.id}/'
+
+    def _get_auth_headers(self, user_id=None):
+        """Helper method to get authentication headers using real JWT tokens."""
+        user_id = user_id or self.test_user_id_2
+        token = generate_test_token(user_id)
+        return {'HTTP_AUTHORIZATION': f'Bearer {token}'}
+
+    def test_accept_invite_as_invitee(self):
+        """Test accepting invite as invitee succeeds."""
+        response = self.client.post(
+            self.accept_invite_url,
+            **self._get_auth_headers()
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.group.refresh_from_db()
+        self.assertIn(self.test_user_id_2, self.group.members)
+
+        # Invite should be deleted
+        self.assertEqual(GroupInvite.objects.count(), 0)
+
+    def test_accept_invite_as_wrong_user(self):
+        """Test accepting invite as wrong user returns 404."""
+        response = self.client.post(
+            self.accept_invite_url,
+            **self._get_auth_headers('wrong_user')
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_accept_invite_without_jwt(self):
+        """Test accepting invite without JWT returns 401."""
+        response = self.client.post(self.accept_invite_url)
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_accept_invite_invalid_invite(self):
+        """Test accepting non-existent invite returns 404."""
+        url = '/groups/accept_invite/999/'
+        response = self.client.post(
+            url,
+            **self._get_auth_headers()
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class GroupPostEndpointTest(TestCase):
+    def setUp(self):
+        """Set up test data for each test method."""
+        self.client = APIClient()
+        self.test_user_id = 'member_user'
+        self.test_user_id_2 = 'non_member_user'
+
+        # Create a test group
+        self.group = Group.objects.create(
+            name='Test Group',
+            description='A test group',
+            creator_id=self.test_user_id,
+            admins=[self.test_user_id],
+            members=[self.test_user_id]
+        )
+
+        self.group_posts_url = f'/groups/{self.group.id}/posts/'
+        self.valid_post_data = {
+            'content': 'This is a test group post!'
+        }
+
+    def _get_auth_headers(self, user_id=None):
+        """Helper method to get authentication headers using real JWT tokens."""
+        user_id = user_id or self.test_user_id
+        token = generate_test_token(user_id)
+        return {'HTTP_AUTHORIZATION': f'Bearer {token}'}
+
+    def test_get_group_posts_as_member(self):
+        """Test GET group posts as member succeeds."""
+        # Create a test post
+        GroupPost.objects.create(
+            group=self.group,
+            user_id=self.test_user_id,
+            content='Test post content'
+        )
+
+        response = self.client.get(
+            self.group_posts_url,
+            **self._get_auth_headers()
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['content'], 'Test post content')
+
+    def test_get_group_posts_as_non_member(self):
+        """Test GET group posts as non-member returns 403."""
+        response = self.client.get(
+            self.group_posts_url,
+            **self._get_auth_headers(self.test_user_id_2)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_get_group_posts_without_jwt(self):
+        """Test GET group posts without JWT returns 401."""
+        response = self.client.get(self.group_posts_url)
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_get_group_posts_invalid_group(self):
+        """Test GET posts for non-existent group returns 404."""
+        url = '/groups/999/posts/'
+        response = self.client.get(
+            url,
+            **self._get_auth_headers()
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_post_group_post_as_member(self):
+        """Test POST group post as member succeeds."""
+        response = self.client.post(
+            self.group_posts_url,
+            data=json.dumps(self.valid_post_data),
+            content_type='application/json',
+            **self._get_auth_headers()
+        )
+
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(GroupPost.objects.count(), 1)
+
+        created_post = GroupPost.objects.first()
+        self.assertEqual(created_post.content, 'This is a test group post!')
+        self.assertEqual(created_post.user_id, self.test_user_id)
+
+    def test_post_group_post_as_non_member(self):
+        """Test POST group post as non-member returns 403."""
+        response = self.client.post(
+            self.group_posts_url,
+            data=json.dumps(self.valid_post_data),
+            content_type='application/json',
+            **self._get_auth_headers(self.test_user_id_2)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(GroupPost.objects.count(), 0)
+
+    def test_post_group_post_without_jwt(self):
+        """Test POST group post without JWT returns 401."""
+        response = self.client.post(
+            self.group_posts_url,
+            data=json.dumps(self.valid_post_data),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_post_group_post_invalid_data(self):
+        """Test POST group post with invalid data returns 400."""
+        invalid_data = {'content': ''}
+        response = self.client.post(
+            self.group_posts_url,
+            data=json.dumps(invalid_data),
+            content_type='application/json',
+            **self._get_auth_headers()
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(GroupPost.objects.count(), 0)

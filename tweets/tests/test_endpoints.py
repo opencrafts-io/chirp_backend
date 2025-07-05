@@ -1,10 +1,10 @@
 import json
 import jwt
-from django.test import TestCase, override_settings
-from django.conf import settings
+from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 from unittest.mock import patch
+from chirp.jwt_utils import generate_test_token
 from ..models import Tweets
 
 
@@ -18,29 +18,14 @@ class TweetsEndpointTest(TestCase):
         }
         self.test_user_id = 'user123'
 
-        # Mock JWT token for testing
-        self.mock_jwt_payload = {
-            'sub': self.test_user_id,
-            'exp': 9999999999  # Far future expiration
-        }
-
-    def _create_mock_jwt_token(self, user_id=None):
-        """Helper method to create a mock JWT token."""
-        payload = self.mock_jwt_payload.copy()
-        if user_id:
-            payload['sub'] = user_id
-        return jwt.encode(payload, 'mock_secret', algorithm='HS256')
-
     def _get_auth_headers(self, user_id=None):
-        """Helper method to get authentication headers."""
-        token = self._create_mock_jwt_token(user_id)
-        return {'Authorization': f'Bearer {token}'}
+        """Helper method to get authentication headers using real JWT tokens."""
+        user_id = user_id or self.test_user_id
+        token = generate_test_token(user_id)
+        return {'HTTP_AUTHORIZATION': f'Bearer {token}'}
 
-    @patch('tweets.middleware.jwt.decode')
-    def test_get_tweets_with_valid_jwt(self, mock_jwt_decode):
+    def test_get_tweets_with_valid_jwt(self):
         """Test GET /statuses/ with valid JWT token."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
         # Create test tweets
         Tweets.objects.create(user_id='user1', content='Tweet 1')
         Tweets.objects.create(user_id='user2', content='Tweet 2')
@@ -52,7 +37,6 @@ class TweetsEndpointTest(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
-        mock_jwt_decode.assert_called_once()
 
     def test_get_tweets_without_jwt(self):
         """Test GET /statuses/ without JWT token returns 401."""
@@ -61,18 +45,15 @@ class TweetsEndpointTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertIn('error', response.data)
 
-    @patch('tweets.middleware.jwt.decode')
-    def test_get_tweets_with_invalid_jwt(self, mock_jwt_decode):
+    def test_get_tweets_with_invalid_jwt(self):
         """Test GET /statuses/ with invalid JWT token returns 401."""
-        mock_jwt_decode.side_effect = jwt.InvalidTokenError("Invalid token")
-
         response = self.client.get(
             self.tweets_url,
-            **self._get_auth_headers()
+            HTTP_AUTHORIZATION='Bearer invalid_token_here'
         )
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertIn('error', response.data)
+        self.assertIn('error', response.json())
 
     def test_get_tweets_with_malformed_auth_header(self):
         """Test GET /statuses/ with malformed Authorization header."""
@@ -83,11 +64,8 @@ class TweetsEndpointTest(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    @patch('tweets.middleware.jwt.decode')
-    def test_get_tweets_empty_database(self, mock_jwt_decode):
+    def test_get_tweets_empty_database(self):
         """Test GET /statuses/ with empty database returns empty list."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
         response = self.client.get(
             self.tweets_url,
             **self._get_auth_headers()
@@ -96,11 +74,8 @@ class TweetsEndpointTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, [])
 
-    @patch('tweets.middleware.jwt.decode')
-    def test_get_tweets_response_format(self, mock_jwt_decode):
+    def test_get_tweets_response_format(self):
         """Test GET /statuses/ returns proper response format."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
         tweet = Tweets.objects.create(user_id='user123', content='Test tweet')
 
         response = self.client.get(
@@ -116,11 +91,8 @@ class TweetsEndpointTest(TestCase):
         for field in expected_fields:
             self.assertIn(field, tweet_data)
 
-    @patch('tweets.middleware.jwt.decode')
-    def test_post_tweet_with_valid_jwt(self, mock_jwt_decode):
+    def test_post_tweet_with_valid_jwt(self):
         """Test POST /statuses/ with valid JWT token creates tweet."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
         response = self.client.post(
             self.tweets_url,
             data=json.dumps(self.valid_tweet_data),
@@ -146,26 +118,20 @@ class TweetsEndpointTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(Tweets.objects.count(), 0)
 
-    @patch('tweets.middleware.jwt.decode')
-    def test_post_tweet_with_invalid_jwt(self, mock_jwt_decode):
+    def test_post_tweet_with_invalid_jwt(self):
         """Test POST /statuses/ with invalid JWT token returns 401."""
-        mock_jwt_decode.side_effect = jwt.InvalidTokenError("Invalid token")
-
         response = self.client.post(
             self.tweets_url,
             data=json.dumps(self.valid_tweet_data),
             content_type='application/json',
-            **self._get_auth_headers()
+            HTTP_AUTHORIZATION='Bearer invalid_token_here'
         )
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(Tweets.objects.count(), 0)
 
-    @patch('tweets.middleware.jwt.decode')
-    def test_post_tweet_invalid_data(self, mock_jwt_decode):
+    def test_post_tweet_invalid_data(self):
         """Test POST /statuses/ with invalid data returns 400."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
         invalid_data = {'content': ''}  # Empty content
         response = self.client.post(
             self.tweets_url,
@@ -178,11 +144,8 @@ class TweetsEndpointTest(TestCase):
         self.assertIn('content', response.data)
         self.assertEqual(Tweets.objects.count(), 0)
 
-    @patch('tweets.middleware.jwt.decode')
-    def test_post_tweet_missing_content(self, mock_jwt_decode):
+    def test_post_tweet_missing_content(self):
         """Test POST /statuses/ with missing content field returns 400."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
         invalid_data = {}
         response = self.client.post(
             self.tweets_url,
@@ -194,11 +157,8 @@ class TweetsEndpointTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('content', response.data)
 
-    @patch('tweets.middleware.jwt.decode')
-    def test_post_tweet_content_too_long(self, mock_jwt_decode):
+    def test_post_tweet_content_too_long(self):
         """Test POST /statuses/ with content exceeding 280 characters returns 400."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
         invalid_data = {'content': 'x' * 281}
         response = self.client.post(
             self.tweets_url,
@@ -210,11 +170,8 @@ class TweetsEndpointTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('content', response.data)
 
-    @patch('tweets.middleware.jwt.decode')
-    def test_post_tweet_response_format(self, mock_jwt_decode):
+    def test_post_tweet_response_format(self):
         """Test POST /statuses/ returns proper response format."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
         response = self.client.post(
             self.tweets_url,
             data=json.dumps(self.valid_tweet_data),
@@ -227,12 +184,9 @@ class TweetsEndpointTest(TestCase):
         for field in expected_fields:
             self.assertIn(field, response.data)
 
-    @patch('tweets.middleware.jwt.decode')
-    def test_post_tweet_user_id_from_jwt(self, mock_jwt_decode):
+    def test_post_tweet_user_id_from_jwt(self):
         """Test POST /statuses/ assigns user_id from JWT token."""
         test_user_id = 'jwt_user_456'
-        mock_jwt_payload = {'sub': test_user_id}
-        mock_jwt_decode.return_value = mock_jwt_payload
 
         response = self.client.post(
             self.tweets_url,
@@ -244,13 +198,10 @@ class TweetsEndpointTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['user_id'], test_user_id)
 
-    @patch('tweets.middleware.jwt.decode')
-    def test_post_tweet_ignores_user_id_in_data(self, mock_jwt_decode):
+    def test_post_tweet_ignores_user_id_in_data(self):
         """Test POST /statuses/ ignores user_id in request data, uses JWT."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
         data_with_user_id = self.valid_tweet_data.copy()
-        data_with_user_id['user_id'] = 'hacker_user'
+        data_with_user_id['user_id'] = 'should_be_ignored'
 
         response = self.client.post(
             self.tweets_url,
@@ -260,14 +211,12 @@ class TweetsEndpointTest(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['user_id'], self.test_user_id)  # From JWT
-        self.assertNotEqual(response.data['user_id'], 'hacker_user')
+        # Should use JWT user_id, not the one in data
+        self.assertEqual(response.data['user_id'], self.test_user_id)
+        self.assertNotEqual(response.data['user_id'], 'should_be_ignored')
 
-    @patch('tweets.middleware.jwt.decode')
-    def test_unsupported_http_methods(self, mock_jwt_decode):
-        """Test unsupported HTTP methods return 405."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
+    def test_unsupported_http_methods(self):
+        """Test that unsupported HTTP methods return 405."""
         # Test PUT
         response = self.client.put(
             self.tweets_url,
@@ -284,24 +233,23 @@ class TweetsEndpointTest(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
-    @patch('tweets.middleware.jwt.decode')
-    def test_content_type_handling(self, mock_jwt_decode):
+    def test_content_type_handling(self):
         """Test different content types are handled properly."""
-        mock_jwt_decode.return_value = self.mock_jwt_payload
-
-        # Test form data
+        # Test with form data (should work)
         response = self.client.post(
             self.tweets_url,
             data=self.valid_tweet_data,
             **self._get_auth_headers()
         )
+
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-        # Test JSON data
+        # Test with JSON (should also work)
         response = self.client.post(
             self.tweets_url,
             data=json.dumps(self.valid_tweet_data),
             content_type='application/json',
             **self._get_auth_headers()
         )
+
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

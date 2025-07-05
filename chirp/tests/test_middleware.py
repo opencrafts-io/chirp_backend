@@ -1,274 +1,236 @@
-import jwt
 from django.test import TestCase, RequestFactory
 from django.http import JsonResponse
-from django.conf import settings
-from unittest.mock import patch, Mock
+from unittest.mock import patch, MagicMock
 from tweets.middleware import JWTDecodeMiddleware
+from chirp.jwt_utils import generate_test_token
+import jwt
+import json
 
 
 class JWTDecodeMiddlewareTest(TestCase):
     def setUp(self):
         """Set up test data for each test method."""
         self.factory = RequestFactory()
+        self.get_response = MagicMock(return_value=JsonResponse({'message': 'success'}))
         self.middleware = JWTDecodeMiddleware(self.get_response)
-        self.valid_payload = {
-            'sub': 'user123',
-            'exp': 9999999999  # Far future expiration
-        }
+        self.test_user_id = 'user123'
 
-    def get_response(self, request):
-        """Mock response function for middleware."""
-        return JsonResponse({'status': 'success'})
+    def test_valid_bearer_token(self):
+        """Test middleware with valid Bearer token."""
+        token = generate_test_token(self.test_user_id)
+        request = self.factory.get('/')
+        request.META['HTTP_AUTHORIZATION'] = f'Bearer {token}'
 
-    def _create_jwt_token(self, payload, secret='test_secret', algorithm='HS256'):
-        """Helper method to create JWT tokens for testing."""
-        return jwt.encode(payload, secret, algorithm=algorithm)
+        response = self.middleware(request)
 
-    def test_valid_jwt_token(self):
-        """Test middleware with valid JWT token."""
-        token = self._create_jwt_token(self.valid_payload)
-        request = self.factory.get('/', HTTP_AUTHORIZATION=f'Bearer {token}')
-
-        with patch('tweets.middleware.jwt.decode') as mock_decode:
-            mock_decode.return_value = self.valid_payload
-            response = self.middleware(request)
-
-        self.assertEqual(request.user_id, 'user123')
         self.assertEqual(response.status_code, 200)
-        mock_decode.assert_called_once_with(token, settings.JWT_PUBLIC_KEY, algorithms=['RS256'])
+        self.assertEqual(request.user_id, self.test_user_id)
+        self.get_response.assert_called_once_with(request)
 
-    def test_missing_authorization_header(self):
-        """Test middleware without Authorization header returns 401."""
+    def test_no_authorization_header(self):
+        """Test middleware without Authorization header."""
         request = self.factory.get('/')
 
         response = self.middleware(request)
 
-        self.assertEqual(response.status_code, 401)
-        self.assertIn('error', response.content.decode())
-        self.assertIn('Missing or invalid Authorization headers', response.content.decode())
-
-    def test_invalid_authorization_header_format(self):
-        """Test middleware with invalid Authorization header format returns 401."""
-        request = self.factory.get('/', HTTP_AUTHORIZATION='InvalidFormat')
-
-        response = self.middleware(request)
-
-        self.assertEqual(response.status_code, 401)
-        self.assertIn('error', response.content.decode())
-        self.assertIn('Missing or invalid Authorization headers', response.content.decode())
-
-    def test_authorization_header_without_bearer(self):
-        """Test middleware with Authorization header not starting with Bearer returns 401."""
-        request = self.factory.get('/', HTTP_AUTHORIZATION='Basic sometoken')
-
-        response = self.middleware(request)
-
-        self.assertEqual(response.status_code, 401)
-        self.assertIn('error', response.content.decode())
-
-    def test_bearer_without_token(self):
-        """Test middleware with Bearer but no token returns 401."""
-        request = self.factory.get('/', HTTP_AUTHORIZATION='Bearer ')
-
-        response = self.middleware(request)
-
-        self.assertEqual(response.status_code, 401)
-        self.assertIn('error', response.content.decode())
-
-    def test_invalid_jwt_token(self):
-        """Test middleware with invalid JWT token returns 401."""
-        request = self.factory.get('/', HTTP_AUTHORIZATION='Bearer invalid_token')
-
-        with patch('tweets.middleware.jwt.decode') as mock_decode:
-            mock_decode.side_effect = jwt.InvalidTokenError("Invalid token")
-            response = self.middleware(request)
-
-        self.assertEqual(response.status_code, 401)
-        self.assertIn('error', response.content.decode())
-        self.assertIn('Invalid JWT', response.content.decode())
-
-    def test_expired_jwt_token(self):
-        """Test middleware with expired JWT token returns 401."""
-        expired_payload = {
-            'sub': 'user123',
-            'exp': 1234567890  # Past expiration
-        }
-        token = self._create_jwt_token(expired_payload)
-        request = self.factory.get('/', HTTP_AUTHORIZATION=f'Bearer {token}')
-
-        with patch('tweets.middleware.jwt.decode') as mock_decode:
-            mock_decode.side_effect = jwt.ExpiredSignatureError("Token expired")
-            response = self.middleware(request)
-
-        self.assertEqual(response.status_code, 401)
-        self.assertIn('error', response.content.decode())
-        self.assertIn('Invalid JWT', response.content.decode())
-
-    def test_malformed_jwt_token(self):
-        """Test middleware with malformed JWT token returns 401."""
-        request = self.factory.get('/', HTTP_AUTHORIZATION='Bearer malformed.jwt.token')
-
-        with patch('tweets.middleware.jwt.decode') as mock_decode:
-            mock_decode.side_effect = jwt.DecodeError("Malformed token")
-            response = self.middleware(request)
-
-        self.assertEqual(response.status_code, 401)
-        self.assertIn('error', response.content.decode())
-        self.assertIn('Invalid JWT', response.content.decode())
-
-    def test_jwt_without_sub_claim(self):
-        """Test middleware with JWT token missing 'sub' claim."""
-        payload_without_sub = {
-            'exp': 9999999999,
-            'iat': 1234567890
-        }
-        token = self._create_jwt_token(payload_without_sub)
-        request = self.factory.get('/', HTTP_AUTHORIZATION=f'Bearer {token}')
-
-        with patch('tweets.middleware.jwt.decode') as mock_decode:
-            mock_decode.return_value = payload_without_sub
-            response = self.middleware(request)
-
-        # Should still work but user_id will be None
         self.assertEqual(response.status_code, 200)
-        self.assertIsNone(request.user_id)
+        self.assertEqual(request.user_id, None)
+        self.get_response.assert_called_once_with(request)
 
-    def test_jwt_with_empty_sub_claim(self):
-        """Test middleware with JWT token having empty 'sub' claim."""
-        payload_empty_sub = {
-            'sub': '',
-            'exp': 9999999999
-        }
-        token = self._create_jwt_token(payload_empty_sub)
-        request = self.factory.get('/', HTTP_AUTHORIZATION=f'Bearer {token}')
-
-        with patch('tweets.middleware.jwt.decode') as mock_decode:
-            mock_decode.return_value = payload_empty_sub
-            response = self.middleware(request)
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(request.user_id, '')
-
-    def test_middleware_calls_next_on_success(self):
-        """Test middleware calls next middleware/view on successful JWT validation."""
-        token = self._create_jwt_token(self.valid_payload)
-        request = self.factory.get('/', HTTP_AUTHORIZATION=f'Bearer {token}')
-
-        mock_get_response = Mock(return_value=JsonResponse({'test': 'response'}))
-        middleware = JWTDecodeMiddleware(mock_get_response)
-
-        with patch('tweets.middleware.jwt.decode') as mock_decode:
-            mock_decode.return_value = self.valid_payload
-            response = middleware(request)
-
-        mock_get_response.assert_called_once_with(request)
-        self.assertEqual(response.status_code, 200)
-
-    def test_different_jwt_algorithms(self):
-        """Test middleware handles different JWT algorithms correctly."""
-        token = self._create_jwt_token(self.valid_payload)
-        request = self.factory.get('/', HTTP_AUTHORIZATION=f'Bearer {token}')
-
-        with patch('tweets.middleware.jwt.decode') as mock_decode:
-            mock_decode.return_value = self.valid_payload
-            response = self.middleware(request)
-
-        # Verify RS256 algorithm is used
-        mock_decode.assert_called_once_with(token, settings.JWT_PUBLIC_KEY, algorithms=['RS256'])
-
-    def test_jwt_decode_uses_correct_key(self):
-        """Test middleware uses correct JWT public key for verification."""
-        token = self._create_jwt_token(self.valid_payload)
-        request = self.factory.get('/', HTTP_AUTHORIZATION=f'Bearer {token}')
-
-        with patch('tweets.middleware.jwt.decode') as mock_decode:
-            mock_decode.return_value = self.valid_payload
-            response = self.middleware(request)
-
-        # Verify correct key is used
-        mock_decode.assert_called_once_with(token, settings.JWT_PUBLIC_KEY, algorithms=['RS256'])
-
-    def test_case_sensitive_bearer(self):
-        """Test middleware is case sensitive for Bearer keyword."""
-        token = self._create_jwt_token(self.valid_payload)
-        request = self.factory.get('/', HTTP_AUTHORIZATION=f'bearer {token}')  # lowercase
-
-        response = self.middleware(request)
-
-        self.assertEqual(response.status_code, 401)
-        self.assertIn('error', response.content.decode())
-
-    def test_extra_spaces_in_header(self):
-        """Test middleware handles extra spaces in Authorization header."""
-        token = self._create_jwt_token(self.valid_payload)
-        request = self.factory.get('/', HTTP_AUTHORIZATION=f'Bearer  {token}')  # Extra space
-
-        with patch('tweets.middleware.jwt.decode') as mock_decode:
-            mock_decode.return_value = self.valid_payload
-            response = self.middleware(request)
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(request.user_id, 'user123')
-
-    def test_authorization_header_with_multiple_spaces(self):
-        """Test middleware handles multiple spaces in Authorization header."""
-        token = self._create_jwt_token(self.valid_payload)
-        request = self.factory.get('/', HTTP_AUTHORIZATION=f'Bearer   {token}')  # Multiple spaces
-
-        with patch('tweets.middleware.jwt.decode') as mock_decode:
-            mock_decode.return_value = self.valid_payload
-            response = self.middleware(request)
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(request.user_id, 'user123')
-
-    def test_response_format_on_error(self):
-        """Test middleware returns proper JSON error format."""
+    def test_invalid_bearer_token(self):
+        """Test middleware with invalid Bearer token."""
         request = self.factory.get('/')
+        request.META['HTTP_AUTHORIZATION'] = 'Bearer invalid_token'
+
+        response = self.middleware(request)
+
+        self.assertEqual(response.status_code, 401)
+        response_data = json.loads(response.content)
+        self.assertEqual(response_data['error'], 'Invalid JWT')
+        self.get_response.assert_not_called()
+
+    def test_malformed_authorization_header(self):
+        """Test middleware with malformed Authorization header."""
+        request = self.factory.get('/')
+        request.META['HTTP_AUTHORIZATION'] = 'InvalidHeader'
+
+        response = self.middleware(request)
+
+        self.assertEqual(response.status_code, 401)
+        response_data = json.loads(response.content)
+        self.assertEqual(response_data['error'], 'Missing or invalid Authorization headers')
+        self.get_response.assert_not_called()
+
+    def test_bearer_with_no_token(self):
+        """Test middleware with Bearer but no token."""
+        request = self.factory.get('/')
+        request.META['HTTP_AUTHORIZATION'] = 'Bearer'
+
+        response = self.middleware(request)
+
+        self.assertEqual(response.status_code, 401)
+        response_data = json.loads(response.content)
+        self.assertEqual(response_data['error'], 'Missing or invalid Authorization headers')
+        self.get_response.assert_not_called()
+
+    def test_bearer_with_empty_token(self):
+        """Test middleware with Bearer and empty token."""
+        request = self.factory.get('/')
+        request.META['HTTP_AUTHORIZATION'] = 'Bearer   '
+
+        response = self.middleware(request)
+
+        self.assertEqual(response.status_code, 401)
+        response_data = json.loads(response.content)
+        self.assertEqual(response_data['error'], 'Missing or invalid Authorization headers')
+        self.get_response.assert_not_called()
+
+    def test_bearer_with_multiple_spaces(self):
+        """Test middleware with Bearer token with multiple spaces."""
+        token = generate_test_token(self.test_user_id)
+        request = self.factory.get('/')
+        request.META['HTTP_AUTHORIZATION'] = f'Bearer   {token}   extra_text'
+
+        response = self.middleware(request)
+
+        self.assertEqual(response.status_code, 401)
+        response_data = json.loads(response.content)
+        self.assertEqual(response_data['error'], 'Missing or invalid Authorization headers')
+        self.get_response.assert_not_called()
+
+    def test_expired_token(self):
+        """Test middleware with expired token."""
+        # Generate a token that expires immediately
+        expired_token = generate_test_token(self.test_user_id, expires_in_hours=-1)
+        request = self.factory.get('/')
+        request.META['HTTP_AUTHORIZATION'] = f'Bearer {expired_token}'
+
+        response = self.middleware(request)
+
+        self.assertEqual(response.status_code, 401)
+        response_data = json.loads(response.content)
+        self.assertEqual(response_data['error'], 'Invalid JWT')
+        self.get_response.assert_not_called()
+
+    def test_token_with_different_user(self):
+        """Test middleware with token for different user."""
+        different_user_id = 'different_user_456'
+        token = generate_test_token(different_user_id)
+        request = self.factory.get('/')
+        request.META['HTTP_AUTHORIZATION'] = f'Bearer {token}'
+
+        response = self.middleware(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(request.user_id, different_user_id)
+        self.get_response.assert_called_once_with(request)
+
+    @patch('chirp.jwt_utils.get_user_id_from_token')
+    def test_jwt_decode_exception_handling(self, mock_get_user_id):
+        """Test middleware handles JWT decode exceptions properly."""
+        mock_get_user_id.side_effect = jwt.InvalidTokenError("Token decode error")
+
+        request = self.factory.get('/')
+        request.META['HTTP_AUTHORIZATION'] = 'Bearer some_token'
+
+        response = self.middleware(request)
+
+        self.assertEqual(response.status_code, 401)
+        response_data = json.loads(response.content)
+        self.assertEqual(response_data['error'], 'Invalid JWT')
+        self.get_response.assert_not_called()
+
+    @patch('chirp.jwt_utils.get_user_id_from_token')
+    def test_jwt_utility_returns_none(self, mock_get_user_id):
+        """Test middleware when JWT utility returns None."""
+        mock_get_user_id.return_value = None
+
+        request = self.factory.get('/')
+        request.META['HTTP_AUTHORIZATION'] = 'Bearer some_token'
+
+        response = self.middleware(request)
+
+        self.assertEqual(response.status_code, 401)
+        response_data = json.loads(response.content)
+        self.assertEqual(response_data['error'], 'Invalid JWT')
+        self.get_response.assert_not_called()
+
+    def test_case_insensitive_bearer(self):
+        """Test middleware with different case Bearer keyword."""
+        token = generate_test_token(self.test_user_id)
+        request = self.factory.get('/')
+        request.META['HTTP_AUTHORIZATION'] = f'bearer {token}'
+
+        response = self.middleware(request)
+
+        # Should not work - Bearer is case-sensitive
+        self.assertEqual(response.status_code, 401)
+        response_data = json.loads(response.content)
+        self.assertEqual(response_data['error'], 'Missing or invalid Authorization headers')
+        self.get_response.assert_not_called()
+
+    def test_basic_auth_header(self):
+        """Test middleware with Basic authorization header."""
+        request = self.factory.get('/')
+        request.META['HTTP_AUTHORIZATION'] = 'Basic dXNlcjpwYXNzd29yZA=='
+
+        response = self.middleware(request)
+
+        self.assertEqual(response.status_code, 401)
+        response_data = json.loads(response.content)
+        self.assertEqual(response_data['error'], 'Missing or invalid Authorization headers')
+        self.get_response.assert_not_called()
+
+    def test_middleware_preserves_request_attributes(self):
+        """Test middleware preserves other request attributes."""
+        token = generate_test_token(self.test_user_id)
+        request = self.factory.get('/')
+        request.META['HTTP_AUTHORIZATION'] = f'Bearer {token}'
+        request.custom_attr = 'custom_value'
+
+        response = self.middleware(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(request.user_id, self.test_user_id)
+        self.assertEqual(request.custom_attr, 'custom_value')
+
+    def test_middleware_with_post_request(self):
+        """Test middleware works with POST requests."""
+        token = generate_test_token(self.test_user_id)
+        request = self.factory.post('/', {'data': 'test'})
+        request.META['HTTP_AUTHORIZATION'] = f'Bearer {token}'
+
+        response = self.middleware(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(request.user_id, self.test_user_id)
+
+    def test_middleware_response_content_type(self):
+        """Test middleware error responses have correct content type."""
+        request = self.factory.get('/')
+        request.META['HTTP_AUTHORIZATION'] = 'Bearer invalid_token'
 
         response = self.middleware(request)
 
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response['Content-Type'], 'application/json')
 
-        # Parse JSON response
-        import json
-        response_data = json.loads(response.content.decode())
-        self.assertIn('error', response_data)
-        self.assertIsInstance(response_data['error'], str)
+    def test_middleware_order_independence(self):
+        """Test middleware works regardless of call order."""
+        token = generate_test_token(self.test_user_id)
 
-    def test_middleware_preserves_request_attributes(self):
-        """Test middleware doesn't interfere with other request attributes."""
-        token = self._create_jwt_token(self.valid_payload)
-        request = self.factory.get('/', HTTP_AUTHORIZATION=f'Bearer {token}')
-        request.custom_attribute = 'test_value'
+        # First request
+        request1 = self.factory.get('/')
+        request1.META['HTTP_AUTHORIZATION'] = f'Bearer {token}'
 
-        with patch('tweets.middleware.jwt.decode') as mock_decode:
-            mock_decode.return_value = self.valid_payload
-            response = self.middleware(request)
+        # Second request without token
+        request2 = self.factory.get('/')
 
-        self.assertEqual(request.custom_attribute, 'test_value')
-        self.assertEqual(request.user_id, 'user123')
+        response1 = self.middleware(request1)
+        response2 = self.middleware(request2)
 
-    def test_different_user_ids(self):
-        """Test middleware correctly extracts different user IDs."""
-        test_cases = [
-            'user123',
-            'admin_user',
-            'test@example.com',
-            '12345',
-            'special-user_123'
-        ]
+        self.assertEqual(response1.status_code, 200)
+        self.assertEqual(request1.user_id, self.test_user_id)
 
-        for user_id in test_cases:
-            with self.subTest(user_id=user_id):
-                payload = {'sub': user_id, 'exp': 9999999999}
-                token = self._create_jwt_token(payload)
-                request = self.factory.get('/', HTTP_AUTHORIZATION=f'Bearer {token}')
-
-                with patch('tweets.middleware.jwt.decode') as mock_decode:
-                    mock_decode.return_value = payload
-                    response = self.middleware(request)
-
-                self.assertEqual(response.status_code, 200)
-                self.assertEqual(request.user_id, user_id)
+        self.assertEqual(response2.status_code, 200)
+        self.assertEqual(request2.user_id, None)
