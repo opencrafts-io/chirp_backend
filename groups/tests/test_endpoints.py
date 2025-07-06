@@ -1,4 +1,5 @@
 import json
+import urllib.parse
 from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -226,7 +227,8 @@ class GroupMemberEndpointTest(TestCase):
             members=[self.test_user_id, self.test_user_id_2]
         )
 
-        self.add_member_url = f'/groups/{self.group.id}/add_member/'
+        encoded_name = urllib.parse.quote(self.group.name, safe='')
+        self.add_member_url = f'/groups/{encoded_name}/add_member/'
         self.valid_member_data = {
             'user_id': self.test_user_id_3
         }
@@ -319,7 +321,8 @@ class GroupInviteEndpointTest(TestCase):
             members=[self.test_user_id, self.test_user_id_2]
         )
 
-        self.invite_url = f'/groups/{self.group.id}/invite/'
+        encoded_name = urllib.parse.quote(self.group.name, safe='')
+        self.invite_url = f'/groups/{encoded_name}/invite/'
         self.valid_invite_data = {
             'invitee_id': self.test_user_id_3
         }
@@ -418,7 +421,7 @@ class GroupAcceptInviteEndpointTest(TestCase):
             inviter_id=self.test_user_id
         )
 
-        self.accept_invite_url = f'/groups/accept_invite/{self.invite.id}/'
+        self.accept_invite_url = f'/groups/invites/{self.invite.id}/accept/'
 
     def _get_auth_headers(self, user_id=None):
         """Helper method to get authentication headers using real JWT tokens."""
@@ -457,7 +460,7 @@ class GroupAcceptInviteEndpointTest(TestCase):
 
     def test_accept_invite_invalid_invite(self):
         """Test accepting non-existent invite returns 404."""
-        url = '/groups/accept_invite/999/'
+        url = '/groups/invites/999/accept/'
         response = self.client.post(
             url,
             **self._get_auth_headers()
@@ -482,7 +485,8 @@ class GroupPostEndpointTest(TestCase):
             members=[self.test_user_id]
         )
 
-        self.group_posts_url = f'/groups/{self.group.id}/posts/'
+        encoded_name = urllib.parse.quote(self.group.name, safe='')
+        self.group_posts_url = f'/groups/{encoded_name}/posts/'
         self.valid_post_data = {
             'content': 'This is a test group post!'
         }
