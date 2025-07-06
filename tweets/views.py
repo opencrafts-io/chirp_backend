@@ -21,9 +21,8 @@ class TweetsListCreateView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         data = request.data.copy()
-        data['user_id'] = request.user_id
         serializer = StatusSerializer(data=data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(user_id=request.user_id)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -10,19 +10,19 @@ class WhitespaceAllowedCharField(serializers.CharField):
         super().__init__(**kwargs)
 
     def to_internal_value(self, data):
-        # Convert to string and return as-is (don't strip or validate blank)
+        # Convert to string and return as-is
         if data is None:
             return None
         return str(data)
 
 class StatusSerializer(serializers.ModelSerializer):
     content = WhitespaceAllowedCharField(max_length=280)
-    user_id = serializers.CharField(required=False, max_length=100)
+    user_id = serializers.CharField(read_only=True, max_length=100)
 
     class Meta:
         model = Tweets
         fields = ['id', 'user_id', 'content', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user_id', 'created_at', 'updated_at']
 
     def validate_content(self, value):
         """Validate tweet content"""
