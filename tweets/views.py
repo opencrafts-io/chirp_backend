@@ -7,11 +7,19 @@ from .serializers import StatusSerializer
 
 class TweetsListCreateView(APIView):
     def get(self, request):
+        # Require authentication for viewing tweets
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
         tweets = Tweets.objects.all()
         serializer = StatusSerializer(tweets, many=True)
         return Response(serializer.data)
 
     def post(self, request):
+        # Require authentication for posting
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
         data = request.data.copy()
         data['user_id'] = request.user_id
         serializer = StatusSerializer(data=data)

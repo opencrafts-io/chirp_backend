@@ -1,20 +1,31 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from django.db.models import Q
 from .models import Group, GroupInvite, GroupPost
 from .serializers import GroupSerializer, GroupPostSerializer, GroupPostSerializer, GroupInviteSerializer
 
 class GroupListCreateView(APIView):
     def get(self, request):
-        groups = Group.objects.filter(members__contains=[request.user_id])
-        serializer = GroupSerializer(groups, many=True)
+        # Require authentication for viewing groups
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Use a more SQLite-compatible approach for filtering groups
+        all_groups = Group.objects.all()
+        user_groups = [group for group in all_groups if request.user_id in group.members]
+        serializer = GroupSerializer(user_groups, many=True)
         return Response(serializer.data)
 
     def post(self, request):
+        # Require authentication for creating groups
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
         data = request.data.copy()
         data['creator_id'] = request.user_id
-        data['admins'] = request.user_id
-        data['members'] = request.user_id
+        data['admins'] = [request.user_id]  # Fix: should be a list
+        data['members'] = [request.user_id]  # Fix: should be a list
         serializer = GroupSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
@@ -23,6 +34,10 @@ class GroupListCreateView(APIView):
 
 class GroupAddMemberView(APIView):
     def post(self, request, group_id):
+        # Require authentication
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
         try:
             group = Group.objects.get(id=group_id)
             if request.user_id not in group.admins:
@@ -35,7 +50,7 @@ class GroupAddMemberView(APIView):
                 notification = f"User {user_id} has been added to the group."
                 # TO DO!!!!! NOTIFICATION SYSTEM LINKING
                 return Response({
-                    'group': GroupSerializer(group).data,
+                    **GroupSerializer(group).data,  # Spread the group data
                     'notification': notification
                 })
             return Response(GroupSerializer(group).data)
@@ -45,6 +60,10 @@ class GroupAddMemberView(APIView):
 
 class GroupInviteView(APIView):
     def post(self, request, group_id):
+        # Require authentication
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
         try:
             group = Group.objects.get(id=group_id)
             if request.user_id not in group.admins:
@@ -63,19 +82,27 @@ class GroupInviteView(APIView):
 
 class GroupAcceptInviteView(APIView):
     def post(self, request, invite_id):
+        # Require authentication
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
         try:
             invite = GroupInvite.objects.get(id=invite_id, invitee_id=request.user_id)
             group = invite.group
             if request.user_id not in group.members:
                 group.members.append(request.user_id)
                 group.save()
-                invite.delete()
+            invite.delete()  # Always delete the invite
             return Response(GroupSerializer(group).data)
         except GroupInvite.DoesNotExist:
             return Response({'error': 'Invite not Found'}, status=status.HTTP_404_NOT_FOUND)
 
 class GroupPostListCreateView(APIView):
     def get(self, request, group_id):
+        # Require authentication
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
         try:
             group = Group.objects.get(id=group_id)
             if request.user_id not in group.members:
@@ -87,6 +114,10 @@ class GroupPostListCreateView(APIView):
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
     def post(self, request, group_id):
+        # Require authentication
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
         try:
             group = Group.objects.get(id=group_id)
             if request.user_id not in group.members:

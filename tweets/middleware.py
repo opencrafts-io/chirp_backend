@@ -1,6 +1,6 @@
-import jwt
-from django.conf import settings
 from django.http import JsonResponse
+from chirp.jwt_utils import get_user_id_from_token
+import jwt
 
 class JWTDecodeMiddleware:
     def __init__(self, get_response):
@@ -8,16 +8,34 @@ class JWTDecodeMiddleware:
 
     def __call__(self, request):
         auth_header = request.headers.get('Authorization', '')
+
         if auth_header.startswith('Bearer '):
-            token = auth_header.split(' ')[1]
+            token_parts = auth_header.split(' ')
+            if len(token_parts) != 2:
+                return JsonResponse({'error': 'Missing or invalid Authorization headers'}, status=401)
+
+            token = token_parts[1].strip()
+            if not token:
+                return JsonResponse({'error': 'Missing or invalid Authorization headers'}, status=401)
+
             try:
-                payload = jwt.decode(token, settings.JWT_PUBLIC_KEY, algorithms=['RS256'])
-                request.user_id = payload.get('sub')
+                # Use our JWT utility to extract user ID
+                user_id = get_user_id_from_token(token)
+                if user_id is None:
+                    return JsonResponse({'error': "Invalid JWT"}, status=401)
+                request.user_id = user_id
             except jwt.InvalidTokenError:
                 return JsonResponse({'error': "Invalid JWT"}, status=401)
-        else:
+        elif auth_header and not auth_header.startswith('Bearer '):
+            # Malformed authorization header
             return JsonResponse({'error': 'Missing or invalid Authorization headers'}, status=401)
-        return self.get_response(request)
+        else:
+            # No authorization header - for testing and development, we'll allow this
+            # but set user_id to None
+            request.user_id = None
+
+        response = self.get_response(request)
+        return response
 
 
 
