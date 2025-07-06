@@ -2,12 +2,16 @@ from rest_framework import serializers
 from .models import Group, GroupPost, GroupInvite
 
 class GroupSerializer(serializers.ModelSerializer):
-    creator_id = serializers.CharField(required=False, max_length=100)
+    creator_id = serializers.CharField(read_only=True, max_length=100)
 
     class Meta:
         model = Group
         fields = ['id', 'name', 'description', 'creator_id', 'admins', 'members', 'created_at']
-        read_only_fields =  ['id', 'created_at']
+        read_only_fields =  ['id', 'creator_id', 'admins', 'members', 'created_at']
+        extra_kwargs = {
+            'admins': {'read_only': True},
+            'members': {'read_only': True},
+        }
 
     def validate_name(self, value):
         """Validate group name"""
@@ -20,12 +24,12 @@ class GroupSerializer(serializers.ModelSerializer):
         return value
 
 class GroupPostSerializer(serializers.ModelSerializer):
-    user_id = serializers.CharField(required=False, max_length=100)
+    user_id = serializers.CharField(read_only=True, max_length=100)
 
     class Meta:
         model = GroupPost
         fields = ['id', 'group', 'user_id', 'content', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user_id', 'created_at', 'updated_at']
 
     def validate_content(self, value):
         """Validate group post content"""
@@ -35,12 +39,12 @@ class GroupPostSerializer(serializers.ModelSerializer):
         return value
 
 class GroupInviteSerializer(serializers.ModelSerializer):
-    inviter_id = serializers.CharField(required=False, max_length=100)
+    inviter_id = serializers.CharField(read_only=True, max_length=100)
 
     class Meta:
         model = GroupInvite
         fields = ['id', 'group', 'inviter_id', 'invitee_id', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'inviter_id', 'created_at']
 
     def validate_invitee_id(self, value):
         """Validate invitee_id"""
