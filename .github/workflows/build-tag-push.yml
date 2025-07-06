@@ -1,0 +1,106 @@
+name: Build, Test, and Push Chirp Backend (Prod or Dev)
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: chirp_user
+          POSTGRES_PASSWORD: secretpassword
+          POSTGRES_DB: chirp_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U chirp_user -d chirp_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_USER: chirp_user
+      DB_PASSWORD: secretpassword
+      DB_NAME: chirp_db
+      DB_HOST: localhost
+      DB_PORT: 5432
+      PGUSER: chirp_user
+      PGPASSWORD: secretpassword
+      PGDATABASE: chirp_db
+      PGHOST: localhost
+      PGPORT: 5432
+      DJANGO_SETTINGS_MODULE: chirp.settings
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Wait for Postgres to be ready
+        run: |
+          until pg_isready -h localhost -p 5432 -U "$DB_USER"; do
+            echo "Waiting for Postgres..."
+            sleep 2
+          done
+
+      - name: Run Migrations
+        run: python manage.py migrate
+
+      - name: Run Tests
+        run: python manage.py test --verbosity=2
+
+      - name: Install pack CLI
+        run: |
+          curl -sSL "https://github.com/buildpacks/pack/releases/download/v0.33.0/pack-v0.33.0-linux.tgz" | tar -xz
+          sudo mv pack /usr/local/bin/pack
+
+      - name: Set Docker Tags
+        id: tags
+        run: |
+          BRANCH=$(echo "${GITHUB_REF##*/}" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
+          SHA=$(git rev-parse --short HEAD)
+
+          if [ "$BRANCH" = "main" ]; then
+            IMAGE_TAG="prod"
+            IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/chirp-backend-prod"
+          else
+            IMAGE_TAG="dev"
+            IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/chirp-backend-staging"
+          fi
+
+          echo "image_name=$IMAGE_NAME" >> $GITHUB_OUTPUT
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "sha_tag=$SHA" >> $GITHUB_OUTPUT
+
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build and Push Image with CNB
+        run: |
+          IMAGE_NAME=${{ steps.tags.outputs.image_name }}
+          IMAGE_TAG=${{ steps.tags.outputs.image_tag }}
+          SHA_TAG=${{ steps.tags.outputs.sha_tag }}
+
+          for TAG in "$IMAGE_TAG" "$SHA_TAG"; do
+            echo "🔨 Building and pushing $IMAGE_NAME:$TAG"
+            pack build "$IMAGE_NAME:$TAG" \
+              --builder paketobuildpacks/builder:base \
+              --env DJANGO_SETTINGS_MODULE=chirp.settings \
+              --env DATABASE_URL=postgres://chirp_user:secretpassword@localhost:5432/chirp_db \
+              --publish
+          done
