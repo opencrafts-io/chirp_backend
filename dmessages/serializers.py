@@ -6,23 +6,22 @@ class WhitespaceAllowedCharField(serializers.CharField):
 
     def __init__(self, **kwargs):
         kwargs.setdefault('allow_blank', True)
-        kwargs.setdefault('trim_whitespace', False)  # Don't trim whitespace!
+        kwargs.setdefault('trim_whitespace', False)
         super().__init__(**kwargs)
 
     def to_internal_value(self, data):
-        # Convert to string and return as-is (don't strip or validate blank)
         if data is None:
             return None
         return str(data)
 
 class MessageSerializer(serializers.ModelSerializer):
     content = WhitespaceAllowedCharField()
-    sender_id = serializers.CharField(required=False, max_length=100)
+    sender_id = serializers.CharField(read_only=True, max_length=100)
 
     class Meta:
         model = Message
         fields = ['id', 'sender_id', 'recipient_id', 'content', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'sender_id', 'created_at']
 
     def validate_content(self, value):
         """Validate message content"""
