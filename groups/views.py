@@ -50,7 +50,7 @@ class GroupAddMemberView(APIView):
                 notification = f"User {user_id} has been added to the group."
                 # TO DO!!!!! NOTIFICATION SYSTEM LINKING
                 return Response({
-                    **GroupSerializer(group).data,  # Spread the group data
+                    **GroupSerializer(group).data,
                     'notification': notification
                 })
             return Response(GroupSerializer(group).data)

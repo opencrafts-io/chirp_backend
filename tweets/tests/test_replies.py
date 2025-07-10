@@ -42,7 +42,7 @@ class TweetReplyEndpointTest(TestCase):
     self.assertEqual(reply.parent_tweet, self.parent_tweet)
     self.assertEqual(reply.content, self.valid_reply_data['content'])
 
-    def test_create_reply_unauthenticated(self):
+  def test_create_reply_unauthenticated(self):
         """Test creating a reply without a token fails."""
         response = self.client.post(
             self.reply_url,
@@ -51,7 +51,7 @@ class TweetReplyEndpointTest(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_get_replies_authenticated(self):
+  def test_get_replies_authenticated(self):
         """Test getting replies with a valid token succeeds."""
         TweetReply.objects.create(
             parent_tweet=self.parent_tweet,
@@ -62,12 +62,12 @@ class TweetReplyEndpointTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
 
-    def test_get_replies_unauthenticated(self):
+  def test_get_replies_unauthenticated(self):
         """Test getting replies without a token fails."""
         response = self.client.get(self.reply_url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_reply_to_nonexistent_tweet(self):
+  def test_reply_to_nonexistent_tweet(self):
         """Test that replying to a non-existent tweet returns a 404 error."""
         invalid_url = '/statuses/9999/replies/'
         response = self.client.post(
