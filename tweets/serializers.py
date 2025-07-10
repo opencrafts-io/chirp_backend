@@ -31,22 +31,29 @@ class ReplySerializer(serializers.ModelSerializer):
         return value
 
 class StatusSerializer(serializers.ModelSerializer):
-    content = WhitespaceAllowedCharField(max_length=280)
+    content = WhitespaceAllowedCharField(max_length=280, required=False)
     user_id = serializers.CharField(read_only=True, max_length=100)
     replies = ReplySerializer(many=True, read_only=True)
     reply_count = serializers.SerializerMethodField()
+    image = serializers.ImageField(required=False)
 
 
     class Meta:
         model = Tweets
-        fields = ['id', 'user_id', 'content', 'created_at', 'updated_at', 'replies', 'reply_count']
+        fields = ['id', 'user_id', 'content', 'image', 'created_at', 'updated_at', 'replies', 'reply_count']
         read_only_fields = ['id', 'user_id', 'created_at', 'updated_at', 'replies', 'reply_count']
 
     def get_reply_count(self, obj):
         return obj.replies.count()
 
-    def validate_content(self, value):
-        """Validate tweet content"""
-        if value == '':
-            raise serializers.ValidationError("This field may not be blank.")
-        return value
+    def validate(self, data):
+        """
+        Check that at least one of 'content' or 'image' is present.
+        """
+        content = data.get('content')
+        image = data.get('image')
+
+        if not content and not image:
+            raise serializers.ValidationError("At least one of 'content' or 'image' must be provided.")
+
+        return data
