@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Tweets
+from .models import Tweets, TweetReply
 
 class WhitespaceAllowedCharField(serializers.CharField):
     """Custom CharField that allows whitespace-only content"""
@@ -32,3 +32,17 @@ class StatusSerializer(serializers.ModelSerializer):
 
         return value
 
+class ReplySerializer(serializers.ModelSerializer):
+    user_id = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = TweetReply
+        fields = ['id', 'parent_tweet', 'user_id', 'content', 'created_at']
+        read_only_fields = ['id', 'user_id', 'parent_tweet', 'created_at']
+
+    def validate_content(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Reply content cannot be empty")
+        if len(value) > 280:
+            raise serializers.ValidationError("Reply content cannot be more than 280 characters")
+        return value

@@ -7,7 +7,6 @@ class JWTDecodeMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        # Fetch Authorization header from multiple possible locations for compatibility with Django test client
         auth_header = (
             request.META.get('HTTP_AUTHORIZATION', '')
             or request.META.get('Authorization', '')
@@ -24,15 +23,12 @@ class JWTDecodeMiddleware:
                 return JsonResponse({'error': 'Missing or invalid Authorization headers'}, status=401)
 
             try:
-                # First attempt: decode without verifying signature so tests can mock jwt.decode
                 try:
-                    # Allow any algorithm; skip signature verification for this lightweight decode
                     payload = jwt.decode(
                         token,
                         options={"verify_signature": False},
                         algorithms=["HS256", "RS256", "HS512", "ES256"],
                     )
-                    # Reject if expired
                     import time as _time
                     exp = payload.get('exp')
                     if exp is not None and exp < int(_time.time()):
@@ -53,11 +49,8 @@ class JWTDecodeMiddleware:
             except jwt.InvalidTokenError:
                 return JsonResponse({'error': "Invalid JWT"}, status=401)
         elif auth_header and not auth_header.startswith('Bearer '):
-            # Malformed authorization header
             return JsonResponse({'error': 'Missing or invalid Authorization headers'}, status=401)
         else:
-            # No authorization header - for testing and development, we'll allow this
-            # but set user_id to None
             request.user_id = None
 
         response = self.get_response(request)
