@@ -46,7 +46,6 @@ class TweetsListCreateViewTest(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
-        # Verify data structure
         self.assertIn('content', response.data[0])
         self.assertIn('user_id', response.data[0])
         self.assertIn('created_at', response.data[0])
@@ -98,7 +97,7 @@ class TweetsListCreateViewTest(TestCase):
         response = self.view(request)
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('content', response.data)
+        self.assertIn('non_field_errors', response.data)
         self.assertEqual(Tweets.objects.count(), 0)
 
     def test_post_missing_content(self):
@@ -110,7 +109,7 @@ class TweetsListCreateViewTest(TestCase):
         response = self.view(request)
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('content', response.data)
+        self.assertIn('non_field_errors', response.data)
 
     def test_post_content_too_long(self):
         """Test POST request with content exceeding 280 characters."""
@@ -186,14 +185,14 @@ class TweetsListCreateViewTest(TestCase):
 
     def test_get_queryset_all_tweets(self):
         """Test GET request retrieves all tweets (no filtering by user)."""
-        # Create tweets from different users
+
         tweet1 = Tweets.objects.create(user_id='user1', content='Tweet 1')
         tweet2 = Tweets.objects.create(user_id='user2', content='Tweet 2')
 
         request = self.factory.get('/statuses/')
-        request.user_id = 'user3'  # Different user
+        request.user_id = 'user3'
 
         response = self.view(request)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)  # Should get all tweets
+        self.assertEqual(len(response.data), 2)

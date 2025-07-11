@@ -141,7 +141,7 @@ class TweetsEndpointTest(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('content', response.data)
+        self.assertIn('non_field_errors', response.data)
         self.assertEqual(Tweets.objects.count(), 0)
 
     def test_post_tweet_missing_content(self):
@@ -155,7 +155,7 @@ class TweetsEndpointTest(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('content', response.data)
+        self.assertIn('non_field_errors', response.data)
 
     def test_post_tweet_content_too_long(self):
         """Test POST /statuses/ with content exceeding 280 characters returns 400."""
@@ -241,7 +241,6 @@ class TweetsEndpointTest(TestCase):
             data=self.valid_tweet_data,
             **self._get_auth_headers()
         )
-
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         # Test with JSON (should also work)
@@ -251,5 +250,4 @@ class TweetsEndpointTest(TestCase):
             content_type='application/json',
             **self._get_auth_headers()
         )
-
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

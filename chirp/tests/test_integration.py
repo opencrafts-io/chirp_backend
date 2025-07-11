@@ -1,5 +1,6 @@
 import json
 import jwt
+import urllib.parse
 from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -71,11 +72,13 @@ class ChirpIntegrationTest(TestCase):
         self.assertIn(self.user1_id, created_group.admins)
         self.assertIn(self.user1_id, created_group.members)
 
+        encoded_group_name = urllib.parse.quote(created_group.name, safe='')
+
         # Step 3: User1 invites User2 to the group
         invite_data = {'invitee_id': self.user2_id}
 
         response = self.client.post(
-            f'/groups/{created_group.id}/invite/',
+            f'/groups/{encoded_group_name}/invite/',
             data=json.dumps(invite_data),
             content_type='application/json',
             **self._get_auth_headers(self.user1_id)
@@ -104,7 +107,7 @@ class ChirpIntegrationTest(TestCase):
         group_post_data = {'content': 'Thanks for inviting me! Excited to be here.'}
 
         response = self.client.post(
-            f'/groups/{created_group.id}/posts/',
+            f'/groups/{encoded_group_name}/posts/',
             data=json.dumps(group_post_data),
             content_type='application/json',
             **self._get_auth_headers(self.user2_id)
@@ -172,12 +175,13 @@ class ChirpIntegrationTest(TestCase):
         )
 
         created_group = Group.objects.first()
+        encoded_group_name = urllib.parse.quote(created_group.name, safe='')
 
         # Step 2: Admin adds User2 directly (without invite)
         add_member_data = {'user_id': self.user2_id}
 
         response = self.client.post(
-            f'/groups/{created_group.id}/add-member/',
+            f'/groups/{encoded_group_name}/add_member/',
             data=json.dumps(add_member_data),
             content_type='application/json',
             **self._get_auth_headers(self.user1_id)
@@ -191,7 +195,7 @@ class ChirpIntegrationTest(TestCase):
         add_member_data = {'user_id': self.user3_id}
 
         response = self.client.post(
-            f'/groups/{created_group.id}/add-member/',
+            f'/groups/{encoded_group_name}/add_member/',
             data=json.dumps(add_member_data),
             content_type='application/json',
             **self._get_auth_headers(self.user1_id)
@@ -204,7 +208,7 @@ class ChirpIntegrationTest(TestCase):
         # Step 4: All members post in the group
         mock_jwt_decode.return_value = self.user2_payload
         response = self.client.post(
-            f'/groups/{created_group.id}/posts/',
+            f'/groups/{encoded_group_name}/posts/',
             data=json.dumps({'content': 'User2 post'}),
             content_type='application/json',
             **self._get_auth_headers(self.user2_id)
@@ -213,7 +217,7 @@ class ChirpIntegrationTest(TestCase):
 
         mock_jwt_decode.return_value = self.user3_payload
         response = self.client.post(
-            f'/groups/{created_group.id}/posts/',
+            f'/groups/{encoded_group_name}/posts/',
             data=json.dumps({'content': 'User3 post'}),
             content_type='application/json',
             **self._get_auth_headers(self.user3_id)
@@ -223,7 +227,7 @@ class ChirpIntegrationTest(TestCase):
         # Step 5: Admin views all group posts
         mock_jwt_decode.return_value = self.user1_payload
         response = self.client.get(
-            f'/groups/{created_group.id}/posts/',
+            f'/groups/{encoded_group_name}/posts/',
             **self._get_auth_headers(self.user1_id)
         )
 
@@ -308,11 +312,12 @@ class ChirpIntegrationTest(TestCase):
         )
 
         private_group = Group.objects.first()
+        encoded_private_name = urllib.parse.quote(private_group.name, safe='')
 
         # User2 (not a member) tries to view group posts
         mock_jwt_decode.return_value = self.user2_payload
         response = self.client.get(
-            f'/groups/{private_group.id}/posts/',
+            f'/groups/{encoded_private_name}/posts/',
             **self._get_auth_headers(self.user2_id)
         )
 
@@ -320,7 +325,7 @@ class ChirpIntegrationTest(TestCase):
 
         # User2 tries to post in the group
         response = self.client.post(
-            f'/groups/{private_group.id}/posts/',
+            f'/groups/{encoded_private_name}/posts/',
             data=json.dumps({'content': 'Unauthorized post'}),
             content_type='application/json',
             **self._get_auth_headers(self.user2_id)
@@ -330,7 +335,7 @@ class ChirpIntegrationTest(TestCase):
 
         # User2 tries to invite someone to the group
         response = self.client.post(
-            f'/groups/{private_group.id}/invite/',
+            f'/groups/{encoded_private_name}/invite/',
             data=json.dumps({'invitee_id': self.user3_id}),
             content_type='application/json',
             **self._get_auth_headers(self.user2_id)

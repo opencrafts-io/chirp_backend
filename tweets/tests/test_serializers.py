@@ -59,14 +59,14 @@ class StatusSerializerTest(TestCase):
         data = {'content': ''}
         serializer = StatusSerializer(data=data)
         self.assertFalse(serializer.is_valid())
-        self.assertIn('content', serializer.errors)
+        self.assertIn('non_field_errors', serializer.errors)
 
     def test_serializer_missing_content(self):
         """Test serializer with missing content field."""
         data = {}
         serializer = StatusSerializer(data=data)
         self.assertFalse(serializer.is_valid())
-        self.assertIn('content', serializer.errors)
+        self.assertIn('non_field_errors', serializer.errors)
 
     def test_serializer_content_too_long(self):
         """Test serializer with content exceeding 280 characters."""

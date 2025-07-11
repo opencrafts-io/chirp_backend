@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 class Tweets(models.Model):
     user_id = models.CharField(max_length=100)
     content = models.TextField(max_length=280)
+    image = models.ImageField(upload_to='tweet_images/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -25,3 +26,13 @@ class Tweets(models.Model):
 
     def __str__(self):
         return f"{self.user_id}: {self.content}..."
+
+class TweetReply(models.Model):
+    parent_tweet = models.ForeignKey(Tweets, on_delete=models.CASCADE, related_name='replies')
+    user_id = models.CharField(max_length=100)
+    content = models.TextField(max_length=280)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return f"Reply by {self.user_id}: to tweet {self.parent_tweet.content}"

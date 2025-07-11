@@ -14,14 +14,10 @@ from django.conf import settings
 class JWTManager:
     """
     JWT Manager for token generation and validation.
-
-    This class encapsulates JWT operations to make it easy to:
-    1. Test with mock tokens
-    2. Replace with external JWT validation in production
     """
 
     def __init__(self):
-        # Don't access settings immediately - defer until methods are called
+        # Don't access settings immediately
         self._test_secret = None
         self._algorithm = None
         self._public_key = None

@@ -8,6 +8,7 @@ from ..views import (
     GroupAcceptInviteView, GroupPostListCreateView
 )
 from ..serializers import GroupSerializer, GroupPostSerializer, GroupInviteSerializer
+import urllib.parse
 
 
 class GroupListCreateViewTest(TestCase):
@@ -146,14 +147,15 @@ class GroupAddMemberViewTest(TestCase):
             members=['admin_user']
         )
 
+        self.encoded_name = urllib.parse.quote(self.group.name, safe='')
         self.valid_member_data = {'user_id': 'new_member'}
 
     def test_add_member_as_admin(self):
         """Test admin can add new member to group."""
-        request = self.factory.post(f'/groups/{self.group.id}/add-member/', self.valid_member_data)
+        request = self.factory.post(f'/groups/{self.encoded_name}/add_member/', self.valid_member_data)
         request.user_id = 'admin_user'
 
-        response = self.view(request, group_id=self.group.id)
+        response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.group.refresh_from_db()
@@ -162,10 +164,10 @@ class GroupAddMemberViewTest(TestCase):
 
     def test_add_member_not_admin(self):
         """Test non-admin cannot add member to group."""
-        request = self.factory.post(f'/groups/{self.group.id}/add-member/', self.valid_member_data)
+        request = self.factory.post(f'/groups/{self.encoded_name}/add_member/', self.valid_member_data)
         request.user_id = 'regular_user'
 
-        response = self.view(request, group_id=self.group.id)
+        response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertIn('error', response.data)
@@ -173,10 +175,10 @@ class GroupAddMemberViewTest(TestCase):
 
     def test_add_member_nonexistent_group(self):
         """Test adding member to non-existent group returns 404."""
-        request = self.factory.post('/groups/999/add-member/', self.valid_member_data)
+        request = self.factory.post('/groups/999/add_member/', self.valid_member_data)
         request.user_id = 'admin_user'
 
-        response = self.view(request, group_id=999)
+        response = self.view(request, group_name='999')
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertIn('error', response.data)
@@ -187,10 +189,10 @@ class GroupAddMemberViewTest(TestCase):
         self.group.members.append('existing_member')
         self.group.save()
 
-        request = self.factory.post(f'/groups/{self.group.id}/add-member/', {'user_id': 'existing_member'})
+        request = self.factory.post(f'/groups/{self.encoded_name}/add_member/', {'user_id': 'existing_member'})
         request.user_id = 'admin_user'
 
-        response = self.view(request, group_id=self.group.id)
+        response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # Should not add duplicate
@@ -198,10 +200,10 @@ class GroupAddMemberViewTest(TestCase):
 
     def test_add_member_missing_user_id(self):
         """Test adding member without user_id returns group data."""
-        request = self.factory.post(f'/groups/{self.group.id}/add-member/', {})
+        request = self.factory.post(f'/groups/{self.encoded_name}/add_member/', {})
         request.user_id = 'admin_user'
 
-        response = self.view(request, group_id=self.group.id)
+        response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # Should return group data without changes
@@ -209,10 +211,10 @@ class GroupAddMemberViewTest(TestCase):
 
     def test_add_member_notification_message(self):
         """Test add member includes notification message."""
-        request = self.factory.post(f'/groups/{self.group.id}/add-member/', self.valid_member_data)
+        request = self.factory.post(f'/groups/{self.encoded_name}/add_member/', self.valid_member_data)
         request.user_id = 'admin_user'
 
-        response = self.view(request, group_id=self.group.id)
+        response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         expected_notification = "User new_member has been added to the group."
@@ -232,14 +234,15 @@ class GroupInviteViewTest(TestCase):
             members=['admin_user']
         )
 
+        self.encoded_name = urllib.parse.quote(self.group.name, safe='')
         self.valid_invite_data = {'invitee_id': 'invited_user'}
 
     def test_create_invite_as_admin(self):
         """Test admin can create invite for group."""
-        request = self.factory.post(f'/groups/{self.group.id}/invite/', self.valid_invite_data)
+        request = self.factory.post(f'/groups/{self.encoded_name}/invite/', self.valid_invite_data)
         request.user_id = 'admin_user'
 
-        response = self.view(request, group_id=self.group.id)
+        response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(GroupInvite.objects.count(), 1)
@@ -251,10 +254,10 @@ class GroupInviteViewTest(TestCase):
 
     def test_create_invite_not_admin(self):
         """Test non-admin cannot create invite for group."""
-        request = self.factory.post(f'/groups/{self.group.id}/invite/', self.valid_invite_data)
+        request = self.factory.post(f'/groups/{self.encoded_name}/invite/', self.valid_invite_data)
         request.user_id = 'regular_user'
 
-        response = self.view(request, group_id=self.group.id)
+        response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertIn('error', response.data)
@@ -265,7 +268,7 @@ class GroupInviteViewTest(TestCase):
         request = self.factory.post('/groups/999/invite/', self.valid_invite_data)
         request.user_id = 'admin_user'
 
-        response = self.view(request, group_id=999)
+        response = self.view(request, group_name='999')
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertIn('error', response.data)
@@ -273,10 +276,10 @@ class GroupInviteViewTest(TestCase):
 
     def test_create_invite_assigns_data(self):
         """Test invite creation assigns correct group and inviter."""
-        request = self.factory.post(f'/groups/{self.group.id}/invite/', self.valid_invite_data)
+        request = self.factory.post(f'/groups/{self.encoded_name}/invite/', self.valid_invite_data)
         request.user_id = 'admin_user'
 
-        response = self.view(request, group_id=self.group.id)
+        response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['group'], self.group.id)
@@ -285,10 +288,10 @@ class GroupInviteViewTest(TestCase):
     def test_create_invite_invalid_data(self):
         """Test creating invite with invalid data returns 400."""
         invalid_data = {'invitee_id': ''}
-        request = self.factory.post(f'/groups/{self.group.id}/invite/', invalid_data)
+        request = self.factory.post(f'/groups/{self.encoded_name}/invite/', invalid_data)
         request.user_id = 'admin_user'
 
-        response = self.view(request, group_id=self.group.id)
+        response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('invitee_id', response.data)
@@ -398,24 +401,25 @@ class GroupPostListCreateViewTest(TestCase):
             content='Second post'
         )
 
+        self.encoded_name = urllib.parse.quote(self.group.name, safe='')
         self.valid_post_data = {'content': 'New post content'}
 
     def test_get_posts_as_member(self):
         """Test member can view group posts."""
-        request = self.factory.get(f'/groups/{self.group.id}/posts/')
+        request = self.factory.get(f'/groups/{self.encoded_name}/posts/')
         request.user_id = 'member_user'
 
-        response = self.view(request, group_id=self.group.id)
+        response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
 
     def test_get_posts_not_member(self):
         """Test non-member cannot view group posts."""
-        request = self.factory.get(f'/groups/{self.group.id}/posts/')
+        request = self.factory.get(f'/groups/{self.encoded_name}/posts/')
         request.user_id = 'non_member'
 
-        response = self.view(request, group_id=self.group.id)
+        response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertIn('error', response.data)
@@ -426,7 +430,7 @@ class GroupPostListCreateViewTest(TestCase):
         request = self.factory.get('/groups/999/posts/')
         request.user_id = 'member_user'
 
-        response = self.view(request, group_id=999)
+        response = self.view(request, group_name='999')
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertIn('error', response.data)
@@ -434,10 +438,10 @@ class GroupPostListCreateViewTest(TestCase):
 
     def test_create_post_as_member(self):
         """Test member can create post in group."""
-        request = self.factory.post(f'/groups/{self.group.id}/posts/', self.valid_post_data)
+        request = self.factory.post(f'/groups/{self.encoded_name}/posts/', self.valid_post_data)
         request.user_id = 'member_user'
 
-        response = self.view(request, group_id=self.group.id)
+        response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(GroupPost.objects.count(), 3)
@@ -448,10 +452,10 @@ class GroupPostListCreateViewTest(TestCase):
 
     def test_create_post_not_member(self):
         """Test non-member cannot create post in group."""
-        request = self.factory.post(f'/groups/{self.group.id}/posts/', self.valid_post_data)
+        request = self.factory.post(f'/groups/{self.encoded_name}/posts/', self.valid_post_data)
         request.user_id = 'non_member'
 
-        response = self.view(request, group_id=self.group.id)
+        response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertIn('error', response.data)
@@ -462,7 +466,7 @@ class GroupPostListCreateViewTest(TestCase):
         request = self.factory.post('/groups/999/posts/', self.valid_post_data)
         request.user_id = 'member_user'
 
-        response = self.view(request, group_id=999)
+        response = self.view(request, group_name='999')
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertIn('error', response.data)
@@ -470,10 +474,10 @@ class GroupPostListCreateViewTest(TestCase):
 
     def test_create_post_assigns_data(self):
         """Test post creation assigns correct user and group."""
-        request = self.factory.post(f'/groups/{self.group.id}/posts/', self.valid_post_data)
+        request = self.factory.post(f'/groups/{self.encoded_name}/posts/', self.valid_post_data)
         request.user_id = 'member_user'
 
-        response = self.view(request, group_id=self.group.id)
+        response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['user_id'], 'member_user')
@@ -482,10 +486,10 @@ class GroupPostListCreateViewTest(TestCase):
     def test_create_post_invalid_data(self):
         """Test creating post with invalid data returns 400."""
         invalid_data = {'content': ''}
-        request = self.factory.post(f'/groups/{self.group.id}/posts/', invalid_data)
+        request = self.factory.post(f'/groups/{self.encoded_name}/posts/', invalid_data)
         request.user_id = 'member_user'
 
-        response = self.view(request, group_id=self.group.id)
+        response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('content', response.data)
@@ -505,10 +509,10 @@ class GroupPostListCreateViewTest(TestCase):
             content='Other group post'
         )
 
-        request = self.factory.get(f'/groups/{self.group.id}/posts/')
+        request = self.factory.get(f'/groups/{self.encoded_name}/posts/')
         request.user_id = 'member_user'
 
-        response = self.view(request, group_id=self.group.id)
+        response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)  # Only posts from the test group
