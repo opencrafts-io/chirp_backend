@@ -9,11 +9,6 @@ class WhitespaceAllowedCharField(serializers.CharField):
         kwargs.setdefault('trim_whitespace', False)
         super().__init__(**kwargs)
 
-    def to_internal_value(self, data):
-        # Convert to string and return as-is
-        if data is None:
-            return None
-        return str(data)
 
 class ReplySerializer(serializers.ModelSerializer):
     user_id = serializers.CharField(read_only=True)
@@ -31,7 +26,7 @@ class ReplySerializer(serializers.ModelSerializer):
         return value
 
 class StatusSerializer(serializers.ModelSerializer):
-    content = WhitespaceAllowedCharField(max_length=280, required=False)
+    content = WhitespaceAllowedCharField(max_length=280, required=False, allow_null=True)
     user_id = serializers.CharField(read_only=True, max_length=100)
     replies = ReplySerializer(many=True, read_only=True)
     reply_count = serializers.SerializerMethodField()
@@ -46,14 +41,14 @@ class StatusSerializer(serializers.ModelSerializer):
     def get_reply_count(self, obj):
         return obj.replies.count()
 
-    def validate(self, data):
+    def validate(self, attrs):
         """
         Check that at least one of 'content' or 'image' is present.
         """
-        content = data.get('content')
-        image = data.get('image')
+        content = attrs.get('content')
+        image = attrs.get('image')
 
         if not content and not image:
             raise serializers.ValidationError("At least one of 'content' or 'image' must be provided.")
 
-        return data
+        return attrs
