@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Post, PostReply
+from .models import PostLike
 
 class WhitespaceAllowedCharField(serializers.CharField):
     """Custom CharField that allows whitespace-only content"""
@@ -31,15 +32,21 @@ class StatusSerializer(serializers.ModelSerializer):
     replies = ReplySerializer(many=True, read_only=True)
     reply_count = serializers.SerializerMethodField()
     image = serializers.ImageField(required=False)
-
+    is_liked = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
-        fields = ['id', 'user_id', 'content', 'image', 'created_at', 'updated_at', 'replies', 'reply_count']
-        read_only_fields = ['id', 'user_id', 'created_at', 'updated_at', 'replies', 'reply_count']
+        fields = ['id', 'user_id', 'content', 'image', 'created_at', 'updated_at', 'replies', 'reply_count', 'like_count', 'is_liked']
+        read_only_fields = ['id', 'user_id', 'created_at', 'updated_at', 'replies', 'reply_count', 'like_count', 'is_liked']
 
     def get_reply_count(self, obj):
         return obj.replies.count()
+
+    def get_is_liked(self, obj):
+        user_id = self.context.get('user_id')
+        if not user_id:
+            return False
+        return PostLike.objects.filter(post=obj, user_id=user_id).exists()
 
     def validate(self, attrs):
         """
