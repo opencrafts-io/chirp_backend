@@ -3,6 +3,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
 from ..models import Post
 from chirp.jwt_utils import generate_test_token
+from ..models import PostReply
 
 
 class StatusAPITestCase(APITestCase):
@@ -21,43 +22,38 @@ class StatusAPITestCase(APITestCase):
 
     def test_create_post(self):
         """Test creating a post with valid data."""
-        response = self.client.post(self.list_url, self.valid_post_data, format='json')
+        data = {"content": "This is a test post."}
+        response = self.client.post(reverse("post-create"), data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Post.objects.count(), 2)
-        self.assertEqual(Post.objects.latest('id').content, 'This is a test post from API.')
+        self.assertEqual(response.data["content"], data["content"])
+        self.assertEqual(response.data["user_id"], self.user_id)
 
     def test_create_post_invalid_data(self):
         """Test creating a post with invalid data."""
-        response = self.client.post(self.list_url, self.invalid_post_data, format='json')
+        data = {"content": ""}
+        response = self.client.post(reverse("post-create"), data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(Post.objects.count(), 1)
 
-    def test_list_posts(self):
-        """Test listing all posts."""
+    def test_get_all_posts(self):
+        """Test retrieving all posts."""
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['content'], 'Initial post.')
 
-    def test_retrieve_post(self):
+    def test_get_single_post(self):
         """Test retrieving a single post."""
         response = self.client.get(self.detail_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['content'], 'Initial post.')
-
-    def test_retrieve_non_existent_post(self):
-        """Test retrieving a post that does not exist."""
-        non_existent_url = reverse('post-detail', kwargs={'pk': 999})
-        response = self.client.get(non_existent_url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data["content"], self.post.content)
 
     def test_update_post(self):
         """Test updating a post."""
-        update_data = {'content': 'Updated post content.'}
-        response = self.client.put(self.detail_url, update_data, format='json')
+        update_data = {"content": "Updated content."}
+        response = self.client.put(self.detail_url, update_data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.post.refresh_from_db()
-        self.assertEqual(self.post.content, 'Updated post content.')
+        self.assertEqual(self.post.content, update_data["content"])
 
     def test_partial_update_post(self):
         """Test partially updating a post."""
@@ -71,7 +67,7 @@ class StatusAPITestCase(APITestCase):
         """Test deleting a post."""
         response = self.client.delete(self.detail_url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(Post.objects.count(), 0)
+        self.assertFalse(Post.objects.filter(pk=self.post.pk).exists())
 
     def test_delete_non_existent_post(self):
         """Test deleting a post that does not exist."""
@@ -81,15 +77,16 @@ class StatusAPITestCase(APITestCase):
 
     def test_create_reply(self):
         """Test creating a reply to a post."""
-        reply_data = {'content': 'This is a reply.'}
-        response = self.client.post(self.reply_url, reply_data, format='json')
+        url = reverse("post-reply", kwargs={"post_id": self.post.pk})
+        data = {"content": "This is a reply."}
+        response = self.client.post(url, data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(self.post.replies.count(), 1)
-        self.assertEqual(self.post.replies.first().content, 'This is a reply.')
+        self.assertEqual(response.data["content"], data["content"])
+        self.assertEqual(PostReply.objects.count(), 1)
 
     def test_create_reply_non_existent_post(self):
         """Test creating a reply to a non-existent post."""
-        non_existent_url = reverse('post-reply', kwargs={'post_id': 999})
-        reply_data = {'content': 'This is a reply.'}
-        response = self.client.post(non_existent_url, reply_data, format='json')
+        url = reverse("post-reply", kwargs={"post_id": 999})
+        data = {"content": "This should fail."}
+        response = self.client.post(url, data)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

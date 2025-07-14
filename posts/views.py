@@ -1,110 +1,102 @@
 from django.shortcuts import get_object_or_404
-from rest_framework.views import APIView
+from rest_framework import generics, status
 from rest_framework.response import Response
-from rest_framework import status
-from .models import Post
-from .serializers import StatusSerializer, ReplySerializer
+from rest_framework.views import APIView
+from .models import Attachment, Post, PostLike, PostReply
+from .serializers import PostReplySerializer, PostSerializer
+from .permissions import IsAuthenticatedCustom
 from django.db.models import F
-from .models import PostLike
-
-class PostListCreateView(APIView):
-    def get(self, request):
-        # Require authentication for viewing posts
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
-
-        posts = Post.objects.all()
-        serializer = StatusSerializer(posts, many=True, context={'user_id': request.user_id})
-        return Response(serializer.data)
-
-    def post(self, request):
-        # Require authentication for posting
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
-
-        serializer = StatusSerializer(data=request.data, context={'user_id': request.user_id})
-        if serializer.is_valid():
-            serializer.save(user_id=request.user_id)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class PostDetailView(APIView):
-    def get_object(self, pk):
-        return get_object_or_404(Post, pk=pk)
+class PostCreateView(generics.CreateAPIView):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+    permission_classes = [IsAuthenticatedCustom]
 
-    def get(self, request, pk):
-        post = self.get_object(pk)
-        serializer = StatusSerializer(post, context={'user_id': request.user_id})
-        return Response(serializer.data)
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-    def put(self, request, pk):
-        post = self.get_object(pk)
-        serializer = StatusSerializer(post, data=request.data, context={'user_id': request.user_id})
-        if serializer.is_valid():
-            serializer.save(user_id=post.user_id)
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        content_present = "content" in serializer.validated_data and serializer.validated_data["content"].strip()
+        attachments_present = bool(request.FILES.getlist("attachments"))
 
-    def patch(self, request, pk):
-        post = self.get_object(pk)
-        serializer = StatusSerializer(post, data=request.data, partial=True, context={'user_id': request.user_id})
-        if serializer.is_valid():
-            serializer.save(user_id=post.user_id)
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if not content_present and not attachments_present:
+            return Response(
+                {"detail": "Post must have content or at least one attachment."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-    def delete(self, request, pk):
-        post = self.get_object(pk)
-        post.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        content = serializer.validated_data.get("content", "")
+        post = serializer.save(user_id=self.request.user_id, content=content)
+
+        files = request.FILES.getlist("attachments")
+        for file in files:
+            attachment_type = "image" if "image" in file.content_type else "file"
+            Attachment.objects.create(
+                post=post, file=file, attachment_type=attachment_type
+            )
+
+        response_serializer = self.get_serializer(post)
+        headers = self.get_success_headers(response_serializer.data)
+        return Response(
+            response_serializer.data, status=status.HTTP_201_CREATED, headers=headers
+        )
 
 
-class PostReplyListCreateView(APIView):
-    def get(self, request, post_id):
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+class PostListView(generics.ListAPIView):
+    queryset = Post.objects.all().order_by("-created_at")
+    serializer_class = PostSerializer
 
-        parent_post = get_object_or_404(Post, id=post_id)
-        replies = parent_post.replies.order_by('-created_at')
-        serializer = ReplySerializer(replies, many=True)
-        return Response(serializer.data)
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["user_id"] = self.request.user_id
+        return context
 
-    def post(self, request, post_id):
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
-        parent_post = get_object_or_404(Post, id=post_id)
-        serializer = ReplySerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(user_id=request.user_id, parent_post=parent_post)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class PostDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+    permission_classes = [IsAuthenticatedCustom]
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["user_id"] = self.request.user_id
+        return context
+
+
+class PostReplyCreateView(generics.CreateAPIView):
+    queryset = PostReply.objects.all()
+    serializer_class = PostReplySerializer
+    permission_classes = [IsAuthenticatedCustom]
+
+    def perform_create(self, serializer):
+        parent_post = get_object_or_404(Post, pk=self.kwargs["post_id"])
+        serializer.save(user_id=self.request.user_id, parent_post=parent_post)
 
 
 class PostLikeToggleView(APIView):
-    def post(self, request, pk):
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    permission_classes = [IsAuthenticatedCustom]
 
+    def post(self, request, pk, format=None):
         post = get_object_or_404(Post, pk=pk)
-        like, created = PostLike.objects.get_or_create(user_id=request.user_id, post=post)
+        user_id = request.user_id
+
+        like, created = PostLike.objects.get_or_create(user_id=user_id, post=post)
 
         if created:
-            Post.objects.filter(pk=pk).update(like_count=F('like_count') + 1)
-            return Response({'status': 'liked'}, status=status.HTTP_201_CREATED)
+            Post.objects.filter(pk=pk).update(like_count=F("like_count") + 1)
+            return Response({"status": "liked"}, status=status.HTTP_201_CREATED)
 
-        return Response({'status': 'already liked'}, status=status.HTTP_200_OK)
+        return Response({"status": "already liked"}, status=status.HTTP_200_OK)
 
-    def delete(self, request, pk):
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
-
+    def delete(self, request, pk, format=None):
         post = get_object_or_404(Post, pk=pk)
-        deleted_count, _ = PostLike.objects.filter(user_id=request.user_id, post=post).delete()
+        user_id = request.user_id
+
+        deleted_count, _ = PostLike.objects.filter(user_id=user_id, post=post).delete()
 
         if deleted_count > 0:
-            Post.objects.filter(pk=pk).update(like_count=F('like_count') - 1)
-            return Response({'status': 'unliked'}, status=status.HTTP_204_NO_CONTENT)
+            Post.objects.filter(pk=pk).update(like_count=F("like_count") - 1)
+            return Response({"status": "unliked"}, status=status.HTTP_204_NO_CONTENT)
 
-        return Response({'error': 'Not liked yet'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"status": "not liked"}, status=status.HTTP_404_NOT_FOUND)

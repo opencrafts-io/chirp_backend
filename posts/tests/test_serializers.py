@@ -1,10 +1,10 @@
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory
 from ..models import Post
-from ..serializers import StatusSerializer
+from ..serializers import PostSerializer
 
 
-class StatusSerializerTest(TestCase):
+class PostSerializerTest(TestCase):
     def setUp(self):
         """Set up test data for each test method."""
         self.factory = APIRequestFactory()
@@ -18,13 +18,13 @@ class StatusSerializerTest(TestCase):
 
     def test_serializer_valid_data(self):
         """Test serializer with valid data."""
-        serializer = StatusSerializer(data=self.valid_serializer_data)
+        serializer = PostSerializer(data=self.valid_serializer_data)
         self.assertTrue(serializer.is_valid())
         self.assertEqual(serializer.validated_data['content'], 'This is a test post!')
 
     def test_serializer_save_creates_post(self):
         """Test that serializer save creates a post object."""
-        serializer = StatusSerializer(data=self.valid_serializer_data)
+        serializer = PostSerializer(data=self.valid_serializer_data)
         self.assertTrue(serializer.is_valid())
 
         # Mock user_id assignment (normally done in view)
@@ -45,7 +45,7 @@ class StatusSerializerTest(TestCase):
             'updated_at': '2023-01-01T00:00:00Z'
         })
 
-        serializer = StatusSerializer(data=data_with_readonly)
+        serializer = PostSerializer(data=data_with_readonly)
         self.assertTrue(serializer.is_valid())
 
         # Check that read-only fields are not in validated_data
@@ -56,35 +56,33 @@ class StatusSerializerTest(TestCase):
 
     def test_serializer_empty_content(self):
         """Test serializer with empty content."""
-        data = {'content': ''}
-        serializer = StatusSerializer(data=data)
-        self.assertFalse(serializer.is_valid())
-        self.assertIn('non_field_errors', serializer.errors)
+        data = {"content": ""}
+        serializer = PostSerializer(data=data)
+        self.assertTrue(serializer.is_valid())
 
     def test_serializer_missing_content(self):
         """Test serializer with missing content field."""
         data = {}
-        serializer = StatusSerializer(data=data)
-        self.assertFalse(serializer.is_valid())
-        self.assertIn('non_field_errors', serializer.errors)
+        serializer = PostSerializer(data=data)
+        self.assertTrue(serializer.is_valid())
 
     def test_serializer_content_too_long(self):
         """Test serializer with content exceeding 280 characters."""
         data = {'content': 'x' * 281}
-        serializer = StatusSerializer(data=data)
+        serializer = PostSerializer(data=data)
         self.assertFalse(serializer.is_valid())
         self.assertIn('content', serializer.errors)
 
     def test_serializer_content_at_max_length(self):
         """Test serializer with content at exactly 280 characters."""
         data = {'content': 'x' * 280}
-        serializer = StatusSerializer(data=data)
+        serializer = PostSerializer(data=data)
         self.assertTrue(serializer.is_valid())
 
     def test_serializer_to_representation(self):
         """Test serializer converts model instance to dict representation."""
         post = Post.objects.create(**self.valid_post_data)
-        serializer = StatusSerializer(post)
+        serializer = PostSerializer(post)
 
         expected_fields = ['id', 'user_id', 'content', 'created_at', 'updated_at']
         for field in expected_fields:
@@ -101,7 +99,7 @@ class StatusSerializerTest(TestCase):
         post2 = Post.objects.create(**post2_data)
 
         all_posts = [post1, post2]
-        serializer = StatusSerializer(all_posts, many=True)
+        serializer = PostSerializer(all_posts, many=True)
 
         self.assertEqual(len(serializer.data), 2)
         self.assertEqual(serializer.data[0]['content'], 'This is a test post!')
@@ -112,7 +110,7 @@ class StatusSerializerTest(TestCase):
         post = Post.objects.create(**self.valid_post_data)
         update_data = {'content': 'Updated content'}
 
-        serializer = StatusSerializer(post, data=update_data, partial=True)
+        serializer = PostSerializer(post, data=update_data, partial=True)
         self.assertTrue(serializer.is_valid())
 
         updated_post = serializer.save()
@@ -121,17 +119,15 @@ class StatusSerializerTest(TestCase):
 
     def test_serializer_validation_with_whitespace(self):
         """Test serializer handles whitespace-only content."""
-        data = {'content': '   \n\t   '}
-        serializer = StatusSerializer(data=data)
-        # This should be valid as Django's TextField doesn't strip whitespace by default
-        # But you might want to add custom validation for this
+        data = {"content": "   "}
+        serializer = PostSerializer(data=data)
         self.assertTrue(serializer.is_valid())
 
     def test_serializer_special_characters(self):
         """Test serializer handles special characters in content."""
         special_content = 'Hello! 🌟 This has émojis and spécial chars: @#$%^&*()'
         data = {'content': special_content}
-        serializer = StatusSerializer(data=data)
+        serializer = PostSerializer(data=data)
         self.assertTrue(serializer.is_valid())
 
         # Mock user_id assignment

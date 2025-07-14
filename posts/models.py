@@ -1,12 +1,29 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 
+class Attachment(models.Model):
+    ATTACHMENT_TYPE_CHOICES = [
+        ("image", "Image"),
+        ("video", "Video"),
+        ("audio", "Audio"),
+    ]
+
+    post = models.ForeignKey(
+        "Post", on_delete=models.CASCADE, related_name="attachments"
+    )
+    attachment_type = models.CharField(
+        max_length=10, choices=ATTACHMENT_TYPE_CHOICES, default="image"
+    )
+    file = models.FileField(upload_to="attachments/")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.get_attachment_type_display()} for post {self.post}"
+
+
 class Post(models.Model):
     user_id = models.CharField(max_length=100)
     content = models.TextField(max_length=280)
-    # Attachments -> images, videos, etc.
-    # posts
-    image = models.ImageField(upload_to='post_images/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     like_count = models.PositiveIntegerField(default=0)
@@ -28,7 +45,7 @@ class Post(models.Model):
             raise ValidationError("User ID cannot exceed 100 characters.")
 
     def __str__(self):
-        return f"{self.user_id}: {self.content}..."
+        return f"{self.user_id}: {self.content[:50]}..."
 
 class PostLike(models.Model):
     user_id = models.CharField(max_length=100)
@@ -39,7 +56,7 @@ class PostLike(models.Model):
         unique_together = ('user_id', 'post')
 
     def __str__(self):
-        return f"Like by {self.user_id} on post {self.post.id}"
+        return f"Like by {self.user_id} on post {self.post}"
 
 class PostReply(models.Model):
     parent_post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='replies')
