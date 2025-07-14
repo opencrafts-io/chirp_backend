@@ -1,7 +1,7 @@
 from django.test import TestCase, RequestFactory
 from django.http import JsonResponse
 from unittest.mock import patch, MagicMock
-from tweets.middleware import JWTDecodeMiddleware
+from posts.middleware import JWTDecodeMiddleware
 from chirp.jwt_utils import generate_test_token
 import jwt
 import json

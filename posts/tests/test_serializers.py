@@ -1,6 +1,6 @@
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory
-from ..models import Tweets
+from ..models import Post
 from ..serializers import StatusSerializer
 
 
@@ -8,32 +8,32 @@ class StatusSerializerTest(TestCase):
     def setUp(self):
         """Set up test data for each test method."""
         self.factory = APIRequestFactory()
-        self.valid_tweet_data = {
+        self.valid_post_data = {
             'user_id': 'user123',
-            'content': 'This is a test tweet!'
+            'content': 'This is a test post!'
         }
         self.valid_serializer_data = {
-            'content': 'This is a test tweet!'
+            'content': 'This is a test post!'
         }
 
     def test_serializer_valid_data(self):
         """Test serializer with valid data."""
         serializer = StatusSerializer(data=self.valid_serializer_data)
         self.assertTrue(serializer.is_valid())
-        self.assertEqual(serializer.validated_data['content'], 'This is a test tweet!')
+        self.assertEqual(serializer.validated_data['content'], 'This is a test post!')
 
-    def test_serializer_save_creates_tweet(self):
-        """Test that serializer save creates a tweet object."""
+    def test_serializer_save_creates_post(self):
+        """Test that serializer save creates a post object."""
         serializer = StatusSerializer(data=self.valid_serializer_data)
         self.assertTrue(serializer.is_valid())
 
         # Mock user_id assignment (normally done in view)
         serializer.validated_data['user_id'] = 'user123'
-        tweet = serializer.save()
+        post = serializer.save()
 
-        self.assertIsInstance(tweet, Tweets)
-        self.assertEqual(tweet.content, 'This is a test tweet!')
-        self.assertEqual(tweet.user_id, 'user123')
+        self.assertIsInstance(post, Post)
+        self.assertEqual(post.content, 'This is a test post!')
+        self.assertEqual(post.user_id, 'user123')
 
     def test_serializer_read_only_fields(self):
         """Test that read-only fields cannot be set during creation."""
@@ -83,41 +83,41 @@ class StatusSerializerTest(TestCase):
 
     def test_serializer_to_representation(self):
         """Test serializer converts model instance to dict representation."""
-        tweet = Tweets.objects.create(**self.valid_tweet_data)
-        serializer = StatusSerializer(tweet)
+        post = Post.objects.create(**self.valid_post_data)
+        serializer = StatusSerializer(post)
 
         expected_fields = ['id', 'user_id', 'content', 'created_at', 'updated_at']
         for field in expected_fields:
             self.assertIn(field, serializer.data)
 
-        self.assertEqual(serializer.data['content'], 'This is a test tweet!')
+        self.assertEqual(serializer.data['content'], 'This is a test post!')
         self.assertEqual(serializer.data['user_id'], 'user123')
 
-    def test_serializer_many_tweets(self):
-        """Test serializer with many=True for multiple tweets."""
-        tweet1 = Tweets.objects.create(**self.valid_tweet_data)
-        tweet2_data = self.valid_tweet_data.copy()
-        tweet2_data['content'] = 'Second tweet'
-        tweet2 = Tweets.objects.create(**tweet2_data)
+    def test_serializer_many_posts(self):
+        """Test serializer with many=True for multiple posts."""
+        post1 = Post.objects.create(**self.valid_post_data)
+        post2_data = self.valid_post_data.copy()
+        post2_data['content'] = 'Second post'
+        post2 = Post.objects.create(**post2_data)
 
-        tweets = [tweet1, tweet2]
-        serializer = StatusSerializer(tweets, many=True)
+        all_posts = [post1, post2]
+        serializer = StatusSerializer(all_posts, many=True)
 
         self.assertEqual(len(serializer.data), 2)
-        self.assertEqual(serializer.data[0]['content'], 'This is a test tweet!')
-        self.assertEqual(serializer.data[1]['content'], 'Second tweet')
+        self.assertEqual(serializer.data[0]['content'], 'This is a test post!')
+        self.assertEqual(serializer.data[1]['content'], 'Second post')
 
     def test_serializer_partial_update(self):
         """Test serializer with partial update (patch)."""
-        tweet = Tweets.objects.create(**self.valid_tweet_data)
+        post = Post.objects.create(**self.valid_post_data)
         update_data = {'content': 'Updated content'}
 
-        serializer = StatusSerializer(tweet, data=update_data, partial=True)
+        serializer = StatusSerializer(post, data=update_data, partial=True)
         self.assertTrue(serializer.is_valid())
 
-        updated_tweet = serializer.save()
-        self.assertEqual(updated_tweet.content, 'Updated content')
-        self.assertEqual(updated_tweet.user_id, 'user123')  # Should remain unchanged
+        updated_post = serializer.save()
+        self.assertEqual(updated_post.content, 'Updated content')
+        self.assertEqual(updated_post.user_id, 'user123')  # Should remain unchanged
 
     def test_serializer_validation_with_whitespace(self):
         """Test serializer handles whitespace-only content."""
@@ -136,5 +136,5 @@ class StatusSerializerTest(TestCase):
 
         # Mock user_id assignment
         serializer.validated_data['user_id'] = 'user123'
-        tweet = serializer.save()
-        self.assertEqual(tweet.content, special_content)
+        post = serializer.save()
+        self.assertEqual(post.content, special_content)

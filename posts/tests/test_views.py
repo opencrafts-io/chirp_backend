@@ -2,26 +2,27 @@ from django.test import TestCase
 from rest_framework.test import APIRequestFactory
 from rest_framework import status
 from unittest.mock import Mock, patch
-from ..models import Tweets
-from ..views import TweetsListCreateView
+from ..models import Post
+from ..views import PostListCreateView
 from ..serializers import StatusSerializer
 
 
-class TweetsListCreateViewTest(TestCase):
+class postsListCreateViewTest(TestCase):
+
     def setUp(self):
         """Set up test data for each test method."""
         self.factory = APIRequestFactory()
-        self.view = TweetsListCreateView.as_view()
-        self.valid_tweet_data = {
+        self.view = PostListCreateView.as_view()
+        self.valid_post_data = {
             'user_id': 'user123',
-            'content': 'This is a test tweet!'
+            'content': 'This is a test post!'
         }
         self.valid_request_data = {
-            'content': 'This is a test tweet!'
+            'content': 'This is a test post!'
         }
 
     def test_get_empty_queryset(self):
-        """Test GET request with no tweets in database."""
+        """Test GET request with no posts in database."""
         request = self.factory.get('/statuses/')
         request.user_id = 'user123'
 
@@ -30,14 +31,14 @@ class TweetsListCreateViewTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, [])
 
-    def test_get_with_tweets(self):
-        """Test GET request returns all tweets."""
-        # Create test tweets
-        tweet1 = Tweets.objects.create(**self.valid_tweet_data)
-        tweet2_data = self.valid_tweet_data.copy()
-        tweet2_data['content'] = 'Second tweet'
-        tweet2_data['user_id'] = 'user456'
-        tweet2 = Tweets.objects.create(**tweet2_data)
+    def test_get_with_posts(self):
+        """Test GET request returns all posts."""
+        # Create test posts
+        post1 = Post.objects.create(**self.valid_post_data)
+        post2_data = self.valid_post_data.copy()
+        post2_data['content'] = 'Second post'
+        post2_data['user_id'] = 'user456'
+        post2 = Post.objects.create(**post2_data)
 
         request = self.factory.get('/statuses/')
         request.user_id = 'user123'
@@ -50,9 +51,9 @@ class TweetsListCreateViewTest(TestCase):
         self.assertIn('user_id', response.data[0])
         self.assertIn('created_at', response.data[0])
 
-    def test_get_tweets_serialization(self):
-        """Test that GET request properly serializes tweets."""
-        tweet = Tweets.objects.create(**self.valid_tweet_data)
+    def test_get_posts_serialization(self):
+        """Test that GET request properly serializes posts."""
+        post = Post.objects.create(**self.valid_post_data)
 
         request = self.factory.get('/statuses/')
         request.user_id = 'user123'
@@ -60,23 +61,23 @@ class TweetsListCreateViewTest(TestCase):
         response = self.view(request)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data[0]['content'], 'This is a test tweet!')
+        self.assertEqual(response.data[0]['content'], 'This is a test post!')
         self.assertEqual(response.data[0]['user_id'], 'user123')
-        self.assertEqual(response.data[0]['id'], tweet.id)
+        self.assertEqual(response.data[0]['id'], post.id)
 
     def test_post_valid_data(self):
-        """Test POST request with valid data creates tweet."""
+        """Test POST request with valid data creates post."""
         request = self.factory.post('/statuses/', self.valid_request_data)
         request.user_id = 'user123'
 
         response = self.view(request)
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Tweets.objects.count(), 1)
+        self.assertEqual(Post.objects.count(), 1)
 
-        created_tweet = Tweets.objects.first()
-        self.assertEqual(created_tweet.content, 'This is a test tweet!')
-        self.assertEqual(created_tweet.user_id, 'user123')
+        created_post = Post.objects.first()
+        self.assertEqual(created_post.content, 'This is a test post!')
+        self.assertEqual(created_post.user_id, 'user123')
 
     def test_post_assigns_user_id_from_request(self):
         """Test POST request assigns user_id from request object."""
@@ -98,7 +99,7 @@ class TweetsListCreateViewTest(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('non_field_errors', response.data)
-        self.assertEqual(Tweets.objects.count(), 0)
+        self.assertEqual(Post.objects.count(), 0)
 
     def test_post_missing_content(self):
         """Test POST request with missing content field."""
@@ -157,12 +158,12 @@ class TweetsListCreateViewTest(TestCase):
         # Original data should not have user_id
         self.assertNotIn('user_id', original_data)
 
-    def test_post_multiple_tweets_same_user(self):
-        """Test user can create multiple tweets."""
+    def test_post_multiple_posts_same_user(self):
+        """Test user can create multiple posts."""
         request1 = self.factory.post('/statuses/', self.valid_request_data)
         request1.user_id = 'user123'
 
-        request2_data = {'content': 'Second tweet'}
+        request2_data = {'content': 'Second post'}
         request2 = self.factory.post('/statuses/', request2_data)
         request2.user_id = 'user123'
 
@@ -171,23 +172,23 @@ class TweetsListCreateViewTest(TestCase):
 
         self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response2.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Tweets.objects.count(), 2)
+        self.assertEqual(Post.objects.count(), 2)
 
     def test_view_uses_correct_serializer(self):
         """Test that view uses StatusSerializer."""
         request = self.factory.get('/statuses/')
         request.user_id = 'user123'
 
-        with patch('tweets.views.StatusSerializer') as mock_serializer:
+        with patch('posts.views.StatusSerializer') as mock_serializer:
             mock_serializer.return_value.data = []
             response = self.view(request)
             mock_serializer.assert_called()
 
-    def test_get_queryset_all_tweets(self):
-        """Test GET request retrieves all tweets (no filtering by user)."""
+    def test_get_queryset_all_posts(self):
+        """Test GET request retrieves all posts (no filtering by user)."""
 
-        tweet1 = Tweets.objects.create(user_id='user1', content='Tweet 1')
-        tweet2 = Tweets.objects.create(user_id='user2', content='Tweet 2')
+        post1 = Post.objects.create(user_id='user1', content='post 1')
+        post2 = Post.objects.create(user_id='user2', content='post 2')
 
         request = self.factory.get('/statuses/')
         request.user_id = 'user3'

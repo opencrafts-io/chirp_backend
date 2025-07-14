@@ -5,7 +5,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 from unittest.mock import patch
-from tweets.models import Tweets
+from posts.models import Post
 from groups.models import Group, GroupPost, GroupInvite
 from dmessages.models import Message
 
@@ -32,25 +32,25 @@ class ChirpIntegrationTest(TestCase):
         token = jwt.encode({'sub': user_id, 'exp': 9999999999}, 'mock_secret', algorithm='HS256')
         return {'Authorization': f'Bearer {token}'}
 
-    @patch('tweets.middleware.jwt.decode')
+    @patch('posts.middleware.jwt.decode')
     def test_complete_user_workflow(self, mock_jwt_decode):
-        """Test complete user workflow: tweet, create group, invite users, send messages."""
+        """Test complete user workflow: post, create group, invite users, send messages."""
 
-        # Step 1: User1 creates a tweet
+        # Step 1: User1 creates a post
         mock_jwt_decode.return_value = self.user1_payload
-        tweet_data = {'content': 'Hello world! This is my first tweet.'}
+        post_data = {'content': 'Hello world! This is my first post.'}
 
         response = self.client.post(
             '/statuses/',
-            data=json.dumps(tweet_data),
+            data=json.dumps(post_data),
             content_type='application/json',
             **self._get_auth_headers(self.user1_id)
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Tweets.objects.count(), 1)
-        created_tweet = Tweets.objects.first()
-        self.assertEqual(created_tweet.user_id, self.user1_id)
+        self.assertEqual(Post.objects.count(), 1)
+        created_post = Post.objects.first()
+        self.assertEqual(created_post.user_id, self.user1_id)
 
         # Step 2: User1 creates a group
         group_data = {
@@ -156,7 +156,7 @@ class ChirpIntegrationTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Message.objects.count(), 2)
 
-    @patch('tweets.middleware.jwt.decode')
+    @patch('posts.middleware.jwt.decode')
     def test_group_admin_workflow(self, mock_jwt_decode):
         """Test group admin workflow: create group, add members, manage posts."""
 
@@ -234,19 +234,19 @@ class ChirpIntegrationTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
 
-    @patch('tweets.middleware.jwt.decode')
+    @patch('posts.middleware.jwt.decode')
     def test_cross_app_data_consistency(self, mock_jwt_decode):
-        """Test data consistency across tweets, groups, and messages."""
+        """Test data consistency across posts, groups, and messages."""
 
         # Create test data across all apps
         mock_jwt_decode.return_value = self.user1_payload
 
-        # Create tweets
+        # Create posts
         for i in range(3):
-            tweet_data = {'content': f'Tweet number {i+1}'}
+            post_data = {'content': f'post number {i+1}'}
             response = self.client.post(
                 '/statuses/',
-                data=json.dumps(tweet_data),
+                data=json.dumps(post_data),
                 content_type='application/json',
                 **self._get_auth_headers(self.user1_id)
             )
@@ -282,13 +282,13 @@ class ChirpIntegrationTest(TestCase):
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         # Verify data counts
-        self.assertEqual(Tweets.objects.count(), 3)
+        self.assertEqual(Post.objects.count(), 3)
         self.assertEqual(Group.objects.count(), 2)
         self.assertEqual(Message.objects.count(), 4)
 
         # Verify user associations
-        user1_tweets = Tweets.objects.filter(user_id=self.user1_id)
-        self.assertEqual(user1_tweets.count(), 3)
+        user1_posts = Post.objects.filter(user_id=self.user1_id)
+        self.assertEqual(user1_posts.count(), 3)
 
         user1_groups = Group.objects.filter(creator_id=self.user1_id)
         self.assertEqual(user1_groups.count(), 2)
@@ -296,7 +296,7 @@ class ChirpIntegrationTest(TestCase):
         user1_messages_received = Message.objects.filter(recipient_id=self.user1_id)
         self.assertEqual(user1_messages_received.count(), 4)
 
-    @patch('tweets.middleware.jwt.decode')
+    @patch('posts.middleware.jwt.decode')
     def test_permission_boundaries(self, mock_jwt_decode):
         """Test that users can only access data they have permissions for."""
 
@@ -343,7 +343,7 @@ class ChirpIntegrationTest(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    @patch('tweets.middleware.jwt.decode')
+    @patch('posts.middleware.jwt.decode')
     def test_messaging_privacy(self, mock_jwt_decode):
         """Test that users can only see messages addressed to them."""
 
@@ -384,15 +384,15 @@ class ChirpIntegrationTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 0)
 
-    @patch('tweets.middleware.jwt.decode')
+    @patch('posts.middleware.jwt.decode')
     def test_global_timeline_access(self, mock_jwt_decode):
-        """Test that all users can see all tweets (global timeline)."""
+        """Test that all users can see all posts (global timeline)."""
 
-        # Multiple users create tweets
+        # Multiple users create posts
         mock_jwt_decode.return_value = self.user1_payload
         response = self.client.post(
             '/statuses/',
-            data=json.dumps({'content': 'User1 tweet'}),
+            data=json.dumps({'content': 'User1 post'}),
             content_type='application/json',
             **self._get_auth_headers(self.user1_id)
         )
@@ -401,13 +401,13 @@ class ChirpIntegrationTest(TestCase):
         mock_jwt_decode.return_value = self.user2_payload
         response = self.client.post(
             '/statuses/',
-            data=json.dumps({'content': 'User2 tweet'}),
+            data=json.dumps({'content': 'User2 post'}),
             content_type='application/json',
             **self._get_auth_headers(self.user2_id)
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-        # User3 can see all tweets
+        # User3 can see all posts
         mock_jwt_decode.return_value = self.user3_payload
         response = self.client.get(
             '/statuses/',
@@ -417,6 +417,6 @@ class ChirpIntegrationTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
 
-        tweet_contents = [tweet['content'] for tweet in response.data]
-        self.assertIn('User1 tweet', tweet_contents)
-        self.assertIn('User2 tweet', tweet_contents)
+        post_contents = [post['content'] for post in response.data]
+        self.assertIn('User1 post', post_contents)
+        self.assertIn('User2 post', post_contents)

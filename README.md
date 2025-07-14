@@ -3,7 +3,7 @@
 A Django-based microservice for a simple social media platform called Chirp.
 
 ## Features
-- 📝 Post and view statuses (tweets) with 280 character limit
+- 📝 Post and view statuses (posts) with 280 character limit
 - 👥 Create and manage groups with admin/member roles
 - 📧 Send group invitations and manage memberships
 - 💬 Post messages in groups with permission controls
@@ -13,7 +13,7 @@ A Django-based microservice for a simple social media platform called Chirp.
 
 ## Project Structure
 - `chirp/` - Main Django project settings, URLs, and JWT utilities
-- `tweets/` - Status (tweet) related logic and API endpoints
+- `posts/` - Status (post) related logic and API endpoints
 - `groups/` - Group management logic with permission system
 - `dmessages/` - Direct messaging logic with privacy controls
 - `*/tests/` - Comprehensive tests
@@ -105,7 +105,7 @@ Authorization: Bearer <jwt_token>
 
 ### Main Endpoints
 - `GET /ping/` - Health check (no auth required)
-- `GET|POST /statuses/` - View/create tweets
+- `GET|POST /statuses/` - View/create posts
 - `GET|POST /groups/` - View/create groups
 - `POST /groups/{id}/add_member/` - Add member to group
 - `POST /groups/{id}/invite/` - Invite user to group
@@ -118,7 +118,7 @@ Authorization: Bearer <jwt_token>
 # Health check
 curl http://localhost:8000/ping/
 
-# Create tweet (requires JWT)
+# Create post (requires JWT)
 curl -X POST -H "Authorization: Bearer <jwt_token>" \
      -H "Content-Type: application/json" \
      -d '{"content": "Hello, Chirp!"}' \
@@ -142,7 +142,7 @@ The project includes tests:
 python manage.py test
 
 # Run specific app tests
-python manage.py test tweets.tests
+python manage.py test posts.tests
 python manage.py test groups.tests
 python manage.py test dmessages.tests
 
@@ -150,7 +150,7 @@ python manage.py test dmessages.tests
 python manage.py test --verbosity=2
 
 # Run specific test categories
-python manage.py test tweets.tests.test_models
+python manage.py test posts.tests.test_models
 python manage.py test groups.tests.test_endpoints
 python manage.py test chirp.tests.test_middleware
 ```

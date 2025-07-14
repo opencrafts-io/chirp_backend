@@ -31,7 +31,7 @@ ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
     "qachirp.opencrafts.io",
-    ".opencrafts.io" 
+    ".opencrafts.io"
 ]
 
 
@@ -46,7 +46,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'tweets',
+    'posts',
     'groups',
     'dmessages'
 ]
@@ -83,7 +83,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'tweets.middleware.JWTDecodeMiddleware',
+    'posts.middleware.JWTDecodeMiddleware',
 ]
 
 ROOT_URLCONF = 'chirp.urls'
