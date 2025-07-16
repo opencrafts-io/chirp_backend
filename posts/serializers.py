@@ -9,7 +9,7 @@ class AttachmentSerializer(serializers.ModelSerializer):
 
 
 class PostSerializer(serializers.ModelSerializer):
-    is_liked = serializers.SerializerMethodField()
+    is_liked = serializers.BooleanField(read_only=True)
     attachments = AttachmentSerializer(many=True, read_only=True)
     content = serializers.CharField(max_length=280, required=False, allow_blank=True)
 
@@ -25,13 +25,7 @@ class PostSerializer(serializers.ModelSerializer):
             "is_liked",
             "attachments",
         ]
-        read_only_fields = ["user_id", "like_count", "is_liked"]
-
-    def get_is_liked(self, obj):
-        user_id = self.context.get("user_id")
-        if user_id:
-            return PostLike.objects.filter(post=obj, user_id=user_id).exists()
-        return False
+        read_only_fields = ["user_id", "like_count"]
 
 
 class PostReplySerializer(serializers.ModelSerializer):

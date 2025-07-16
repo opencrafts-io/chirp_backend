@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from .models import Attachment, Post, PostLike, PostReply
 from .serializers import PostReplySerializer, PostSerializer
 from .permissions import IsAuthenticatedCustom
-from django.db.models import F
+from django.db.models import Exists, F, OuterRef
 
 
 class PostCreateView(generics.CreateAPIView):
@@ -44,8 +44,19 @@ class PostCreateView(generics.CreateAPIView):
 
 
 class PostListView(generics.ListAPIView):
-    queryset = Post.objects.all().order_by("-created_at")
     serializer_class = PostSerializer
+
+    def get_queryset(self):
+        user_id = self.request.user_id
+        queryset = Post.objects.all().order_by("-created_at")
+
+        if user_id:
+            user_likes = PostLike.objects.filter(
+                user_id=user_id, post_id=OuterRef("pk")
+            )
+            queryset = queryset.annotate(is_liked=Exists(user_likes))
+
+        return queryset
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -54,9 +65,20 @@ class PostListView(generics.ListAPIView):
 
 
 class PostDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Post.objects.all()
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticatedCustom]
+
+    def get_queryset(self):
+        user_id = self.request.user_id
+        queryset = Post.objects.all()
+
+        if user_id:
+            user_likes = PostLike.objects.filter(
+                user_id=user_id, post_id=OuterRef("pk")
+            )
+            queryset = queryset.annotate(is_liked=Exists(user_likes))
+
+        return queryset
 
     def get_serializer_context(self):
         context = super().get_serializer_context()

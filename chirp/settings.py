@@ -27,12 +27,7 @@ SECRET_KEY = 'django-insecure-_27eto_6&*cz6cx26valns6lqv*v4am224r3j9y5@hoz*58=_-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    "qachirp.opencrafts.io",
-    ".opencrafts.io"
-]
+ALLOWED_HOSTS = [os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1")]
 
 
 
