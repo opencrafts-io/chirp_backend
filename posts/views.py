@@ -119,6 +119,6 @@ class PostLikeToggleView(APIView):
 
         if deleted_count > 0:
             Post.objects.filter(pk=pk).update(like_count=F("like_count") - 1)
-            return Response({"status": "unliked"}, status=status.HTTP_204_NO_CONTENT)
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
         return Response({"status": "not liked"}, status=status.HTTP_404_NOT_FOUND)
