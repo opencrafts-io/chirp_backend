@@ -23,7 +23,7 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('ping/', views.ping, name='ping'),
-    path('statuses/', include('tweets.urls')),
+    path('statuses/', include('posts.urls')),
     path('groups/', include('groups.urls')),
     path('messages/', include('dmessages.urls')),
 ]
