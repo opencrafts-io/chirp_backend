@@ -18,7 +18,7 @@ class Attachment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.get_attachment_type_display()} for post {self.post}"
+        return f"{self.attachment_type} for post {self.post}"
 
 
 class Post(models.Model):
