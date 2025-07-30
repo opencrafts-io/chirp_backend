@@ -44,7 +44,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'posts',
     'groups',
-    'dmessages'
+    'dmessages',
+    'conversations'
 ]
 
 REST_FRAMEWORK = {

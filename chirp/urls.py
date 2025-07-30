@@ -25,6 +25,7 @@ urlpatterns = [
     path('ping/', views.ping, name='ping'),
     path('statuses/', include('posts.urls')),
     path('groups/', include('groups.urls')),
+    path('conversations/', include('conversations.urls')),
     path('messages/', include('dmessages.urls')),
 ]
 

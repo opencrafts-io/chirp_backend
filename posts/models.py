@@ -45,7 +45,7 @@ class Post(models.Model):
             raise ValidationError("User ID cannot exceed 100 characters.")
 
     def __str__(self):
-        return f"{self.user_id}: {self.content[:50]}..."
+        return f"{self.user_id}: {self.content}..."
 
 class PostLike(models.Model):
     user_id = models.CharField(max_length=100)
@@ -64,6 +64,5 @@ class PostReply(models.Model):
     content = models.TextField(max_length=280)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
     def __str__(self) -> str:
-        return f"Reply by {self.user_id}: to post {self.parent_post.content}"
+        return f"Reply by {self.user_id} to post: {self.parent_post.content}..."

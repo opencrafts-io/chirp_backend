@@ -23,12 +23,14 @@ class WhitespaceAllowedCharField(serializers.CharField):
 class MessageSerializer(serializers.ModelSerializer):
     content = WhitespaceAllowedCharField(required=False)
     sender_id = serializers.CharField(read_only=True, max_length=100)
+    recipient_id = serializers.CharField(required=False, max_length=100)  # Make optional for updates
     attachments = MessageAttachmentSerializer(many=True, read_only=True)
 
     class Meta:
         model = Message
-        fields = ['id', 'sender_id', 'recipient_id', 'content', 'created_at', 'attachments']
-        read_only_fields = ['id', 'sender_id', 'created_at']
+        fields = ['id', 'sender_id', 'recipient_id', 'content', 'created_at', 'updated_at',
+                 'is_read', 'is_deleted', 'attachments', 'conversation']
+        read_only_fields = ['id', 'sender_id', 'created_at', 'updated_at']
 
     def validate_content(self, value):
         """Validate message content"""
@@ -38,6 +40,10 @@ class MessageSerializer(serializers.ModelSerializer):
 
     def validate_recipient_id(self, value):
         """Validate recipient_id"""
+        # Allow empty recipient_id during updates (for conversation messages)
+        if self.instance and not value:
+            return value
+
         if not value or not value.strip():
             raise serializers.ValidationError("Recipient ID cannot be empty.")
 
