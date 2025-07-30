@@ -1,0 +1,2757 @@
+{
+	"info": {
+		"_postman_id": "9692270c-02fc-429c-ad23-ccddd1a0a216",
+		"name": "Chirp Microservice API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "35315949"
+	},
+	"item": [
+		{
+			"name": "conversations & chats",
+			"item": [
+				{
+					"name": "List user’s messages",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/messages/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"messages",
+								""
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "200 response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/messages/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"messages",
+										""
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "[\n  {\n    \"id\": 79470888,\n    \"sender_id\": \"aute\",\n    \"recipient_id\": \"esse ullamco est consectetur\",\n    \"content\": \"do sint in nulla sit\",\n    \"created_at\": \"1984-11-10T11:55:34.714Z\"\n  },\n  {\n    \"id\": -37333528,\n    \"sender_id\": \"ut esse sit nostrud\",\n    \"recipient_id\": \"ipsum elit do\",\n    \"content\": \"commodo anim id aliqua fugiat\",\n    \"created_at\": \"1967-08-20T17:41:09.349Z\"\n  }\n]"
+						}
+					]
+				},
+				{
+					"name": "Send a message",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"recipient_id\": \"deserunt sed cillum\",\n  \"content\": \"elit\"\n}",
+							"options": {
+								"raw": {
+									"headerFamily": "json",
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/messages/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"messages",
+								""
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "201 Created",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"recipient_id\": \"22-3371\",\n  \"content\": \"wow\"\n}",
+									"options": {
+										"raw": {
+											"headerFamily": "json",
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/messages/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"messages",
+										""
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Tue, 29 Jul 2025 21:01:22 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "GET, POST, HEAD, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "123"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"id\": 1,\n    \"sender_id\": \"default_user_123\",\n    \"recipient_id\": \"22-3371\",\n    \"content\": \"wow\",\n    \"created_at\": \"2025-07-29T21:01:22.418690Z\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Mark Message Read",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": [
+						{
+							"name": "200 response",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/messages/:id/read/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"messages",
+										":id",
+										"read",
+										""
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "4"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Wed, 30 Jul 2025 10:30:18 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "PUT, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "247"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"id\": 4,\n    \"sender_id\": \"default_user_123\",\n    \"recipient_id\": \"default_user_123\",\n    \"content\": \"edit\",\n    \"created_at\": \"2025-07-30T09:16:46.929505Z\",\n    \"updated_at\": \"2025-07-30T10:30:18.086493Z\",\n    \"is_read\": true,\n    \"is_deleted\": false,\n    \"attachments\": [],\n    \"conversation\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "Edit Messages",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": [
+						{
+							"name": "200 response",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"content\": \"edit\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/messages/:id/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"messages",
+										":id",
+										""
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "4"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Wed, 30 Jul 2025 10:26:25 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "GET, PUT, PATCH, DELETE, HEAD, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "247"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"id\": 4,\n    \"sender_id\": \"default_user_123\",\n    \"recipient_id\": \"default_user_123\",\n    \"content\": \"edit\",\n    \"created_at\": \"2025-07-30T09:16:46.929505Z\",\n    \"updated_at\": \"2025-07-30T10:26:25.858182Z\",\n    \"is_read\": true,\n    \"is_deleted\": false,\n    \"attachments\": [],\n    \"conversation\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "Delete Message",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": [
+						{
+							"name": "204 response",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/messages/:id/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"messages",
+										":id",
+										""
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "3"
+										}
+									]
+								}
+							},
+							"status": "No Content",
+							"code": 204,
+							"_postman_previewlanguage": "plain",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Wed, 30 Jul 2025 10:27:45 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "GET, PUT, PATCH, DELETE, HEAD, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "0"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": null
+						}
+					]
+				},
+				{
+					"name": "Retrieve conversation",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": [
+						{
+							"name": "200 response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/conversations/:id/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"conversations",
+										":id",
+										""
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "conv_0c848150"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Wed, 30 Jul 2025 10:12:52 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "GET, HEAD, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "1220"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"conversation_id\": \"conv_0c848150\",\n    \"participants\": [\n        \"user3\",\n        \"user4\",\n        \"default_user_123\"\n    ],\n    \"created_at\": \"2025-07-30T09:11:35.683536Z\",\n    \"updated_at\": \"2025-07-30T09:17:21.120105Z\",\n    \"last_message_at\": \"2025-07-30T09:17:21.117362Z\",\n    \"messages\": [\n        {\n            \"id\": 3,\n            \"conversation\": 2,\n            \"sender_id\": \"default_user_123\",\n            \"content\": \"Hello, this is a test message!\",\n            \"created_at\": \"2025-07-30T09:14:23.390023Z\",\n            \"is_read\": false\n        },\n        {\n            \"id\": 4,\n            \"conversation\": 2,\n            \"sender_id\": \"default_user_123\",\n            \"content\": \"Hello, this is a test message!\",\n            \"created_at\": \"2025-07-30T09:14:45.855400Z\",\n            \"is_read\": false\n        },\n        {\n            \"id\": 5,\n            \"conversation\": 2,\n            \"sender_id\": \"default_user_123\",\n            \"content\": \"Hello, this is a test message!\",\n            \"created_at\": \"2025-07-30T09:15:49.300122Z\",\n            \"is_read\": false\n        },\n        {\n            \"id\": 6,\n            \"conversation\": 2,\n            \"sender_id\": \"default_user_123\",\n            \"content\": \"Hello, this is a test message!\",\n            \"created_at\": \"2025-07-30T09:16:46.881197Z\",\n            \"is_read\": false\n        },\n        {\n            \"id\": 7,\n            \"conversation\": 2,\n            \"sender_id\": \"default_user_123\",\n            \"content\": \"Hello, this is a test message!\",\n            \"created_at\": \"2025-07-30T09:17:21.117362Z\",\n            \"is_read\": false\n        }\n    ],\n    \"last_message\": {\n        \"id\": 7,\n        \"conversation\": 2,\n        \"sender_id\": \"default_user_123\",\n        \"content\": \"Hello, this is a test message!\",\n        \"created_at\": \"2025-07-30T09:17:21.117362Z\",\n        \"is_read\": false\n    },\n    \"unread_count\": 0\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Conversations",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": [
+						{
+							"name": "200 response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/conversations/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"conversations",
+										""
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Wed, 30 Jul 2025 10:08:17 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "GET, HEAD, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "1470"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "[\n    {\n        \"conversation_id\": \"conv_feedc8e5\",\n        \"participants\": [\n            \"user1\",\n            \"user2\",\n            \"default_user_123\"\n        ],\n        \"created_at\": \"2025-07-30T09:09:45.248963Z\",\n        \"updated_at\": \"2025-07-30T09:09:45.248977Z\",\n        \"last_message_at\": null,\n        \"messages\": [],\n        \"last_message\": null,\n        \"unread_count\": 0\n    },\n    {\n        \"conversation_id\": \"conv_0c848150\",\n        \"participants\": [\n            \"user3\",\n            \"user4\",\n            \"default_user_123\"\n        ],\n        \"created_at\": \"2025-07-30T09:11:35.683536Z\",\n        \"updated_at\": \"2025-07-30T09:17:21.120105Z\",\n        \"last_message_at\": \"2025-07-30T09:17:21.117362Z\",\n        \"messages\": [\n            {\n                \"id\": 3,\n                \"conversation\": 2,\n                \"sender_id\": \"default_user_123\",\n                \"content\": \"Hello, this is a test message!\",\n                \"created_at\": \"2025-07-30T09:14:23.390023Z\",\n                \"is_read\": false\n            },\n            {\n                \"id\": 4,\n                \"conversation\": 2,\n                \"sender_id\": \"default_user_123\",\n                \"content\": \"Hello, this is a test message!\",\n                \"created_at\": \"2025-07-30T09:14:45.855400Z\",\n                \"is_read\": false\n            },\n            {\n                \"id\": 5,\n                \"conversation\": 2,\n                \"sender_id\": \"default_user_123\",\n                \"content\": \"Hello, this is a test message!\",\n                \"created_at\": \"2025-07-30T09:15:49.300122Z\",\n                \"is_read\": false\n            },\n            {\n                \"id\": 6,\n                \"conversation\": 2,\n                \"sender_id\": \"default_user_123\",\n                \"content\": \"Hello, this is a test message!\",\n                \"created_at\": \"2025-07-30T09:16:46.881197Z\",\n                \"is_read\": false\n            },\n            {\n                \"id\": 7,\n                \"conversation\": 2,\n                \"sender_id\": \"default_user_123\",\n                \"content\": \"Hello, this is a test message!\",\n                \"created_at\": \"2025-07-30T09:17:21.117362Z\",\n                \"is_read\": false\n            }\n        ],\n        \"last_message\": {\n            \"id\": 7,\n            \"conversation\": 2,\n            \"sender_id\": \"default_user_123\",\n            \"content\": \"Hello, this is a test message!\",\n            \"created_at\": \"2025-07-30T09:17:21.117362Z\",\n            \"is_read\": false\n        },\n        \"unread_count\": 0\n    }\n]"
+						}
+					]
+				},
+				{
+					"name": "Get conversation Messages",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": [
+						{
+							"name": "200 response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/conversations/:id/messages/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"conversations",
+										":id",
+										"messages",
+										""
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "conv_0c848150"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Wed, 30 Jul 2025 10:14:23 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "GET, POST, HEAD, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "796"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "[\n    {\n        \"id\": 3,\n        \"conversation\": 2,\n        \"sender_id\": \"default_user_123\",\n        \"content\": \"Hello, this is a test message!\",\n        \"created_at\": \"2025-07-30T09:14:23.390023Z\",\n        \"is_read\": false\n    },\n    {\n        \"id\": 4,\n        \"conversation\": 2,\n        \"sender_id\": \"default_user_123\",\n        \"content\": \"Hello, this is a test message!\",\n        \"created_at\": \"2025-07-30T09:14:45.855400Z\",\n        \"is_read\": false\n    },\n    {\n        \"id\": 5,\n        \"conversation\": 2,\n        \"sender_id\": \"default_user_123\",\n        \"content\": \"Hello, this is a test message!\",\n        \"created_at\": \"2025-07-30T09:15:49.300122Z\",\n        \"is_read\": false\n    },\n    {\n        \"id\": 6,\n        \"conversation\": 2,\n        \"sender_id\": \"default_user_123\",\n        \"content\": \"Hello, this is a test message!\",\n        \"created_at\": \"2025-07-30T09:16:46.881197Z\",\n        \"is_read\": false\n    },\n    {\n        \"id\": 7,\n        \"conversation\": 2,\n        \"sender_id\": \"default_user_123\",\n        \"content\": \"Hello, this is a test message!\",\n        \"created_at\": \"2025-07-30T09:17:21.117362Z\",\n        \"is_read\": false\n    }\n]"
+						}
+					]
+				},
+				{
+					"name": "Send Messages",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"content\": \"Hello, how are you?\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/conversations/:id/messages/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"conversations",
+								":id",
+								"messages",
+								""
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "conv_0c848150"
+								}
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "201 response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"content\": \"Hello, how are you?\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/conversations/:id/messages/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"conversations",
+										":id",
+										"messages",
+										""
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "conv_0c848150"
+										}
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Wed, 30 Jul 2025 10:15:59 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "GET, POST, HEAD, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "147"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"id\": 8,\n    \"conversation\": 2,\n    \"sender_id\": \"default_user_123\",\n    \"content\": \"Hello, how are you?\",\n    \"created_at\": \"2025-07-30T10:15:59.624154Z\",\n    \"is_read\": false\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Conversations",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "posts",
+			"item": [
+				{
+					"name": "List all posts",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIiwiaWF0IjoxNzUxODIxNDM1LCJleHAiOjE3NTE5MDc4MzV9.lw7trxcOQfXYsZJ_U9QjmI4_euSVpN0fR9FZa8JtRiI",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/statuses/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"statuses",
+								""
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "200 response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/statuses/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"statuses",
+										""
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Tue, 29 Jul 2025 21:32:56 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "GET, HEAD, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "203"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "[\n    {\n        \"id\": 2,\n        \"user_id\": \"default_user_123\",\n        \"content\": \"See you in space\",\n        \"created_at\": \"2025-07-29T21:31:01.000392Z\",\n        \"updated_at\": \"2025-07-29T21:31:01.000408Z\",\n        \"like_count\": 0,\n        \"is_liked\": false,\n        \"attachments\": []\n    }\n]"
+						}
+					]
+				},
+				{
+					"name": "Create a post",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIiwiaWF0IjoxNzUxODIxNDM1LCJleHAiOjE3NTE5MDc4MzV9.lw7trxcOQfXYsZJ_U9QjmI4_euSVpN0fR9FZa8JtRiI",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"content\": \"See you in space\"\n}",
+							"options": {
+								"raw": {
+									"headerFamily": "json",
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/statuses/create/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"statuses",
+								"create",
+								""
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "200 response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"content\": \"See you in space\"\n}",
+									"options": {
+										"raw": {
+											"headerFamily": "json",
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/statuses/create/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"statuses",
+										"create",
+										""
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Tue, 29 Jul 2025 21:31:01 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "POST, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "184"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"id\": 2,\n    \"user_id\": \"default_user_123\",\n    \"content\": \"See you in space\",\n    \"created_at\": \"2025-07-29T21:31:01.000392Z\",\n    \"updated_at\": \"2025-07-29T21:31:01.000408Z\",\n    \"like_count\": 0,\n    \"attachments\": []\n}"
+						}
+					]
+				},
+				{
+					"name": "Like a post",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/statuses/:post_id/like/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"statuses",
+								":post_id",
+								"like",
+								""
+							],
+							"variable": [
+								{
+									"key": "post_id",
+									"value": "2"
+								}
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "201 response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/statuses/:post_id/like/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"statuses",
+										":post_id",
+										"like",
+										""
+									],
+									"variable": [
+										{
+											"key": "post_id",
+											"value": "1"
+										}
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Tue, 29 Jul 2025 21:24:10 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "POST, DELETE, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "18"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"liked\"\n}"
+						},
+						{
+							"name": "404 response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/statuses/:post_id/like/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"statuses",
+										":post_id",
+										"like",
+										""
+									],
+									"variable": [
+										{
+											"key": "post_id",
+											"value": "1"
+										}
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Tue, 29 Jul 2025 21:34:48 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "POST, DELETE, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "45"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"detail\": \"No Post matches the given query.\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Unlike a post",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/statuses/:post_id/like/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"statuses",
+								":post_id",
+								"like",
+								""
+							],
+							"variable": [
+								{
+									"key": "post_id",
+									"value": "2"
+								}
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "404 (unliked)",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/statuses/:post_id/like/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"statuses",
+										":post_id",
+										"like",
+										""
+									],
+									"variable": [
+										{
+											"key": "post_id",
+											"value": "2"
+										}
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Tue, 29 Jul 2025 21:35:25 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "POST, DELETE, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "22"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"not liked\"\n}"
+						},
+						{
+							"name": "204 response",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/statuses/:post_id/like/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"statuses",
+										":post_id",
+										"like",
+										""
+									],
+									"variable": [
+										{
+											"key": "post_id",
+											"value": "2"
+										}
+									]
+								}
+							},
+							"status": "No Content",
+							"code": 204,
+							"_postman_previewlanguage": "plain",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Tue, 29 Jul 2025 21:36:06 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "POST, DELETE, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "0"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": null
+						}
+					]
+				},
+				{
+					"name": "Delete Post",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/statuses/:post_id/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"statuses",
+								":post_id",
+								""
+							],
+							"variable": [
+								{
+									"key": "post_id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "404 response",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/statuses/:post_id/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"statuses",
+										":post_id",
+										""
+									],
+									"variable": [
+										{
+											"key": "post_id",
+											"value": "1"
+										}
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Tue, 29 Jul 2025 21:32:21 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "GET, PUT, PATCH, DELETE, HEAD, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "45"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"detail\": \"No Post matches the given query.\"\n}"
+						},
+						{
+							"name": "204 response",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/statuses/:post_id/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"statuses",
+										":post_id",
+										""
+									],
+									"variable": [
+										{
+											"key": "post_id",
+											"value": "2"
+										}
+									]
+								}
+							},
+							"status": "No Content",
+							"code": 204,
+							"_postman_previewlanguage": "plain",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Tue, 29 Jul 2025 21:36:41 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "GET, PUT, PATCH, DELETE, HEAD, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "0"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": null
+						}
+					]
+				},
+				{
+					"name": "Comments",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"content\": \"This is a sample reply\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/statuses/:post_id/reply/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"statuses",
+								":post_id",
+								"reply",
+								""
+							],
+							"variable": [
+								{
+									"key": "post_id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "201 created",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"content\": \"This is a sample reply\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/statuses/:post_id/reply/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"statuses",
+										":post_id",
+										"reply",
+										""
+									],
+									"variable": [
+										{
+											"key": "post_id",
+											"value": "2"
+										}
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Tue, 29 Jul 2025 21:31:28 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "POST, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "174"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"id\": 1,\n    \"parent_post\": 2,\n    \"user_id\": \"default_user_123\",\n    \"content\": \"This is a sample reply\",\n    \"created_at\": \"2025-07-29T21:31:28.239509Z\",\n    \"updated_at\": \"2025-07-29T21:31:28.239530Z\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Get comments",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/statuses/:post_id/reply/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"statuses",
+								":post_id",
+								"reply",
+								""
+							],
+							"variable": [
+								{
+									"key": "post_id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "200 response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/statuses/:post_id/reply/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"statuses",
+										":post_id",
+										"reply",
+										""
+									],
+									"variable": [
+										{
+											"key": "post_id",
+											"value": "1"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Wed, 30 Jul 2025 16:33:49 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "GET, POST, HEAD, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "176"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "[\n    {\n        \"id\": 1,\n        \"parent_post\": 1,\n        \"user_id\": \"default_user_123\",\n        \"content\": \"This is a sample reply\",\n        \"created_at\": \"2025-07-30T16:33:34.833204Z\",\n        \"updated_at\": \"2025-07-30T16:33:34.833219Z\"\n    }\n]"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "groups",
+			"item": [
+				{
+					"name": "List groups",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIiwiaWF0IjoxNzUxODIxNDM1LCJleHAiOjE3NTE5MDc4MzV9.lw7trxcOQfXYsZJ_U9QjmI4_euSVpN0fR9FZa8JtRiI",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/groups/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"groups",
+								""
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "200 response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/groups/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"groups",
+										""
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Tue, 29 Jul 2025 21:46:11 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "GET, POST, HEAD, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "193"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "[\n    {\n        \"id\": 1,\n        \"name\": \"DITA\",\n        \"description\": \"Holy Tech Ninjas\",\n        \"creator_id\": \"default_user_123\",\n        \"admins\": [\n            \"default_user_123\"\n        ],\n        \"members\": [\n            \"default_user_123\"\n        ],\n        \"created_at\": \"2025-07-29T21:45:12.538791Z\"\n    }\n]"
+						}
+					]
+				},
+				{
+					"name": "Create a group",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"proident\",\n  \"description\": \"fugiat occaecat\"\n}",
+							"options": {
+								"raw": {
+									"headerFamily": "json",
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/groups/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"groups",
+								""
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "201 response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"DITA\",\n  \"description\": \"Holy Tech Ninjas\"\n}",
+									"options": {
+										"raw": {
+											"headerFamily": "json",
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/groups/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"groups",
+										""
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Tue, 29 Jul 2025 21:45:12 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "GET, POST, HEAD, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "191"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"id\": 1,\n    \"name\": \"DITA\",\n    \"description\": \"Holy Tech Ninjas\",\n    \"creator_id\": \"default_user_123\",\n    \"admins\": [\n        \"default_user_123\"\n    ],\n    \"members\": [\n        \"default_user_123\"\n    ],\n    \"created_at\": \"2025-07-29T21:45:12.538791Z\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Admin adds a member",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIiwiaWF0IjoxNzUxODIxNDM1LCJleHAiOjE3NTE5MDc4MzV9.lw7trxcOQfXYsZJ_U9QjmI4_euSVpN0fR9FZa8JtRiI",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"user_id\": \"user234\"\n}",
+							"options": {
+								"raw": {
+									"headerFamily": "json",
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/groups/:group_id/add_member/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"groups",
+								":group_id",
+								"add_member",
+								""
+							],
+							"variable": [
+								{
+									"key": "group_id",
+									"value": "1",
+									"description": "(Required) "
+								}
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "200 response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"user_id\": \"user234\"\n}",
+									"options": {
+										"raw": {
+											"headerFamily": "json",
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/groups/:group_name/add_member/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"groups",
+										":group_name",
+										"add_member",
+										""
+									],
+									"variable": [
+										{
+											"key": "group_name",
+											"value": "DITA"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Tue, 29 Jul 2025 21:48:58 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "POST, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "260"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"id\": 1,\n    \"name\": \"DITA\",\n    \"description\": \"Holy Tech Ninjas\",\n    \"creator_id\": \"default_user_123\",\n    \"admins\": [\n        \"default_user_123\"\n    ],\n    \"members\": [\n        \"default_user_123\",\n        \"user234\"\n    ],\n    \"created_at\": \"2025-07-29T21:45:12.538791Z\",\n    \"notification\": \"User user234 has been added to the group.\"\n}"
+						},
+						{
+							"name": "404 response (group)",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"user_id\": \"user234\"\n}",
+									"options": {
+										"raw": {
+											"headerFamily": "json",
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/groups/:group_name/add_member/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"groups",
+										":group_name",
+										"add_member",
+										""
+									],
+									"variable": [
+										{
+											"key": "group_name",
+											"value": "DIT"
+										}
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Tue, 29 Jul 2025 21:49:36 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "POST, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "27"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"error\": \"Group Not Found\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Create group post",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"content\": \"eiusmod nisi cillum\"\n}",
+							"options": {
+								"raw": {
+									"headerFamily": "json",
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/groups/:group_id/posts/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"groups",
+								":group_id",
+								"posts",
+								""
+							],
+							"variable": [
+								{
+									"key": "group_id",
+									"value": "-87655952",
+									"description": "(Required) "
+								}
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "201 response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"content\": \"Hey everyone! What do you think about the new AI developments?\"\n}",
+									"options": {
+										"raw": {
+											"headerFamily": "json",
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/groups/:group_name/posts/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"groups",
+										":group_name",
+										"posts",
+										""
+									],
+									"variable": [
+										{
+											"key": "group_name",
+											"value": "DITA"
+										}
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Tue, 29 Jul 2025 21:57:34 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "GET, POST, HEAD, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "208"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"id\": 1,\n    \"group\": 1,\n    \"user_id\": \"default_user_123\",\n    \"content\": \"Hey everyone! What do you think about the new AI developments?\",\n    \"created_at\": \"2025-07-29T21:57:34.430232Z\",\n    \"updated_at\": \"2025-07-29T21:57:34.430245Z\"\n}"
+						}
+					]
+				},
+				{
+					"name": "List group posts",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/groups/:group_id/posts/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"groups",
+								":group_id",
+								"posts",
+								""
+							],
+							"variable": [
+								{
+									"key": "group_id",
+									"value": "-87655952",
+									"description": "(Required) "
+								}
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "200 response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/groups/:group_name/posts/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"groups",
+										":group_name",
+										"posts",
+										""
+									],
+									"variable": [
+										{
+											"key": "group_name",
+											"value": "DITA"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Date",
+									"value": "Tue, 29 Jul 2025 22:00:35 GMT"
+								},
+								{
+									"key": "Server",
+									"value": "WSGIServer/0.2 CPython/3.12.3"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Vary",
+									"value": "Accept"
+								},
+								{
+									"key": "Allow",
+									"value": "GET, POST, HEAD, OPTIONS"
+								},
+								{
+									"key": "X-Frame-Options",
+									"value": "DENY"
+								},
+								{
+									"key": "Content-Length",
+									"value": "210"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Referrer-Policy",
+									"value": "same-origin"
+								},
+								{
+									"key": "Cross-Origin-Opener-Policy",
+									"value": "same-origin"
+								}
+							],
+							"cookie": [],
+							"body": "[\n    {\n        \"id\": 1,\n        \"group\": 1,\n        \"user_id\": \"default_user_123\",\n        \"content\": \"Hey everyone! What do you think about the new AI developments?\",\n        \"created_at\": \"2025-07-29T21:57:34.430232Z\",\n        \"updated_at\": \"2025-07-29T21:57:34.430245Z\"\n    }\n]"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "invites",
+			"item": [
+				{
+					"name": "{invite_id}",
+					"item": [
+						{
+							"name": "accept",
+							"item": [
+								{
+									"name": "Accept group invite",
+									"request": {
+										"method": "POST",
+										"header": [
+											{
+												"key": "Accept",
+												"value": "application/json"
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/invites/:invite_id/accept/",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"invites",
+												":invite_id",
+												"accept",
+												""
+											],
+											"variable": [
+												{
+													"key": "invite_id",
+													"value": "-87655952",
+													"description": "(Required) "
+												}
+											]
+										}
+									},
+									"response": [
+										{
+											"name": "200 response",
+											"originalRequest": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"url": {
+													"raw": "{{baseUrl}}/invites/:invite_id/accept/",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"invites",
+														":invite_id",
+														"accept",
+														""
+													],
+													"variable": [
+														{
+															"key": "invite_id"
+														}
+													]
+												}
+											},
+											"status": "OK",
+											"code": 200,
+											"_postman_previewlanguage": "json",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "application/json"
+												}
+											],
+											"cookie": [],
+											"body": "{\n  \"id\": -92512309,\n  \"name\": \"minim ex in commodo\",\n  \"description\": \"proident\",\n  \"creator_id\": \"cupidatat dolore sint non conse\",\n  \"admins\": [\n    \"ut elit sint dolor\",\n    \"voluptate co\"\n  ],\n  \"members\": [\n    \"adipisicing\",\n    \"eu tempor\"\n  ],\n  \"created_at\": \"1967-05-26T22:31:44.424Z\"\n}"
+										}
+									]
+								}
+							]
+						},
+						{
+							"name": "Invite a user",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"invitee_id\": \"occaecat in ut ipsum qui\"\n}",
+									"options": {
+										"raw": {
+											"headerFamily": "json",
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/groups/:group_id/invite/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"groups",
+										":group_id",
+										"invite",
+										""
+									],
+									"variable": [
+										{
+											"key": "group_id",
+											"value": "-87655952",
+											"description": "(Required) "
+										}
+									]
+								}
+							},
+							"response": [
+								{
+									"name": "201 response",
+									"originalRequest": {
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json"
+											},
+											{
+												"key": "Accept",
+												"value": "application/json"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n  \"invitee_id\": \"user234\"\n}",
+											"options": {
+												"raw": {
+													"headerFamily": "json",
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}/groups/:group_name/invite/",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"groups",
+												":group_name",
+												"invite",
+												""
+											],
+											"variable": [
+												{
+													"key": "group_name",
+													"value": "DITA"
+												}
+											]
+										}
+									},
+									"status": "Created",
+									"code": 201,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Date",
+											"value": "Tue, 29 Jul 2025 21:51:16 GMT"
+										},
+										{
+											"key": "Server",
+											"value": "WSGIServer/0.2 CPython/3.12.3"
+										},
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										},
+										{
+											"key": "Vary",
+											"value": "Accept"
+										},
+										{
+											"key": "Allow",
+											"value": "POST, OPTIONS"
+										},
+										{
+											"key": "X-Frame-Options",
+											"value": "DENY"
+										},
+										{
+											"key": "Content-Length",
+											"value": "116"
+										},
+										{
+											"key": "X-Content-Type-Options",
+											"value": "nosniff"
+										},
+										{
+											"key": "Referrer-Policy",
+											"value": "same-origin"
+										},
+										{
+											"key": "Cross-Origin-Opener-Policy",
+											"value": "same-origin"
+										}
+									],
+									"cookie": [],
+									"body": "{\n    \"id\": 1,\n    \"group\": 1,\n    \"inviter_id\": \"default_user_123\",\n    \"invitee_id\": \"user234\",\n    \"created_at\": \"2025-07-29T21:51:16.563684Z\"\n}"
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://127.0.0.1:8000"
+		},
+		{
+			"key": "hostedUrl",
+			"value": "https://qachirp.opencrafts.io",
+			"type": "string"
+		}
+	]
+}
