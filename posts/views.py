@@ -91,6 +91,12 @@ class PostReplyCreateView(generics.CreateAPIView):
         parent_post = get_object_or_404(Post, pk=self.kwargs["post_id"])
         serializer.save(user_id=self.request.user_id, parent_post=parent_post)
 
+    # get method to get replies for a post
+    def get(self, request, post_id):
+        replies = PostReply.objects.filter(parent_post_id=post_id).order_by("-created_at")
+        serializer = self.get_serializer(replies, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class PostLikeToggleView(APIView):
 
