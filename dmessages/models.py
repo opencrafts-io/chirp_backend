@@ -32,8 +32,8 @@ class Message(models.Model):
     content = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    is_read = models.BooleanField(default=models.NOT_PROVIDED)
-    is_deleted = models.BooleanField(default=models.NOT_PROVIDED)
+    is_read = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.sender_id} to {self.recipient_id}: {self.content}..."
