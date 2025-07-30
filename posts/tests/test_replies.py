@@ -61,7 +61,7 @@ class PostReplyModelTest(TestCase):
     def test_reply_string_representation(self):
         """Test the __str__ method of the reply."""
         reply = PostReply.objects.create(**self.valid_reply_data)
-        expected_str = f"Reply by {self.reply_user_id}: to post {self.post.content}"
+        expected_str = f"Reply by {self.reply_user_id} to post: {self.post.content}..."
         self.assertEqual(str(reply), expected_str)
 
     def test_reply_parent_post_cascade_delete(self):
