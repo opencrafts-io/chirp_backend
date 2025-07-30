@@ -4,14 +4,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Attachment, Post, PostLike, PostReply
 from .serializers import PostReplySerializer, PostSerializer
-from .permissions import IsAuthenticatedCustom
 from django.db.models import Exists, F, OuterRef
 
 
 class PostCreateView(generics.CreateAPIView):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
-    permission_classes = [IsAuthenticatedCustom]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -66,7 +64,6 @@ class PostListView(generics.ListAPIView):
 
 class PostDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PostSerializer
-    permission_classes = [IsAuthenticatedCustom]
 
     def get_queryset(self):
         user_id = self.request.user_id
@@ -89,7 +86,6 @@ class PostDetailView(generics.RetrieveUpdateDestroyAPIView):
 class PostReplyCreateView(generics.CreateAPIView):
     queryset = PostReply.objects.all()
     serializer_class = PostReplySerializer
-    permission_classes = [IsAuthenticatedCustom]
 
     def perform_create(self, serializer):
         parent_post = get_object_or_404(Post, pk=self.kwargs["post_id"])
@@ -97,7 +93,6 @@ class PostReplyCreateView(generics.CreateAPIView):
 
 
 class PostLikeToggleView(APIView):
-    permission_classes = [IsAuthenticatedCustom]
 
     def post(self, request, pk, format=None):
         post = get_object_or_404(Post, pk=pk)

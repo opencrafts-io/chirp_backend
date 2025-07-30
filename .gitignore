@@ -31,3 +31,4 @@ Thumbs.db
 
 # OpenAPI/Docs
 chirp_openapi.json
+C*.md
