@@ -7,6 +7,7 @@ from .serializers import (
     ConversationCreateSerializer,
     ConversationMessageSerializer
 )
+from dmessages.models import MessageAttachment
 
 
 class ConversationListView(generics.ListAPIView):
@@ -62,7 +63,6 @@ class ConversationCreateView(generics.CreateAPIView):
         user_id = getattr(request, 'user_id', None)
         participants = request.data.get('participants', [])
 
-        # For testing purposes, use a default user if not authenticated
         if not user_id:
             user_id = "default_user_123"
 
@@ -117,7 +117,6 @@ class ConversationMessagesView(generics.ListCreateAPIView):
         conversation_id = self.kwargs.get('conversation_id')
         user_id = getattr(request, 'user_id', None)
 
-        # For testing purposes, use a default user if not authenticated
         if not user_id:
             user_id = "default_user_123"
 
@@ -127,6 +126,16 @@ class ConversationMessagesView(generics.ListCreateAPIView):
             conversation_id=conversation_id,
             participants__contains=[user_id]
         )
+
+        # Validate content or attachments
+        content_present = request.data.get('content', '').strip()
+        attachments_present = bool(request.FILES.getlist('attachments'))
+
+        if not content_present and not attachments_present:
+            return Response(
+                {"detail": "Message must have content or at least one attachment."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Create the message
         message_data = {
@@ -139,8 +148,29 @@ class ConversationMessagesView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         message = serializer.save()
 
+        # Handle file uploads
+        files = request.FILES.getlist('attachments')
+        for file in files:
+            content_type = file.content_type.lower()
+            if "image" in content_type:
+                attachment_type = "image"
+            elif "video" in content_type:
+                attachment_type = "video"
+            elif "audio" in content_type:
+                attachment_type = "audio"
+            else:
+                attachment_type = "file"
+
+            MessageAttachment.objects.create(
+                conversation_message=message,
+                file=file,
+                attachment_type=attachment_type
+            )
+
         # Update conversation's last_message_at
         conversation.last_message_at = message.created_at
         conversation.save()
 
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # Return response with attachments
+        response_serializer = self.get_serializer(message)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
