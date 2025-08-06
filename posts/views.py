@@ -29,11 +29,23 @@ class PostCreateView(generics.CreateAPIView):
 
         files = request.FILES.getlist("attachments")
         for file in files:
-            attachment_type = "image" if "image" in file.content_type else "file"
+            content_type = file.content_type.lower()
+            if "image" in content_type:
+                attachment_type = "image"
+            elif "video" in content_type:
+                attachment_type = "video"
+            elif "audio" in content_type:
+                attachment_type = "audio"
+            else:
+                attachment_type = "file"
+
             Attachment.objects.create(
-                post=post, file=file, attachment_type=attachment_type
+                post=post,
+                file=file,
+                attachment_type=attachment_type
             )
 
+        # Return response with attachments
         response_serializer = self.get_serializer(post)
         headers = self.get_success_headers(response_serializer.data)
         return Response(
@@ -90,6 +102,12 @@ class PostReplyCreateView(generics.CreateAPIView):
     def perform_create(self, serializer):
         parent_post = get_object_or_404(Post, pk=self.kwargs["post_id"])
         serializer.save(user_id=self.request.user_id, parent_post=parent_post)
+
+    # get method to get replies for a post
+    def get(self, request, post_id):
+        replies = PostReply.objects.filter(parent_post_id=post_id).order_by("-created_at")
+        serializer = self.get_serializer(replies, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class PostLikeToggleView(APIView):

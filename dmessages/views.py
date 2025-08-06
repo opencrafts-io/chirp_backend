@@ -36,19 +36,25 @@ class MessageListCreateView(APIView):
             content = serializer.validated_data.get("content", "")
             message = serializer.save(sender_id=request.user_id, content=content)
 
-            # Handle file uploads
             files = request.FILES.getlist("attachments")
             for file in files:
-                attachment_type = "image" if "image" in file.content_type else "file"
-                if "video" in file.content_type:
+                content_type = file.content_type.lower()
+                if "image" in content_type:
+                    attachment_type = "image"
+                elif "video" in content_type:
                     attachment_type = "video"
-                elif "audio" in file.content_type:
+                elif "audio" in content_type:
                     attachment_type = "audio"
+                else:
+                    attachment_type = "file"
 
                 MessageAttachment.objects.create(
-                    message=message, file=file, attachment_type=attachment_type
+                    message=message,
+                    file=file,
+                    attachment_type=attachment_type
                 )
 
+            # Return response with attachments
             response_serializer = MessageSerializer(message)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -80,5 +80,5 @@ class PostAttachmentUploadTest(TestCase):
         self.assertIn("attachments", response.data)
         self.assertEqual(len(response.data["attachments"]), 1)
         attachment_data = response.data["attachments"][0]
-        self.assertIn("file", attachment_data)
-        self.assertIn("attachments/test_image", attachment_data["file"])
+        self.assertIn("file_url", attachment_data)
+        self.assertIn("attachments/test_image", attachment_data["file_url"])

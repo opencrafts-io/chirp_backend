@@ -6,6 +6,7 @@ class Attachment(models.Model):
         ("image", "Image"),
         ("video", "Video"),
         ("audio", "Audio"),
+        ("file", "File"),
     ]
 
     post = models.ForeignKey(
@@ -15,10 +16,41 @@ class Attachment(models.Model):
         max_length=10, choices=ATTACHMENT_TYPE_CHOICES, default="image"
     )
     file = models.FileField(upload_to="attachments/")
+    file_size = models.BigIntegerField(null=True, blank=True)  # Track file size
+    original_filename = models.CharField(max_length=255, null=True, blank=True)  # Keep original name
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def save(self, *args, **kwargs):
+        # Auto-populate file_size and original_filename if not set
+        if self.file and not self.file_size:
+            try:
+                self.file_size = self.file.size
+            except (OSError, ValueError):
+                pass  # File might not exist yet
+        if self.file and not self.original_filename:
+            try:
+                self.original_filename = self.file.name
+            except (OSError, ValueError):
+                pass  # File might not exist yet
+        super().save(*args, **kwargs)
+
+    def get_file_url(self):
+        """Generate the full URL for the file"""
+        if self.file:
+            try:
+                return self.file.url
+            except (OSError, ValueError):
+                return None
+        return None
+
+    def get_file_size_mb(self):
+        """Get file size in MB"""
+        if self.file_size:
+            return round(self.file_size / (1024 * 1024), 2)
+        return None
+
     def __str__(self):
-        return f"{self.attachment_type} for post {self.post}"
+        return f"{self.attachment_type} attachment for post {self.post.id}"
 
 
 class Post(models.Model):

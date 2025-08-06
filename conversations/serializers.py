@@ -1,11 +1,14 @@
 from rest_framework import serializers
 from .models import Conversation, ConversationMessage
+from dmessages.serializers import MessageAttachmentSerializer
 
 
 class ConversationMessageSerializer(serializers.ModelSerializer):
+    attachments = MessageAttachmentSerializer(many=True, read_only=True)
+
     class Meta:
         model = ConversationMessage
-        fields = ['id', 'conversation', 'sender_id', 'content', 'created_at', 'is_read']
+        fields = ['id', 'conversation', 'sender_id', 'content', 'created_at', 'is_read', 'attachments']
         read_only_fields = ['id', 'created_at']
 
 
