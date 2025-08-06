@@ -113,6 +113,14 @@ class ConversationMessagesView(generics.ListCreateAPIView):
 
         return ConversationMessage.objects.filter(conversation=conversation)
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        user_id = getattr(self.request, 'user_id', None)
+        if not user_id:
+            user_id = "default_user_123"
+        context['user_id'] = user_id
+        return context
+
     def create(self, request, *args, **kwargs):
         conversation_id = self.kwargs.get('conversation_id')
         user_id = getattr(request, 'user_id', None)

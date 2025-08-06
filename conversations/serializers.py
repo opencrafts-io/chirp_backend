@@ -4,12 +4,17 @@ from dmessages.serializers import MessageAttachmentSerializer
 
 
 class ConversationMessageSerializer(serializers.ModelSerializer):
-    attachments = MessageAttachmentSerializer(many=True, read_only=True)
+    attachments = serializers.SerializerMethodField()
 
     class Meta:
         model = ConversationMessage
         fields = ['id', 'conversation', 'sender_id', 'content', 'created_at', 'is_read', 'attachments']
         read_only_fields = ['id', 'created_at']
+
+    def get_attachments(self, obj):
+        """Get attachments with proper context for URL generation"""
+        attachments = obj.attachments.all()
+        return MessageAttachmentSerializer(attachments, many=True, context=self.context).data
 
 
 class ConversationSerializer(serializers.ModelSerializer):
@@ -25,7 +30,7 @@ class ConversationSerializer(serializers.ModelSerializer):
     def get_last_message(self, obj):
         last_message = obj.messages.last()
         if last_message:
-            return ConversationMessageSerializer(last_message).data
+            return ConversationMessageSerializer(last_message, context=self.context).data
         return None
 
     def get_unread_count(self, obj):
