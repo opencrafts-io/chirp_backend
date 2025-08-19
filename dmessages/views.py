@@ -12,9 +12,16 @@ class MessageListCreateView(APIView):
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
-        messages = Message.objects.filter(recipient_id=request.user_id)
-        serializer = MessageSerializer(messages, many=True)
-        return Response(serializer.data)
+        from chirp.pagination import StandardResultsSetPagination
+
+        messages = Message.objects.filter(recipient_id=request.user_id).order_by("-created_at")
+
+        # Apply pagination
+        paginator = StandardResultsSetPagination()
+        paginated_messages = paginator.paginate_queryset(messages, request)
+
+        serializer = MessageSerializer(paginated_messages, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         # Require authentication for sending messages

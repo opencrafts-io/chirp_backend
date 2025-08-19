@@ -105,9 +105,16 @@ class PostReplyCreateView(generics.CreateAPIView):
 
     # get method to get replies for a post
     def get(self, request, post_id):
+        from chirp.pagination import StandardResultsSetPagination
+
         replies = PostReply.objects.filter(parent_post_id=post_id).order_by("-created_at")
-        serializer = self.get_serializer(replies, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # Apply pagination
+        paginator = StandardResultsSetPagination()
+        paginated_replies = paginator.paginate_queryset(replies, request)
+
+        serializer = self.get_serializer(paginated_replies, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
 
 class PostLikeToggleView(APIView):

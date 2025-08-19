@@ -51,6 +51,8 @@ INSTALLED_APPS = [
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [],
     'DEFAULT_AUTHENTICATION_CLASSES': [],
+    'DEFAULT_PAGINATION_CLASS': 'chirp.pagination.StandardResultsSetPagination',
+    'PAGE_SIZE': 50,
 }
 
 # JWT Configuration
