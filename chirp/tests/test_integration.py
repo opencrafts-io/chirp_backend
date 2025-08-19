@@ -67,7 +67,7 @@ class ChirpIntegrationTest(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token2}")
         response = self.client.get(reverse("post-list"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["content"], post_data["content"])
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['results'][0]["content"], post_data["content"])
 
     # ... (Keep other tests, but ensure they use correct auth and endpoints)

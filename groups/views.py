@@ -10,11 +10,17 @@ class GroupListCreateView(APIView):
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
-        # Use a more SQLite-compatible approach for filtering groups
-        all_groups = Group.objects.all()
-        user_groups = [group for group in all_groups if request.user_id in group.members]
-        serializer = GroupSerializer(user_groups, many=True)
-        return Response(serializer.data)
+        from chirp.pagination import StandardResultsSetPagination
+
+        # The filter works when we use the user_id as a string in the contains lookup
+        user_groups = Group.objects.filter(members__contains=request.user_id).order_by('-created_at')
+
+        # Apply pagination
+        paginator = StandardResultsSetPagination()
+        paginated_groups = paginator.paginate_queryset(user_groups, request)
+
+        serializer = GroupSerializer(paginated_groups, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         # Require authentication for creating groups
@@ -102,13 +108,21 @@ class GroupPostListCreateView(APIView):
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
+        from chirp.pagination import StandardResultsSetPagination
+
         try:
             group = Group.objects.get(name=group_name)
             if request.user_id not in group.members:
                 return Response({'error': 'Not a group member'}, status=status.HTTP_403_FORBIDDEN)
-            posts = GroupPost.objects.filter(group=group)
-            serializer = GroupPostSerializer(posts, many=True)
-            return Response(serializer.data)
+
+            posts = GroupPost.objects.filter(group=group).order_by("-created_at")
+
+            # Apply pagination
+            paginator = StandardResultsSetPagination()
+            paginated_posts = paginator.paginate_queryset(posts, request)
+
+            serializer = GroupPostSerializer(paginated_posts, many=True)
+            return paginator.get_paginated_response(serializer.data)
         except Group.DoesNotExist:
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
