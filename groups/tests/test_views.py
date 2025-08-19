@@ -44,8 +44,8 @@ class GroupListCreateViewTest(TestCase):
         response = self.view(request)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['name'], 'Group 1')
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['results'][0]['name'], 'Group 1')
 
     def test_get_groups_no_membership(self):
         """Test GET request returns empty list for user with no memberships."""
@@ -55,7 +55,7 @@ class GroupListCreateViewTest(TestCase):
         response = self.view(request)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(len(response.data['results']), 0)
 
     def test_get_groups_multiple_memberships(self):
         """Test GET request returns all groups where user is a member."""
@@ -69,7 +69,7 @@ class GroupListCreateViewTest(TestCase):
         response = self.view(request)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(len(response.data['results']), 2)
 
     def test_post_create_group_valid_data(self):
         """Test POST request creates group with valid data."""
@@ -412,7 +412,7 @@ class GroupPostListCreateViewTest(TestCase):
         response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(len(response.data['results']), 2)
 
     def test_get_posts_not_member(self):
         """Test non-member cannot view group posts."""
@@ -515,8 +515,8 @@ class GroupPostListCreateViewTest(TestCase):
         response = self.view(request, group_name=self.group.name)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)  # Only posts from the test group
-        post_contents = [post['content'] for post in response.data]
+        self.assertEqual(len(response.data['results']), 2)  # Only posts from the test group
+        post_contents = [post['content'] for post in response.data['results']]
         self.assertIn('First post', post_contents)
         self.assertIn('Second post', post_contents)
         self.assertNotIn('Other group post', post_contents)

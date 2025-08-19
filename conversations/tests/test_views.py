@@ -104,8 +104,8 @@ class ConversationViewsTest(APITestCase):
         """Test getting all conversations for a user"""
         response = self.client.get(reverse('conversations:conversation-list'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['conversation_id'], 'conv_test123')
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['results'][0]['conversation_id'], 'conv_test123')
 
     def test_conversation_detail_view(self):
         """Test getting conversation details"""
@@ -125,8 +125,8 @@ class ConversationViewsTest(APITestCase):
         """Test getting messages for a conversation"""
         response = self.client.get(reverse('conversations:conversation-messages', kwargs={'conversation_id': 'conv_test123'}))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['content'], 'Test message')
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['results'][0]['content'], 'Test message')
 
     def test_create_message_in_conversation(self):
         """Test creating a new message in a conversation"""
