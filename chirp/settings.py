@@ -74,6 +74,18 @@ JWT_ALGORITHM = 'HS256'
 # Note: For HS256 (symmetric), use same secret for signing and verification
 # For RS256 (asymmetric), use private key for signing, public key for verification
 
+# Verisafe Integration
+VERISAFE_BASE_URL = os.environ.get('VERISAFE_BASE_URL', 'https://qaverisafe.opencrafts.io')
+VERISAFE_SERVICE_TOKEN = os.environ.get('VERISAFE_SERVICE_TOKEN', '')
+
+# Cache configuration for user data
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+    }
+}
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -82,7 +94,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'posts.middleware.JWTDecodeMiddleware',
+    'posts.middleware.VerisafeAuthMiddleware',
 ]
 
 ROOT_URLCONF = 'chirp.urls'
@@ -155,11 +167,11 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
-# Media files (user-uploaded files)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.getenv("MEDIA_ROOT", os.path.join(BASE_DIR, "media"))
-
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Media files configuration
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'

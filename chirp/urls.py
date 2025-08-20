@@ -27,6 +27,10 @@ urlpatterns = [
     path('groups/', include('groups.urls')),
     path('conversations/', include('conversations.urls')),
     path('messages/', include('dmessages.urls')),
+    path('users/search/', views.UserSearchView.as_view(), name='user_search'),
+    path('users/<str:user_id>/', views.UserInfoView.as_view(), name='user_info'),
+    path('users/<str:user_id>/roles/', views.UserRolesView.as_view(), name='user_roles'),
+    path('users/<str:user_id>/permissions/', views.UserPermissionsView.as_view(), name='user_permissions'),
 ]
 
 if settings.DEBUG:
