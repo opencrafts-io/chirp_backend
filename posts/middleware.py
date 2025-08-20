@@ -100,11 +100,14 @@ class VerisafeAuthMiddleware:
 
     def _is_test_environment(self):
         """Check if we're running in a test environment"""
-        return (
+        # More precise test environment detection
+        is_test = (
             'test' in sys.argv or
             'pytest' in sys.argv[0] or
-            'manage.py' in sys.argv[0] and 'test' in sys.argv
+            ('manage.py' in sys.argv[0] and 'test' in sys.argv)
         )
+
+        return is_test
 
     def _validate_jwt_token(self, token):
         """Validate JWT token with Verisafe"""
@@ -123,7 +126,6 @@ class VerisafeAuthMiddleware:
             return self.verisafe_client.validate_jwt_token(token)
 
         except Exception as e:
-            print(f"Token validation error: {e}")
             return None
 
 

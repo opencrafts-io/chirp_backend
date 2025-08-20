@@ -30,6 +30,7 @@ DEBUG = True
 ALLOWED_HOSTS_STR = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1")
 ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_STR.split(',')]
 
+VERISAFE_SERVICE_TOKEN = os.getenv("VERISAFE_SERVICE_TOKEN", "")
 
 
 # Application definition
