@@ -4,9 +4,10 @@ from rest_framework.response import Response
 from rest_framework import status
 from chirp.user_search import get_user_search_service
 
-def ping(request):
+class PingView(APIView):
     """Health check endpoint"""
-    return JsonResponse({"message": "Bang."})
+    def get(self, request):
+        return Response({"message": "Bang"})
 
 class UserSearchView(APIView):
     def get(self, request):
