@@ -2,19 +2,19 @@ import unittest
 from django.test import TestCase, RequestFactory
 from django.http import JsonResponse
 from unittest.mock import patch, MagicMock
-from posts.middleware import JWTDecodeMiddleware
+from posts.middleware import VerisafeAuthMiddleware
 from chirp.jwt_utils import generate_test_token
 import jwt
 import json
 
 
 @unittest.skip("JWT authentication disabled for development")
-class JWTDecodeMiddlewareTest(TestCase):
+class VerisafeAuthMiddlewareTest(TestCase):
     def setUp(self):
         """Set up test data for each test method."""
         self.factory = RequestFactory()
         self.get_response = MagicMock(return_value=JsonResponse({'message': 'success'}))
-        self.middleware = JWTDecodeMiddleware(self.get_response)
+        self.middleware = VerisafeAuthMiddleware(self.get_response)
         self.test_user_id = 'user123'
 
     def test_valid_bearer_token(self):
