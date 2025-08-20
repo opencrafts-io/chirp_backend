@@ -54,7 +54,7 @@ class VerisafeIntegrationTestCase(TestCase):
         self.assertEqual(data['message'], 'Bang')  # Updated to match actual response
 
     @patch('posts.middleware.VerisafeAuthMiddleware._validate_jwt_token')
-    @patch('chirp.user_search.get_user_search_service')
+    @patch('chirp.views.get_user_search_service')
     def test_user_search_success(self, mock_search_service, mock_validate_token):
         """Test successful user search"""
         # Mock authentication
@@ -91,7 +91,7 @@ class VerisafeIntegrationTestCase(TestCase):
         self.assertEqual(len(data['users']), 1)  # Updated to match single user
 
     @patch('posts.middleware.VerisafeAuthMiddleware._validate_jwt_token')
-    @patch('chirp.user_search.get_user_search_service')
+    @patch('chirp.views.get_user_search_service')
     def test_user_search_no_results(self, mock_search_service, mock_validate_token):
         """Test user search with no results"""
         # Mock authentication
@@ -162,7 +162,7 @@ class VerisafeIntegrationTestCase(TestCase):
         self.assertIn('error', data)
 
     @patch('posts.middleware.VerisafeAuthMiddleware._validate_jwt_token')
-    @patch('chirp.user_search.get_user_search_service')
+    @patch('chirp.views.get_user_search_service')
     def test_user_search_different_types(self, mock_search_service, mock_validate_token):
         """Test different search types"""
         # Mock authentication
@@ -192,7 +192,7 @@ class VerisafeIntegrationTestCase(TestCase):
             self.assertEqual(data['search_type'], search_type)
 
     @patch('posts.middleware.VerisafeAuthMiddleware._validate_jwt_token')
-    @patch('chirp.user_search.get_user_search_service')
+    @patch('chirp.views.get_user_search_service')
     def test_user_search_invalid_type(self, mock_search_service, mock_validate_token):
         """Test user search with invalid type (should default to combined)"""
         # Mock authentication
@@ -239,7 +239,7 @@ class VerisafeIntegrationTestCase(TestCase):
         self.assertIn(response.status_code, [200, 400])
 
     @patch('posts.middleware.VerisafeAuthMiddleware._validate_jwt_token')
-    @patch('chirp.user_search.get_user_search_service')
+    @patch('chirp.views.get_user_search_service')
     def test_user_roles_endpoint(self, mock_search_service, mock_validate_token):
         """Test user roles endpoint"""
         # Mock authentication
@@ -269,7 +269,7 @@ class VerisafeIntegrationTestCase(TestCase):
         self.assertEqual(data['total'], 1)  # Updated to match single role
 
     @patch('posts.middleware.VerisafeAuthMiddleware._validate_jwt_token')
-    @patch('chirp.user_search.get_user_search_service')
+    @patch('chirp.views.get_user_search_service')
     def test_user_permissions_endpoint(self, mock_search_service, mock_validate_token):
         """Test user permissions endpoint"""
         # Mock authentication
@@ -330,7 +330,7 @@ class VerisafeIntegrationTestCase(TestCase):
     #     self.assertEqual(data['email'], 'ngigi.nyongo@gmail.com')
 
     @patch('posts.middleware.VerisafeAuthMiddleware._validate_jwt_token')
-    @patch('chirp.user_search.get_user_search_service')
+    @patch('chirp.views.get_user_search_service')
     def test_user_info_not_found(self, mock_search_service, mock_validate_token):
         """Test user info endpoint when user not found"""
         # Mock authentication
@@ -364,7 +364,7 @@ class VerisafeIntegrationTestCase(TestCase):
             'name': 'Test User'
         }
 
-        with patch('chirp.user_search.get_user_search_service') as mock_search_service:
+        with patch('chirp.views.get_user_search_service') as mock_search_service:
             # Mock the search service
             mock_service = MagicMock()
             mock_service.search_users.return_value = [self.mock_user]
