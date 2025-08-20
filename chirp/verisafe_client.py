@@ -3,6 +3,7 @@ import json
 import time
 import hashlib
 import base64
+import sys
 from django.conf import settings
 from django.core.cache import cache
 from typing import Optional, Dict, List
@@ -16,10 +17,34 @@ class VerisafeClient:
         self.token_cache_key = 'verisafe_service_token'
         self.token_expiry_cache_key = 'verisafe_token_expiry'
 
+    def _is_test_environment(self):
+        """Check if we're running in a test environment"""
+        return (
+            'test' in sys.argv or
+            'pytest' in sys.argv[0] or
+            'manage.py' in sys.argv[0] and 'test' in sys.argv
+        )
+
+    def _safe_cache_get(self, key: str):
+        """Safely get from cache, return None if Redis is unavailable"""
+        try:
+            return cache.get(key)
+        except Exception:
+            # Redis connection failed, return None
+            return None
+
+    def _safe_cache_set(self, key: str, value, timeout: int):
+        """Safely set cache, ignore if Redis is unavailable"""
+        try:
+            cache.set(key, value, timeout)
+        except Exception:
+            # Redis connection failed, ignore
+            pass
+
     def _get_service_token(self) -> Optional[str]:
         """Get cached service token or fetch new one"""
-        cached_token = cache.get(self.token_cache_key)
-        token_expiry = cache.get(self.token_expiry_cache_key)
+        cached_token = self._safe_cache_get(self.token_cache_key)
+        token_expiry = self._safe_cache_get(self.token_expiry_cache_key)
 
         if cached_token and token_expiry and time.time() < token_expiry:
             return cached_token
@@ -34,8 +59,8 @@ class VerisafeClient:
             # and use its service token for authentication
             if self.service_token:
                 # Cache the token for 23 hours (assuming 24-hour expiry)
-                cache.set(self.token_cache_key, self.service_token, 23 * 3600)
-                cache.set(self.token_expiry_cache_key, time.time() + (23 * 3600), 23 * 3600)
+                self._safe_cache_set(self.token_cache_key, self.service_token, 23 * 3600)
+                self._safe_cache_set(self.token_expiry_cache_key, time.time() + (23 * 3600), 23 * 3600)
                 return self.service_token
         except Exception as e:
             print(f"Failed to refresh service token: {e}")

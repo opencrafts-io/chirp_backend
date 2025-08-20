@@ -1,12 +1,37 @@
 from typing import List, Dict, Optional
 from chirp.verisafe_client import get_verisafe_client
 from django.core.cache import cache
+import sys
 
 class UserSearchService:
     """Service for searching users through Verisafe"""
 
     def __init__(self):
         self.verisafe_client = get_verisafe_client()
+
+    def _is_test_environment(self):
+        """Check if we're running in a test environment"""
+        return (
+            'test' in sys.argv or
+            'pytest' in sys.argv[0] or
+            'manage.py' in sys.argv[0] and 'test' in sys.argv
+        )
+
+    def _safe_cache_get(self, key: str):
+        """Safely get from cache, return None if Redis is unavailable"""
+        try:
+            return cache.get(key)
+        except Exception:
+            # Redis connection failed, return None
+            return None
+
+    def _safe_cache_set(self, key: str, value, timeout: int):
+        """Safely set cache, ignore if Redis is unavailable"""
+        try:
+            cache.set(key, value, timeout)
+        except Exception:
+            # Redis connection failed, ignore
+            pass
 
     def search_users(self, query: str, limit: int = 10, search_type: str = 'combined', cache_ttl: int = 300) -> List[Dict]:
         """Search users with caching
@@ -26,7 +51,7 @@ class UserSearchService:
 
         # Create cache key based on search parameters
         cache_key = f"user_search:{hash(query)}:{limit}:{search_type}"
-        cached_results = cache.get(cache_key)
+        cached_results = self._safe_cache_get(cache_key)
 
         if cached_results:
             return cached_results
@@ -42,7 +67,7 @@ class UserSearchService:
             results = self.verisafe_client.search_users_combined(query, limit)
 
         # Cache results
-        cache.set(cache_key, results, cache_ttl)
+        self._safe_cache_set(cache_key, results, cache_ttl)
 
         return results
 
@@ -61,7 +86,7 @@ class UserSearchService:
     def get_user_by_id(self, user_id: str) -> Optional[Dict]:
         """Get user by ID from Verisafe"""
         cache_key = f"user_info:{user_id}"
-        cached_user = cache.get(cache_key)
+        cached_user = self._safe_cache_get(cache_key)
 
         if cached_user:
             return cached_user
@@ -70,14 +95,14 @@ class UserSearchService:
 
         if user_info:
             # Cache for 1 hour
-            cache.set(cache_key, user_info, 3600)
+            self._safe_cache_set(cache_key, user_info, 3600)
 
         return user_info
 
     def get_user_roles(self, user_id: str) -> List[str]:
         """Get user roles with caching"""
         cache_key = f"user_roles:{user_id}"
-        cached_roles = cache.get(cache_key)
+        cached_roles = self._safe_cache_get(cache_key)
 
         if cached_roles:
             return cached_roles
@@ -85,14 +110,14 @@ class UserSearchService:
         roles = self.verisafe_client.get_user_roles(user_id)
 
         # Cache for 30 minutes
-        cache.set(cache_key, roles, 1800)
+        self._safe_cache_set(cache_key, roles, 1800)
 
         return roles
 
     def get_user_permissions(self, user_id: str) -> List[str]:
         """Get user permissions with caching"""
         cache_key = f"user_permissions:{user_id}"
-        cached_permissions = cache.get(cache_key)
+        cached_permissions = self._safe_cache_get(cache_key)
 
         if cached_permissions:
             return cached_permissions
@@ -100,7 +125,7 @@ class UserSearchService:
         permissions = self.verisafe_client.get_user_permissions(user_id)
 
         # Cache for 30 minutes
-        cache.set(cache_key, permissions, 1800)
+        self._safe_cache_set(cache_key, permissions, 1800)
 
         return permissions
 
