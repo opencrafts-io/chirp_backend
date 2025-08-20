@@ -29,7 +29,9 @@ DEBUG = True
 
 ALLOWED_HOSTS_STR = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1")
 ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_STR.split(',')]
+VERISAFE_API_SECRET = os.getenv("VERISAFE_API_SECRET", "")
 
+VERISAFE_SERVICE_TOKEN = os.getenv("VERISAFE_SERVICE_TOKEN", "")
 
 
 # Application definition
@@ -77,6 +79,11 @@ JWT_ALGORITHM = 'HS256'
 # Verisafe Integration
 VERISAFE_BASE_URL = os.environ.get('VERISAFE_BASE_URL', 'https://qaverisafe.opencrafts.io')
 VERISAFE_SERVICE_TOKEN = os.environ.get('VERISAFE_SERVICE_TOKEN', '')
+
+# Verisafe JWT Configuration
+VERISAFE_API_SECRET = os.environ.get('VERISAFE_API_SECRET', 'super-secret-token')
+VERISAFE_ISSUER = os.environ.get('VERISAFE_ISSUER', 'https://verisafe.opencrafts.io/')
+VERISAFE_AUDIENCE = os.environ.get('VERISAFE_AUDIENCE', 'https://academia.opencrafts.io/')
 
 # Cache configuration for user data
 CACHES = {

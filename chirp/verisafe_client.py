@@ -77,24 +77,33 @@ class VerisafeClient:
         return {'Content-Type': 'application/json'}
 
     def validate_jwt_token(self, token: str) -> Optional[Dict]:
-        """Validate JWT token with Verisafe"""
+        """Validate JWT token with Verisafe by calling /accounts/me endpoint"""
         try:
-            response = requests.post(
-                f"{self.base_url}/api/v1/auth/validate",
-                headers=self._get_headers(),
-                json={'token': token}
+            # Use /accounts/me endpoint to validate JWT token
+            response = requests.get(
+                f"{self.base_url}/accounts/me",
+                headers={
+                    'Authorization': f'Bearer {token}',
+                    'Content-Type': 'application/json'
+                }
             )
 
             if response.status_code == 200:
-                return response.json()
+                # Token is valid, extract user data from response
+                user_data = response.json()
+                return {
+                    'user_id': user_data.get('id'),
+                    'email': user_data.get('email'),
+                    'name': user_data.get('name'),
+                    'roles': user_data.get('roles', []),
+                    'permissions': user_data.get('permissions', [])
+                }
             elif response.status_code == 401:
                 return None
             else:
-                print(f"Verisafe validation error: {response.status_code}")
                 return None
 
         except Exception as e:
-            print(f"Failed to validate JWT with Verisafe: {e}")
             return None
 
     def get_user_info(self, user_id: str) -> Optional[Dict]:

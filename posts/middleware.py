@@ -1,8 +1,7 @@
 from django.http import JsonResponse
 from django.conf import settings
 from chirp.verisafe_client import get_verisafe_client
-from chirp.jwt_utils import get_user_id_from_token
-import jwt
+from chirp.verisafe_jwt import verify_verisafe_jwt
 import sys
 
 class VerisafeAuthMiddleware:
@@ -33,15 +32,16 @@ class VerisafeAuthMiddleware:
             if auth_header.startswith('Bearer '):
                 # For test environments with Bearer token, validate it locally
                 token = auth_header.split(' ')[1]
-                user_id = get_user_id_from_token(token)
-                if user_id:
-                    request.user_id = user_id
-                    request.user_email = f"{user_id}@example.com"
-                    request.user_name = f"User {user_id}"
-                    request.user_roles = ["student"]
-                    request.user_permissions = ["read:post:own", "create:post:own", "read:post:any"]
+                try:
+                    # Use the proper Verisafe JWT verification
+                    payload = verify_verisafe_jwt(token)
+                    request.user_id = payload.get('sub')
+                    request.user_email = payload.get('email', f"{payload.get('sub')}@example.com")
+                    request.user_name = payload.get('name', f"User {payload.get('sub')}")
+                    request.user_roles = payload.get('roles', ['student'])
+                    request.user_permissions = payload.get('permissions', ['read:post:own', 'create:post:own', 'read:post:any'])
                     request.is_authenticated = True
-                else:
+                except Exception as e:
                     # Fallback to default user for test tokens
                     request.user_id = "default_user_123"
                     request.user_email = "default@example.com"
@@ -64,17 +64,17 @@ class VerisafeAuthMiddleware:
         # Production/development logic
         if auth_header.startswith('Bearer '):
             token = auth_header.split(' ')[1]
-            user_data = self._validate_jwt_token(token)
-
-            if user_data:
-                request.user_id = user_data.get('user_id')
-                request.user_email = user_data.get('email')
-                request.user_name = user_data.get('name')
-                request.user_roles = user_data.get('roles', [])
-                request.user_permissions = user_data.get('permissions', [])
+            try:
+                # Use the proper Verisafe JWT verification
+                payload = verify_verisafe_jwt(token)
+                request.user_id = payload.get('sub')
+                request.user_email = payload.get('email', f"{payload.get('sub')}@example.com")
+                request.user_name = payload.get('name', f"User {payload.get('sub')}")
+                request.user_roles = payload.get('roles', [])
+                request.user_permissions = payload.get('permissions', [])
                 request.is_authenticated = True
-            else:
-                return JsonResponse({'error': 'Invalid or expired JWT token'}, status=401)
+            except Exception as e:
+                return JsonResponse({'error': str(e)}, status=401)
 
         else:
             # Provide default authentication for DEBUG mode
@@ -100,31 +100,14 @@ class VerisafeAuthMiddleware:
 
     def _is_test_environment(self):
         """Check if we're running in a test environment"""
-        return (
+        # More precise test environment detection
+        is_test = (
             'test' in sys.argv or
             'pytest' in sys.argv[0] or
-            'manage.py' in sys.argv[0] and 'test' in sys.argv
+            ('manage.py' in sys.argv[0] and 'test' in sys.argv)
         )
 
-    def _validate_jwt_token(self, token):
-        """Validate JWT token with Verisafe"""
-        try:
-            if settings.DEBUG or self._is_test_environment():
-                user_id = get_user_id_from_token(token)
-                if user_id:
-                    return {
-                        'user_id': user_id,
-                        'email': f"{user_id}@example.com",
-                        'name': f"User {user_id}",
-                        'roles': ['student'],
-                        'permissions': ['read:post:own', 'create:post:own', 'read:post:any']
-                    }
-
-            return self.verisafe_client.validate_jwt_token(token)
-
-        except Exception as e:
-            print(f"Token validation error: {e}")
-            return None
+        return is_test
 
 
 

@@ -20,7 +20,8 @@ from . import views
 from django.conf import settings
 from django.conf.urls.static import static
 
-urlpatterns = [
+# Base URL patterns without prefix
+base_urlpatterns = [
     path('admin/', admin.site.urls),
     path('ping/', views.PingView.as_view(), name='ping'),
     path('statuses/', include('posts.urls')),
@@ -32,6 +33,14 @@ urlpatterns = [
     path('users/<str:user_id>/roles/', views.UserRolesView.as_view(), name='user_roles'),
     path('users/<str:user_id>/permissions/', views.UserPermissionsView.as_view(), name='user_permissions'),
 ]
+
+# Add qa-chirp prefix for local testing
+urlpatterns = [
+    path('qa-chirp/', include(base_urlpatterns)),
+]
+
+# Also include base patterns for backward compatibility
+urlpatterns += base_urlpatterns
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
