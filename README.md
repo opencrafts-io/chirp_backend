@@ -107,10 +107,13 @@ Authorization: Bearer <jwt_token>
 - `GET /ping/` - Health check (no auth required)
 - `GET|POST /statuses/` - View/create posts
 - `GET|POST /groups/` - View/create groups
-- `POST /groups/{id}/add_member/` - Add member to group
-- `POST /groups/{id}/invite/` - Invite user to group
-- `POST /groups/accept_invite/{id}/` - Accept group invitation
-- `GET|POST /groups/{id}/posts/` - View/create group posts
+- `GET /groups/discover/` - Discover all available groups with membership status
+- `POST /groups/{group_name}/join/` - Join a group
+- `POST /groups/{group_name}/leave/` - Leave a group
+- `POST /groups/{group_name}/add_member/` - Add member to group (admin only)
+- `POST /groups/{group_name}/invite/` - Invite user to group (admin only)
+- `POST /groups/accept_invite/{invite_id}/` - Accept group invitation
+- `GET|POST /groups/{group_name}/posts/` - View/create group posts
 - `GET|POST /messages/` - View/send direct messages
 
 ### Example Usage
@@ -123,6 +126,18 @@ curl -X POST -H "Authorization: Bearer <jwt_token>" \
      -H "Content-Type: application/json" \
      -d '{"content": "Hello, Chirp!"}' \
      http://localhost:8000/statuses/
+
+# Discover all groups
+curl -H "Authorization: Bearer <jwt_token>" \
+     http://localhost:8000/groups/discover/
+
+# Join a group
+curl -X POST -H "Authorization: Bearer <jwt_token>" \
+     http://localhost:8000/groups/my-group/join/
+
+# Leave a group
+curl -X POST -H "Authorization: Bearer <jwt_token>" \
+     http://localhost:8000/groups/my-group/leave/
 ```
 
 ## Testing

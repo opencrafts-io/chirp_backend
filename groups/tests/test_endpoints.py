@@ -597,3 +597,127 @@ class GroupPostEndpointTest(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(GroupPost.objects.count(), 0)
+
+
+@unittest.skip("JWT authentication disabled for development")
+class GroupJoinLeaveEndpointTest(TestCase):
+    def setUp(self):
+        """Set up test data for each test method."""
+        self.client = APIClient()
+        self.test_user_id = 'test_user_123'
+        self.test_user_id_2 = 'test_user_456'
+
+        # Create a test group
+        self.group = Group.objects.create(
+            name='Test Group',
+            description='A test group for join/leave testing',
+            creator_id=self.test_user_id,
+            admins=[self.test_user_id],
+            members=[self.test_user_id]
+        )
+
+    def _get_auth_headers(self, user_id=None):
+        """Helper method to get authentication headers."""
+        user_id = user_id or self.test_user_id
+        token = generate_test_token(user_id)
+        return {'HTTP_AUTHORIZATION': f'Bearer {token}'}
+
+    def test_join_group_success(self):
+        """Test successfully joining a group."""
+        response = self.client.post(
+            f'/groups/{self.group.name}/join/',
+            **self._get_auth_headers(self.test_user_id_2)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('Successfully joined group', response.data['message'])
+        self.assertIn(self.test_user_id_2, response.data['group']['members'])
+
+    def test_join_group_already_member(self):
+        """Test joining a group when already a member."""
+        response = self.client.post(
+            f'/groups/{self.group.name}/join/',
+            **self._get_auth_headers(self.test_user_id)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('Already a member', response.data['message'])
+
+    def test_join_nonexistent_group(self):
+        """Test joining a group that doesn't exist."""
+        response = self.client.post(
+            '/groups/nonexistent-group/join/',
+            **self._get_auth_headers(self.test_user_id_2)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn('Group not found', response.data['error'])
+
+    def test_leave_group_success(self):
+        """Test successfully leaving a group."""
+        # First join the group
+        self.group.members.append(self.test_user_id_2)
+        self.group.save()
+
+        response = self.client.post(
+            f'/groups/{self.group.name}/leave/',
+            **self._get_auth_headers(self.test_user_id_2)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('Successfully left group', response.data['message'])
+        self.assertNotIn(self.test_user_id_2, response.data['group']['members'])
+
+    def test_leave_group_not_member(self):
+        """Test leaving a group when not a member."""
+        response = self.client.post(
+            f'/groups/{self.group.name}/leave/',
+            **self._get_auth_headers(self.test_user_id_2)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Not a member', response.data['error'])
+
+    def test_leave_group_as_creator(self):
+        """Test that creator cannot leave the group."""
+        response = self.client.post(
+            f'/groups/{self.group.name}/leave/',
+            **self._get_auth_headers(self.test_user_id)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Group creator cannot leave', response.data['error'])
+
+    def test_discover_groups(self):
+        """Test discovering all groups with membership status."""
+        # Create another group
+        Group.objects.create(
+            name='Another Group',
+            description='Another test group',
+            creator_id=self.test_user_id_2,
+            admins=[self.test_user_id_2],
+            members=[self.test_user_id_2]
+        )
+
+        response = self.client.get(
+            '/groups/discover/',
+            **self._get_auth_headers(self.test_user_id)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 2)
+
+        # Check that membership status is included
+        for group in response.data['results']:
+            self.assertIn('is_member', group)
+            self.assertIn('is_admin', group)
+            self.assertIn('is_creator', group)
+
+            if group['name'] == 'Test Group':
+                self.assertTrue(group['is_member'])
+                self.assertTrue(group['is_admin'])
+                self.assertTrue(group['is_creator'])
+            else:
+                self.assertFalse(group['is_member'])
+                self.assertFalse(group['is_admin'])
+                self.assertFalse(group['is_creator'])
