@@ -19,7 +19,7 @@ class StatusAPITestCase(APITestCase):
         token = generate_test_token(self.user_id)
         self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + token)
         self.post = Post.objects.create(user_id=self.user_id, content='Initial post.')
-        self.detail_url = reverse('post-detail', kwargs={'pk': self.post.pk})
+        self.detail_url = reverse('post-detail', kwargs={'post_id': self.post.pk})
         self.reply_url = reverse('post-reply', kwargs={'post_id': self.post.pk})
 
     def test_create_post(self):
@@ -73,7 +73,7 @@ class StatusAPITestCase(APITestCase):
 
     def test_delete_non_existent_post(self):
         """Test deleting a post that does not exist."""
-        non_existent_url = reverse('post-detail', kwargs={'pk': 999})
+        non_existent_url = reverse('post-detail', kwargs={'post_id': 999})
         response = self.client.delete(non_existent_url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
