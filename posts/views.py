@@ -70,7 +70,6 @@ class PostListView(APIView):
         serializer = PostSerializer(paginated_posts, many=True)
         return paginator.get_paginated_response(serializer.data)
 
-    @require_permission('create:post:own')
     def post(self, request):
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -96,7 +95,6 @@ class PostDetailView(APIView):
         except Post.DoesNotExist:
             return Response({'error': 'Post not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    @require_permission('update:post:own')
     def put(self, request, post_id):
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -111,7 +109,6 @@ class PostDetailView(APIView):
         except Post.DoesNotExist:
             return Response({'error': 'Post not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    @require_permission('delete:post:own')
     def delete(self, request, post_id):
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -132,7 +129,6 @@ class PostReplyCreateView(generics.CreateAPIView):
         parent_post = get_object_or_404(Post, pk=self.kwargs["post_id"])
         serializer.save(user_id=self.request.user_id, parent_post=parent_post)
 
-    @require_permission('read:post:any')
     def get(self, request, post_id):
         from chirp.pagination import StandardResultsSetPagination
 
@@ -147,7 +143,6 @@ class PostReplyCreateView(generics.CreateAPIView):
 
 
 class PostLikeView(APIView):
-    @require_permission('create:like:any')
     def post(self, request, post_id):
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -169,7 +164,6 @@ class PostLikeView(APIView):
         except Post.DoesNotExist:
             return Response({'error': 'Post not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    @require_permission('delete:like:any')
     def delete(self, request, post_id):
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
