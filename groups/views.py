@@ -38,6 +38,94 @@ class GroupListCreateView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
 
+class GroupDiscoverView(APIView):
+    def get(self, request):
+        # Require authentication for viewing groups
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        from chirp.pagination import StandardResultsSetPagination
+
+        # Get all groups and add membership status for the current user
+        all_groups = Group.objects.all().order_by('-created_at')
+
+        # Apply pagination
+        paginator = StandardResultsSetPagination()
+        paginated_groups = paginator.paginate_queryset(all_groups, request)
+
+        # Add membership status to each group
+        groups_with_status = []
+        for group in paginated_groups:
+            group_data = GroupSerializer(group).data
+            group_data['is_member'] = request.user_id in group.members
+            group_data['is_admin'] = request.user_id in group.admins
+            group_data['is_creator'] = request.user_id == group.creator_id
+            groups_with_status.append(group_data)
+
+        return paginator.get_paginated_response(groups_with_status)
+
+class GroupJoinView(APIView):
+    def post(self, request, group_name):
+        # Require authentication
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            group = Group.objects.get(name=group_name)
+
+            # Check if user is already a member
+            if request.user_id in group.members:
+                return Response({
+                    'message': 'Already a member of this group',
+                    'group': GroupSerializer(group).data
+                }, status=status.HTTP_200_OK)
+
+            # Add user to group members
+            group.members.append(request.user_id)
+            group.save()
+
+            return Response({
+                'message': f'Successfully joined group "{group.name}"',
+                'group': GroupSerializer(group).data
+            }, status=status.HTTP_200_OK)
+
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+class GroupLeaveView(APIView):
+    def post(self, request, group_name):
+        # Require authentication
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            group = Group.objects.get(name=group_name)
+
+            # Check if user is a member
+            if request.user_id not in group.members:
+                return Response({'error': 'Not a member of this group'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Prevent creator from leaving (they should transfer ownership or delete the group)
+            if request.user_id == group.creator_id:
+                return Response({'error': 'Group creator cannot leave. Transfer ownership or delete the group.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Remove user from group members
+            group.members.remove(request.user_id)
+
+            # Remove from admins if they were an admin
+            if request.user_id in group.admins:
+                group.admins.remove(request.user_id)
+
+            group.save()
+
+            return Response({
+                'message': f'Successfully left group "{group.name}"',
+                'group': GroupSerializer(group).data
+            }, status=status.HTTP_200_OK)
+
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
 class GroupAddMemberView(APIView):
     def post(self, request, group_name):
         # Require authentication
