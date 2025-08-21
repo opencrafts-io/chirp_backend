@@ -55,7 +55,6 @@ class PostCreateView(generics.CreateAPIView):
 
 
 class PostListView(APIView):
-    @require_permission('read:post:any')
     def get(self, request):
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)

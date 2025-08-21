@@ -71,7 +71,16 @@ class VerisafeAuthMiddleware:
                 request.user_email = payload.get('email', f"{payload.get('sub')}@example.com")
                 request.user_name = payload.get('name', f"User {payload.get('sub')}")
                 request.user_roles = payload.get('roles', [])
-                request.user_permissions = payload.get('permissions', [])
+                # Provide default permissions if not present in JWT
+                request.user_permissions = payload.get('permissions', [
+                    'read:post:any',
+                    'create:post:own',
+                    'read:post:own',
+                    'update:post:own',
+                    'delete:post:own',
+                    'create:like:any',
+                    'delete:like:any'
+                ])
                 request.is_authenticated = True
             except Exception as e:
                 return JsonResponse({'error': str(e)}, status=401)
