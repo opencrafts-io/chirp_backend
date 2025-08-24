@@ -40,9 +40,7 @@ class CommunityPermission(BasePermission):
         if not user_id:
             return False
 
-        if self.required_role == 'admin':
-            return group.is_admin(user_id)
-        elif self.required_role == 'moderator':
+        if self.required_role == 'moderator':
             return group.is_moderator(user_id)
         elif self.required_role == 'member':
             return group.is_member(user_id)
@@ -60,9 +58,7 @@ class CommunityPermission(BasePermission):
 
         if hasattr(obj, 'group'):
             group = obj.group
-            if self.required_role == 'admin':
-                return group.is_admin(user_id)
-            elif self.required_role == 'moderator':
+            if self.required_role == 'moderator':
                 return group.is_moderator(user_id)
             elif self.required_role == 'member':
                 return group.is_member(user_id)
@@ -107,10 +103,7 @@ def require_community_role(role='member'):
             if not user_id:
                 return JsonResponse({'error': 'User ID required'}, status=400)
 
-            if role == 'admin':
-                if not group.is_admin(user_id):
-                    return JsonResponse({'error': 'Admin access required'}, status=403)
-            elif role == 'moderator':
+            if role == 'moderator':
                 if not group.is_moderator(user_id):
                     return JsonResponse({'error': 'Moderator access required'}, status=403)
             elif role == 'member':

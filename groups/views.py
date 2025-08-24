@@ -25,7 +25,6 @@ class GroupListView(APIView):
         user_groups = Group.objects.filter(
             models.Q(members__contains=[user_id]) |
             models.Q(moderators__contains=[user_id]) |
-            models.Q(admins__contains=[user_id]) |
             models.Q(creator_id=user_id)
         )
 
@@ -48,9 +47,9 @@ class GroupCreateView(APIView):
         data['creator_id'] = request.user_id
         data['creator_name'] = getattr(request, 'user_name', f"User {request.user_id}")
 
-        # Creator automatically becomes admin and member
-        data['admins'] = [request.user_id]
-        data['admin_names'] = [data['creator_name']]
+        # Creator automatically becomes moderator and member
+        data['moderators'] = [request.user_id]
+        data['moderator_names'] = [data['creator_name']]
         data['members'] = [request.user_id]
         data['member_names'] = [data['creator_name']]
 
@@ -77,7 +76,7 @@ class GroupDetailView(APIView):
         if not group.can_view(request.user_id):
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        serializer = GroupSerializer(group)
+        serializer = GroupSerializer(group, context={'request': request})
         return Response(serializer.data)
 
 
@@ -107,7 +106,7 @@ class GroupJoinView(APIView):
         # Add user as member
         group.add_member(user_id, user_name, user_id)
 
-        serializer = GroupSerializer(group)
+        serializer = GroupSerializer(group, context={'request': request})
         return Response(serializer.data)
 
 
@@ -130,11 +129,6 @@ class GroupLeaveView(APIView):
             return Response({'error': 'Creator cannot leave the community'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Remove user from all roles
-        if user_id in group.admins:
-            current_admins = list(group.admins)
-            current_admins.remove(user_id)
-            group.admins = current_admins
-
         if user_id in group.moderators:
             current_moderators = list(group.moderators)
             current_moderators.remove(user_id)
@@ -153,7 +147,6 @@ class GroupLeaveView(APIView):
 class GroupModerationView(APIView):
     """Moderate community members and content"""
 
-    @require_community_role('moderator')
     def post(self, request, group_id):
         """Add/remove members, moderators, or ban users"""
         action = request.data.get('action')
@@ -171,19 +164,19 @@ class GroupModerationView(APIView):
 
         try:
             if action == 'add_member':
-                group.add_member(target_user_id, user_id)
+                group.add_member(target_user_id, target_user_id, user_id)
                 message = f'Added {target_user_id} as member'
             elif action == 'remove_member':
                 group.remove_member(target_user_id, user_id)
                 message = f'Removed {target_user_id} as member'
             elif action == 'add_moderator':
-                group.add_moderator(target_user_id, user_id)
+                group.add_moderator(target_user_id, target_user_id, user_id)
                 message = f'Added {target_user_id} as moderator'
             elif action == 'remove_moderator':
                 group.remove_moderator(target_user_id, user_id)
                 message = f'Removed {target_user_id} as moderator'
             elif action == 'ban':
-                group.ban_user(target_user_id, user_id)
+                group.ban_user(target_user_id, target_user_id, user_id)
                 message = f'Banned {target_user_id}'
             elif action == 'unban':
                 group.unban_user(target_user_id, user_id)
@@ -191,7 +184,7 @@ class GroupModerationView(APIView):
             else:
                 return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
 
-            serializer = GroupSerializer(group)
+            serializer = GroupSerializer(group, context={'request': request})
             return Response({
                 'message': message,
                 'group': serializer.data
@@ -202,11 +195,10 @@ class GroupModerationView(APIView):
 
 
 class GroupAdminView(APIView):
-    """Admin-only community management"""
+    """Moderator-only community management"""
 
-    @require_community_role('admin')
     def post(self, request, group_id):
-        """Add/remove admins (only existing admins can do this)"""
+        """Add/remove moderators (only existing moderators can do this)"""
         action = request.data.get('action')
         target_user_id = request.data.get('user_id')
 
@@ -221,16 +213,16 @@ class GroupAdminView(APIView):
         user_id = request.user_id
 
         try:
-            if action == 'add_admin':
-                group.add_admin(target_user_id, user_id)
-                message = f'Added {target_user_id} as admin'
-            elif action == 'remove_admin':
-                group.remove_admin(target_user_id, user_id)
-                message = f'Removed {target_user_id} as admin'
+            if action == 'add_moderator':
+                group.add_moderator(target_user_id, target_user_id, user_id)
+                message = f'Added {target_user_id} as moderator'
+            elif action == 'remove_moderator':
+                group.remove_moderator(target_user_id, user_id)
+                message = f'Removed {target_user_id} as moderator'
             else:
                 return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
 
-            serializer = GroupSerializer(group)
+            serializer = GroupSerializer(group, context={'request': request})
             return Response({
                 'message': message,
                 'group': serializer.data
@@ -243,9 +235,8 @@ class GroupAdminView(APIView):
 class GroupSettingsView(APIView):
     """Update community settings"""
 
-    @require_community_role('admin')
     def put(self, request, group_id):
-        """Update group settings (only admins can do this)"""
+        """Update group settings (only moderators can do this)"""
         try:
             group = Group.objects.get(id=group_id)
         except Group.DoesNotExist:
@@ -262,7 +253,7 @@ class GroupSettingsView(APIView):
         serializer = GroupSerializer(group, data=data, partial=True)
         if serializer.is_valid():
             group.save()
-            return Response(serializer.data)
+            return Response(GroupSerializer(group, context={'request': request}).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -270,18 +261,11 @@ class GroupRulesView(APIView):
     """Manage community rules/guidelines"""
 
     def get(self, request, group_id):
-        """Get community rules (anyone can view if they can access the group)"""
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
-
+        """Get all community rules"""
         try:
             group = Group.objects.get(id=group_id)
         except Group.DoesNotExist:
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Check if user can view this group
-        if not group.can_view(request.user_id):
-            return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
         return Response({
             'group_id': group_id,
@@ -289,9 +273,8 @@ class GroupRulesView(APIView):
             'rules': group.get_rules()
         })
 
-    @require_community_role('admin')
     def post(self, request, group_id):
-        """Add a new rule to the community (only admins can do this)"""
+        """Add a new rule to the community (only moderators can do this)"""
         rule = request.data.get('rule')
         if not rule:
             return Response({'error': 'Rule content is required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -310,9 +293,8 @@ class GroupRulesView(APIView):
         except ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @require_community_role('admin')
     def put(self, request, group_id):
-        """Update all community rules (only admins can do this)"""
+        """Update all community rules (only moderators can do this)"""
         rules = request.data.get('rules')
         if not isinstance(rules, list):
             return Response({'error': 'Rules must be a list'}, status=status.HTTP_400_BAD_REQUEST)
@@ -331,9 +313,8 @@ class GroupRulesView(APIView):
         except ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @require_community_role('admin')
     def delete(self, request, group_id):
-        """Remove a specific rule from the community (only admins can do this)"""
+        """Remove a specific rule from the community (only moderators can do this)"""
         rule = request.data.get('rule')
         if not rule:
             return Response({'error': 'Rule content is required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -377,7 +358,6 @@ class GroupUsersView(APIView):
             'group_name': group.name,
             'total_users': (
                 1 +  # creator
-                len(user_list['admins']) +
                 len(user_list['moderators']) +
                 len(user_list['members'])
             ),

@@ -4,7 +4,7 @@ from .models import Group, GroupPost, GroupInvite
 
 @admin.register(Group)
 class GroupAdmin(admin.ModelAdmin):
-    list_display = ('name', 'creator_name', 'is_private', 'member_count', 'admin_count', 'created_at')
+    list_display = ('name', 'creator_name', 'is_private', 'member_count', 'moderator_count', 'created_at')
     list_filter = ('is_private', 'created_at')
     search_fields = ('name', 'description', 'creator_id', 'creator_name')
     readonly_fields = ('created_at', 'updated_at')
@@ -18,7 +18,7 @@ class GroupAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
         ('Membership', {
-            'fields': ('admins', 'admin_names', 'moderators', 'moderator_names', 'members', 'member_names', 'banned_users', 'banned_user_names')
+            'fields': ('moderators', 'moderator_names', 'members', 'member_names', 'banned_users', 'banned_user_names')
         }),
         ('Community Guidelines', {
             'fields': ('rules',)
@@ -33,9 +33,9 @@ class GroupAdmin(admin.ModelAdmin):
         return len(obj.members) if obj.members else 0
     member_count.short_description = 'Members'
 
-    def admin_count(self, obj):
-        return len(obj.admins) if obj.admins else 0
-    admin_count.short_description = 'Admins'
+    def moderator_count(self, obj):
+        return len(obj.moderators) if obj.moderators else 0
+    moderator_count.short_description = 'Moderators'
 
 
 @admin.register(GroupPost)

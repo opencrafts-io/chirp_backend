@@ -3,6 +3,7 @@ from .views import (
     GroupListView, GroupCreateView, GroupDetailView, GroupJoinView, GroupLeaveView,
     GroupModerationView, GroupAdminView, GroupSettingsView, GroupRulesView, GroupUsersView
 )
+from posts.views import GroupPostListView, PostCreateView
 
 urlpatterns = [
     # Community management
@@ -22,4 +23,8 @@ urlpatterns = [
 
     # Community users
     path('<int:group_id>/users/', GroupUsersView.as_view(), name='group-users'),
+
+    # Group posts
+    path('<int:group_id>/posts/', GroupPostListView.as_view(), name='group-posts'),
+    path('<int:group_id>/posts/create/', PostCreateView.as_view(), name='group-post-create'),
 ]
