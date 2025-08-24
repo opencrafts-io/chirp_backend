@@ -66,6 +66,9 @@ class Attachment(models.Model):
 class Post(models.Model):
     group = models.ForeignKey('groups.Group', on_delete=models.CASCADE, related_name='community_posts', default=1)
     user_id = models.CharField(max_length=100)
+    user_name = models.CharField(max_length=100, default='User')
+    email = models.EmailField(max_length=255, null=True, blank=True)
+    avatar_url = models.URLField(max_length=500, null=True, blank=True)
     content = models.TextField(max_length=280)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -90,6 +93,12 @@ class Post(models.Model):
         if len(str(self.user_id)) > 100:
             raise ValidationError("User ID cannot exceed 100 characters.")
 
+        if not self.user_name:
+            raise ValidationError("User name is required.")
+
+        if len(str(self.user_name)) > 100:
+            raise ValidationError("User name cannot exceed 100 characters.")
+
         if not self.group:
             raise ValidationError("Group is required.")
 
@@ -101,7 +110,7 @@ class Post(models.Model):
         super().delete(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.user_id} in {self.group.name}: {self.content[:50]}..."
+        return f"{self.user_name} in {self.group.name}: {self.content[:50]}..."
 
 class PostLike(models.Model):
     user_id = models.CharField(max_length=100)
@@ -117,8 +126,25 @@ class PostLike(models.Model):
 class PostReply(models.Model):
     parent_post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='replies')
     user_id = models.CharField(max_length=100)
+    user_name = models.CharField(max_length=100, default='User')
+    email = models.EmailField(max_length=255, null=True, blank=True)
+    avatar_url = models.URLField(max_length=500, null=True, blank=True)
     content = models.TextField(max_length=280)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        """Custom validation for post reply model"""
+        super().clean()
+
+        if not self.content:
+            raise ValidationError("Content is required.")
+
+        if not self.user_name:
+            raise ValidationError("User name is required.")
+
+        if len(str(self.user_name)) > 100:
+            raise ValidationError("User name cannot exceed 100 characters.")
+
     def __str__(self) -> str:
-        return f"Reply by {self.user_id} to post: {self.parent_post.content}..."
+        return f"Reply by {self.user_name} to post: {self.parent_post.content}..."

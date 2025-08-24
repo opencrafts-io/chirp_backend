@@ -49,7 +49,20 @@ class PostCreateView(generics.CreateAPIView):
             )
 
         content = serializer.validated_data.get("content", "")
-        post = serializer.save(user_id=self.request.user_id, group=group, content=content)
+
+        # Get user information from request
+        user_name = getattr(request, 'user_name', f"User {request.user_id}")
+        email = getattr(request, 'user_email', None)
+        avatar_url = getattr(request, 'avatar_url', None)
+
+        post = serializer.save(
+            user_id=self.request.user_id,
+            user_name=user_name,
+            email=email,
+            avatar_url=avatar_url,
+            group=group,
+            content=content
+        )
 
         files = request.FILES.getlist("attachments")
         for file in files:
@@ -161,7 +174,19 @@ class PostListView(APIView):
                     # Check if user can post in this community
                     if not group.can_post(request.user_id):
                         return Response({'error': 'You cannot post in this community'}, status=status.HTTP_403_FORBIDDEN)
-                    serializer.save(user_id=request.user_id, group=group)
+
+                    # Get user information from request
+                    user_name = getattr(request, 'user_name', f"User {request.user_id}")
+                    email = getattr(request, 'user_email', None)
+                    avatar_url = getattr(request, 'avatar_url', None)
+
+                    serializer.save(
+                        user_id=request.user_id,
+                        user_name=user_name,
+                        email=email,
+                        avatar_url=avatar_url,
+                        group=group
+                    )
                     return Response(serializer.data, status=status.HTTP_201_CREATED)
                 except Group.DoesNotExist:
                     return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -214,7 +239,19 @@ class PostReplyCreateView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         parent_post = get_object_or_404(Post, pk=self.kwargs["post_id"])
-        serializer.save(user_id=self.request.user_id, parent_post=parent_post)
+
+        # Get user information from request
+        user_name = getattr(self.request, 'user_name', f"User {self.request.user_id}")
+        email = getattr(self.request, 'user_email', None)
+        avatar_url = getattr(self.request, 'avatar_url', None)
+
+        serializer.save(
+            user_id=self.request.user_id,
+            user_name=user_name,
+            email=email,
+            avatar_url=avatar_url,
+            parent_post=parent_post
+        )
 
     def get(self, request, post_id):
         from chirp.pagination import StandardResultsSetPagination

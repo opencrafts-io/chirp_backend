@@ -4,10 +4,23 @@ from .models import Attachment, Post, PostLike, PostReply
 
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user_id', 'group', 'content_preview', 'like_count', 'created_at')
-    list_filter = ('group', 'created_at', 'user_id')
-    search_fields = ('content', 'user_id', 'group__name')
+    list_display = ('id', 'user_name', 'user_id', 'group', 'content_preview', 'like_count', 'created_at')
+    list_filter = ('group', 'created_at', 'user_name')
+    search_fields = ('content', 'user_name', 'user_id', 'group__name')
     readonly_fields = ('like_count', 'created_at', 'updated_at')
+
+    fieldsets = (
+        ('Post Information', {
+            'fields': ('content', 'group', 'like_count')
+        }),
+        ('User Information', {
+            'fields': ('user_id', 'user_name', 'email', 'avatar_url')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
 
     def content_preview(self, obj: Post) -> str:
         return obj.content[:50] + '...' if len(obj.content) > 50 else obj.content
@@ -16,9 +29,22 @@ class PostAdmin(admin.ModelAdmin):
 
 @admin.register(PostReply)
 class PostReplyAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user_id', 'parent_post', 'content_preview', 'created_at')
-    list_filter = ('created_at', 'user_id')
-    search_fields = ('content', 'user_id')
+    list_display = ('id', 'user_name', 'user_id', 'parent_post', 'content_preview', 'created_at')
+    list_filter = ('created_at', 'user_name')
+    search_fields = ('content', 'user_name', 'user_id')
+
+    fieldsets = (
+        ('Reply Information', {
+            'fields': ('content', 'parent_post')
+        }),
+        ('User Information', {
+            'fields': ('user_id', 'user_name', 'email', 'avatar_url')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
 
     def content_preview(self, obj: PostReply) -> str:
         return obj.content[:50] + '...' if len(obj.content) > 50 else obj.content

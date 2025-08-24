@@ -44,6 +44,9 @@ class PostSerializer(serializers.ModelSerializer):
             "group",
             "group_id",
             "user_id",
+            "user_name",
+            "email",
+            "avatar_url",
             "content",
             "created_at",
             "updated_at",
@@ -57,5 +60,5 @@ class PostSerializer(serializers.ModelSerializer):
 class PostReplySerializer(serializers.ModelSerializer):
     class Meta:
         model = PostReply
-        fields = ('id', 'parent_post', 'user_id', 'content', 'created_at', 'updated_at')
+        fields = ('id', 'parent_post', 'user_id', 'user_name', 'email', 'avatar_url', 'content', 'created_at', 'updated_at')
         read_only_fields = ['user_id', 'parent_post']
