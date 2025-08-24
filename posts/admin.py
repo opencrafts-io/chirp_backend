@@ -27,9 +27,13 @@ class PostReplyAdmin(admin.ModelAdmin):
 
 @admin.register(Attachment)
 class AttachmentAdmin(admin.ModelAdmin):
-    list_display = ('id', 'post', 'attachment_type', 'file_size_mb', 'original_filename', 'created_at')
+    list_display = ('id', 'post', 'attachment_type', 'file_size_display', 'original_filename', 'created_at')
     list_filter = ('attachment_type', 'created_at')
     search_fields = ('original_filename', 'post__content')
+
+    def file_size_display(self, obj):
+        return obj.get_file_size_mb()
+    file_size_display.short_description = 'File Size (MB)'
 
 
 @admin.register(PostLike)

@@ -4,14 +4,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Attachment, Post, PostLike, PostReply
 from .serializers import PostReplySerializer, PostSerializer
-from django.db.models import Exists, F, OuterRef
-from chirp.permissions import require_permission
+from django.db.models import Exists, F, OuterRef, Q
+from chirp.permissions import require_permission, CommunityPermission
 from groups.models import Group
 
 
 class PostCreateView(generics.CreateAPIView):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
+    permission_classes = [CommunityPermission]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -30,6 +31,12 @@ class PostCreateView(generics.CreateAPIView):
             return Response(
                 {"detail": "Group not found."},
                 status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not group.can_post(request.user_id):
+            return Response(
+                {"detail": "You cannot post in this community."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         content_present = "content" in serializer.validated_data and serializer.validated_data["content"].strip()
@@ -80,9 +87,13 @@ class GroupPostListView(APIView):
 
         try:
             group = Group.objects.get(id=group_id)
-            posts = Post.objects.filter(group=group).order_by('-created_at')
         except Group.DoesNotExist:
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not group.can_view(request.user_id):
+            return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        posts = Post.objects.filter(group=group).order_by('-created_at')
 
         paginator = StandardResultsSetPagination()
         paginated_posts = paginator.paginate_queryset(posts, request)
@@ -104,11 +115,23 @@ class PostListView(APIView):
         if group_id:
             try:
                 group = Group.objects.get(id=group_id)
+                # Check if user can view this group
+                if not group.can_view(request.user_id):
+                    return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
                 posts = Post.objects.filter(group=group).order_by('-created_at')
             except Group.DoesNotExist:
                 return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
         else:
-            posts = Post.objects.all().order_by('-created_at')
+            # Show posts from groups user can view
+            user_id = request.user_id
+            accessible_groups = Group.objects.filter(
+                Q(is_private=False) |
+                Q(members__contains=[user_id]) |
+                Q(moderators__contains=[user_id]) |
+                Q(admins__contains=[user_id]) |
+                Q(creator_id=user_id)
+            )
+            posts = Post.objects.filter(group__in=accessible_groups).order_by('-created_at')
 
         # Apply pagination
         paginator = StandardResultsSetPagination()
@@ -124,15 +147,20 @@ class PostListView(APIView):
         data = request.data.copy()
         data['user_id'] = request.user_id
 
+        # Validate group_id is provided
         if 'group_id' not in data:
             return Response({'error': 'group_id is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = PostSerializer(data=data)
         if serializer.is_valid():
+            # Get the group and save the post
             group_id = serializer.validated_data.get('group_id')
             if group_id:
                 try:
                     group = Group.objects.get(id=group_id)
+                    # Check if user can post in this community
+                    if not group.can_post(request.user_id):
+                        return Response({'error': 'You cannot post in this community'}, status=status.HTTP_403_FORBIDDEN)
                     serializer.save(user_id=request.user_id, group=group)
                     return Response(serializer.data, status=status.HTTP_201_CREATED)
                 except Group.DoesNotExist:

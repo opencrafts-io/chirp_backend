@@ -1,17 +1,30 @@
 from rest_framework import serializers
 from .models import Group, GroupPost, GroupInvite
 
+
 class GroupSerializer(serializers.ModelSerializer):
     creator_id = serializers.CharField(read_only=True, max_length=100)
+    is_private = serializers.BooleanField(default=False)
+    moderators = serializers.ListField(child=serializers.CharField(), read_only=True)
+    banned_users = serializers.ListField(child=serializers.CharField(), read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
+
+    user_role = serializers.SerializerMethodField()
+    can_post = serializers.SerializerMethodField()
+    can_moderate = serializers.SerializerMethodField()
+    can_admin = serializers.SerializerMethodField()
 
     class Meta:
         model = Group
-        fields = ['id', 'name', 'description', 'creator_id', 'admins', 'members', 'created_at']
-        read_only_fields =  ['id', 'creator_id', 'admins', 'members', 'created_at']
-        extra_kwargs = {
-            'admins': {'read_only': True},
-            'members': {'read_only': True},
-        }
+        fields = [
+            'id', 'name', 'description', 'creator_id', 'admins', 'moderators',
+            'members', 'banned_users', 'is_private', 'created_at', 'updated_at',
+            'user_role', 'can_post', 'can_moderate', 'can_admin'
+        ]
+        read_only_fields = [
+            'id', 'creator_id', 'admins', 'moderators', 'members',
+            'banned_users', 'created_at', 'updated_at'
+        ]
 
     def validate_name(self, value):
         """Validate group name"""
@@ -22,6 +35,51 @@ class GroupSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Group name cannot exceed 100 characters.")
 
         return value
+
+    def get_user_role(self, obj):
+        """Get the current user's role in this group"""
+        request = self.context.get('request')
+        if not request or not hasattr(request, 'user_id'):
+            return None
+
+        user_id = request.user_id
+        if obj.creator_id == user_id:
+            return 'creator'
+        elif user_id in obj.admins:
+            return 'admin'
+        elif user_id in obj.moderators:
+            return 'moderator'
+        elif user_id in obj.members:
+            return 'member'
+        elif user_id in obj.banned_users:
+            return 'banned'
+        else:
+            return 'none'
+
+    def get_can_post(self, obj):
+        """Check if current user can post in this group"""
+        request = self.context.get('request')
+        if not request or not hasattr(request, 'user_id'):
+            return False
+
+        return obj.can_post(request.user_id)
+
+    def get_can_moderate(self, obj):
+        """Check if current user can moderate this group"""
+        request = self.context.get('request')
+        if not request or not hasattr(request, 'user_id'):
+            return False
+
+        return obj.is_moderator(request.user_id)
+
+    def get_can_admin(self, obj):
+        """Check if current user can admin this group"""
+        request = self.context.get('request')
+        if not request or not hasattr(request, 'user_id'):
+            return False
+
+        return obj.is_admin(request.user_id)
+
 
 class GroupPostSerializer(serializers.ModelSerializer):
     user_id = serializers.CharField(read_only=True, max_length=100)
@@ -37,6 +95,7 @@ class GroupPostSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Content cannot be empty.")
 
         return value
+
 
 class GroupInviteSerializer(serializers.ModelSerializer):
     inviter_id = serializers.CharField(read_only=True, max_length=100)
