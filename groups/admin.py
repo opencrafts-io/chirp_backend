@@ -4,17 +4,21 @@ from .models import Group, GroupPost, GroupInvite
 
 @admin.register(Group)
 class GroupAdmin(admin.ModelAdmin):
-    list_display = ('name', 'creator_id', 'is_private', 'member_count', 'admin_count', 'created_at')
+    list_display = ('name', 'creator_name', 'is_private', 'member_count', 'admin_count', 'created_at')
     list_filter = ('is_private', 'created_at')
-    search_fields = ('name', 'description', 'creator_id')
+    search_fields = ('name', 'description', 'creator_id', 'creator_name')
     readonly_fields = ('created_at', 'updated_at')
 
     fieldsets = (
         ('Basic Information', {
-            'fields': ('name', 'description', 'creator_id', 'is_private')
+            'fields': ('name', 'description', 'creator_id', 'creator_name', 'is_private')
+        }),
+        ('Community Branding', {
+            'fields': ('logo', 'banner'),
+            'classes': ('collapse',)
         }),
         ('Membership', {
-            'fields': ('admins', 'moderators', 'members', 'banned_users')
+            'fields': ('admins', 'admin_names', 'moderators', 'moderator_names', 'members', 'member_names', 'banned_users', 'banned_user_names')
         }),
         ('Community Guidelines', {
             'fields': ('rules',)

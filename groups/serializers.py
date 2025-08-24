@@ -13,6 +13,12 @@ class GroupSerializer(serializers.ModelSerializer):
     rules = serializers.ListField(child=serializers.CharField(), read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)
 
+    # Image fields
+    logo = serializers.ImageField(required=False, allow_null=True)
+    banner = serializers.ImageField(required=False, allow_null=True)
+    logo_url = serializers.SerializerMethodField()
+    banner_url = serializers.SerializerMethodField()
+
     user_role = serializers.SerializerMethodField()
     can_post = serializers.SerializerMethodField()
     can_moderate = serializers.SerializerMethodField()
@@ -23,8 +29,8 @@ class GroupSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'description', 'creator_id', 'creator_name', 'admins', 'admin_names',
             'moderators', 'moderator_names', 'members', 'member_names', 'banned_users',
-            'banned_user_names', 'is_private', 'rules', 'created_at', 'updated_at',
-            'user_role', 'can_post', 'can_moderate', 'can_admin'
+            'banned_user_names', 'is_private', 'rules', 'logo', 'banner', 'logo_url', 'banner_url',
+            'created_at', 'updated_at', 'user_role', 'can_post', 'can_moderate', 'can_admin'
         ]
         read_only_fields = [
             'id', 'creator_id', 'creator_name', 'admins', 'admin_names', 'moderators',
@@ -85,6 +91,24 @@ class GroupSerializer(serializers.ModelSerializer):
             return False
 
         return obj.is_admin(request.user_id)
+
+    def get_logo_url(self, obj):
+        """Get the full URL for the logo"""
+        if obj.logo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.logo.url)
+            return obj.logo.url
+        return None
+
+    def get_banner_url(self, obj):
+        """Get the full URL for the banner"""
+        if obj.banner:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.banner.url)
+            return obj.banner.url
+        return None
 
 
 class GroupPostSerializer(serializers.ModelSerializer):

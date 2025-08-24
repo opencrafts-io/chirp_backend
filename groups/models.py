@@ -22,6 +22,9 @@ class Group(models.Model):
     banned_user_names = models.JSONField(default=list)
     is_private = models.BooleanField(default=False)
     rules = models.JSONField(default=list)
+    logo = models.ImageField(upload_to='groups/logos/', null=True, blank=True, help_text='Community logo (square image recommended)')
+    banner = models.ImageField(upload_to='groups/banners/', null=True, blank=True, help_text='Community banner image (wide image recommended)')
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -278,6 +281,18 @@ class Group(models.Model):
                 for user_id, name in zip(self.banned_users, self.banned_user_names)
             ]
         }
+
+    def get_logo_url(self):
+        """Get the URL for the community logo"""
+        if self.logo:
+            return self.logo.url
+        return None
+
+    def get_banner_url(self):
+        """Get the URL for the community banner"""
+        if self.banner:
+            return self.banner.url
+        return None
 
 
 class GroupPost(models.Model):

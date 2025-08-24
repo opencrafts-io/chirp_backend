@@ -251,13 +251,17 @@ class GroupSettingsView(APIView):
         except Group.DoesNotExist:
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Only allow updating certain fields
         allowed_fields = ['name', 'description', 'is_private']
         data = {k: v for k, v in request.data.items() if k in allowed_fields}
 
+        if 'logo' in request.FILES:
+            group.logo = request.FILES['logo']
+        if 'banner' in request.FILES:
+            group.banner = request.FILES['banner']
+
         serializer = GroupSerializer(group, data=data, partial=True)
         if serializer.is_valid():
-            serializer.save()
+            group.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
