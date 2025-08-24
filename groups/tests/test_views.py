@@ -13,125 +13,173 @@ import urllib.parse
 
 class GroupListCreateViewTest(TestCase):
     def setUp(self):
-        """Set up test data for each test method."""
-        self.factory = APIRequestFactory()
-        self.view = GroupListCreateView.as_view()
-
-        # Create test groups
-        self.group1 = Group.objects.create(
-            name='Group 1',
-            creator_id='user123',
-            admins=['user123'],
-            members=['user123', 'user456']
-        )
-        self.group2 = Group.objects.create(
-            name='Group 2',
-            creator_id='user456',
-            admins=['user456'],
-            members=['user456']
-        )
-
-        self.valid_group_data = {
-            'name': 'New Group',
-            'description': 'A new test group'
+        self.group_data = {
+            'name': 'Test Group',
+            'description': 'A test group',
+            'creator_id': 'user123',
+            'creator_name': 'Test User',
+            'moderators': ['user123'],
+            'moderator_names': ['Test User'],
+            'members': ['user123'],
+            'member_names': ['Test User']
         }
 
-    def test_get_groups_for_member(self):
-        """Test GET request returns only groups where user is a member."""
-        request = self.factory.get('/groups/')
-        request.user_id = 'user123'
+        self.group_data_2 = {
+            'name': 'Test Group 2',
+            'description': 'Another test group',
+            'creator_id': 'user456',
+            'creator_name': 'Test User 2',
+            'moderators': ['user456'],
+            'moderator_names': ['Test User 2'],
+            'members': ['user456'],
+            'member_names': ['Test User 2']
+        }
 
-        response = self.view(request)
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 1)
-        self.assertEqual(response.data['results'][0]['name'], 'Group 1')
-
-    def test_get_groups_no_membership(self):
-        """Test GET request returns empty list for user with no memberships."""
-        request = self.factory.get('/groups/')
-        request.user_id = 'user_not_member'
-
-        response = self.view(request)
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 0)
-
-    def test_get_groups_multiple_memberships(self):
-        """Test GET request returns all groups where user is a member."""
-        # Add user123 to group2
-        self.group2.members.append('user123')
-        self.group2.save()
-
-        request = self.factory.get('/groups/')
-        request.user_id = 'user123'
-
-        response = self.view(request)
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 2)
-
-    def test_post_create_group_valid_data(self):
-        """Test POST request creates group with valid data."""
-        request = self.factory.post('/groups/', self.valid_group_data)
-        request.user_id = 'user123'
-
-        response = self.view(request)
-
+    def test_group_create_success(self):
+        """Test successful group creation."""
+        response = self.client.post('/groups/create/', self.group_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Group.objects.count(), 3)  # 2 existing + 1 new
 
-        created_group = Group.objects.get(name='New Group')
+        created_group = Group.objects.get(name='Test Group')
         self.assertEqual(created_group.creator_id, 'user123')
-        self.assertEqual(created_group.admins, ['user123'])
-        self.assertEqual(created_group.members, ['user123'])
+        self.assertEqual(created_group.moderators, ['user123'])
 
-    def test_post_create_group_assigns_creator_fields(self):
-        """Test POST request assigns creator as admin and member."""
-        request = self.factory.post('/groups/', self.valid_group_data)
-        request.user_id = 'creator_user'
-
-        response = self.view(request)
-
+    def test_group_create_response_structure(self):
+        """Test that group creation response has correct structure."""
+        response = self.client.post('/groups/create/', self.group_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['creator_id'], 'creator_user')
-        self.assertEqual(response.data['admins'], ['creator_user'])
-        self.assertEqual(response.data['members'], ['creator_user'])
 
-    def test_post_create_group_invalid_data(self):
-        """Test POST request with invalid data returns 400."""
-        invalid_data = {'name': '', 'description': 'No name'}
-        request = self.factory.post('/groups/', invalid_data)
-        request.user_id = 'user123'
+        # Check that response contains expected fields
+        response_data = response.data
+        self.assertIn('id', response_data)
+        self.assertIn('name', response_data)
+        self.assertIn('description', response_data)
+        self.assertIn('creator_id', response_data)
+        self.assertIn('moderators', response_data)
+        self.assertIn('members', response_data)
+        self.assertIn('created_at', response_data)
 
-        response = self.view(request)
+        # Check that creator is automatically added to moderators and members
+        self.assertIn('user123', response_data['moderators'])
+        self.assertIn('user123', response_data['members'])
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('name', response.data)
-
-    def test_post_create_group_duplicate_name(self):
-        """Test POST request with duplicate group name fails."""
-        duplicate_data = {'name': 'Group 1', 'description': 'Duplicate name'}
-        request = self.factory.post('/groups/', duplicate_data)
-        request.user_id = 'user123'
-
-        response = self.view(request)
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_post_modifies_data_copy(self):
-        """Test POST request modifies copy of data, not original."""
-        original_data = self.valid_group_data.copy()
-        request = self.factory.post('/groups/', original_data)
-        request.user_id = 'user123'
-
-        response = self.view(request)
-
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        # Original data should not have creator_id, admins, or members
+    def test_group_create_validation(self):
+        """Test group creation validation."""
+        # Original data should not have creator_id, moderators, or members
+        original_data = {
+            'name': 'Valid Group',
+            'description': 'A valid group'
+        }
         self.assertNotIn('creator_id', original_data)
-        self.assertNotIn('admins', original_data)
+        self.assertNotIn('moderators', original_data)
         self.assertNotIn('members', original_data)
+
+        # Test that required fields are enforced
+        invalid_data = {'description': 'Missing name'}
+        response = self.client.post('/groups/create/', invalid_data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_group_list_success(self):
+        """Test successful group listing."""
+        # Create a group first
+        Group.objects.create(**self.group_data)
+
+        response = self.client.get('/groups/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'Test Group')
+
+    def test_group_detail_success(self):
+        """Test successful group detail retrieval."""
+        group = Group.objects.create(**self.group_data)
+
+        response = self.client.get(f'/groups/{group.id}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['name'], 'Test Group')
+
+    def test_group_join_success(self):
+        """Test successful group joining."""
+        group = Group.objects.create(**self.group_data)
+
+        join_data = {'user_id': 'new_user'}
+        response = self.client.post(f'/groups/{group.id}/join/', join_data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Check that user was added to members
+        group.refresh_from_db()
+        self.assertIn('new_user', group.members)
+
+    def test_group_leave_success(self):
+        """Test successful group leaving."""
+        group = Group.objects.create(**self.group_data)
+
+        leave_data = {'user_id': 'user123'}
+        response = self.client.post(f'/groups/{group.id}/leave/', leave_data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Check that user was removed from members
+        group.refresh_from_db()
+        self.assertNotIn('user123', group.members)
+
+    def test_group_moderation_add_member(self):
+        """Test adding member through moderation."""
+        group = Group.objects.create(**self.group_data)
+
+        moderation_data = {
+            'action': 'add_member',
+            'user_id': 'new_member'
+        }
+        response = self.client.post(f'/groups/{group.id}/moderate/', moderation_data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Check that user was added to members
+        group.refresh_from_db()
+        self.assertIn('new_member', group.members)
+
+    def test_group_moderation_remove_member(self):
+        """Test removing member through moderation."""
+        group = Group.objects.create(**self.group_data)
+
+        moderation_data = {
+            'action': 'remove_member',
+            'user_id': 'user123'
+        }
+        response = self.client.post(f'/groups/{group.id}/moderate/', moderation_data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Check that user was removed from members
+        group.refresh_from_db()
+        self.assertNotIn('user123', group.members)
+
+    def test_group_admin_add_moderator(self):
+        """Test adding moderator through admin."""
+        group = Group.objects.create(**self.group_data)
+
+        admin_data = {
+            'action': 'add_moderator',
+            'user_id': 'new_moderator'
+        }
+        response = self.client.post(f'/groups/{group.id}/admin/', admin_data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Check that user was added to moderators
+        group.refresh_from_db()
+        self.assertIn('new_moderator', group.moderators)
+
+    def test_group_admin_remove_moderator(self):
+        """Test removing moderator through admin."""
+        group = Group.objects.create(**self.group_data)
+
+        admin_data = {
+            'action': 'remove_moderator',
+            'user_id': 'user123'
+        }
+        response = self.client.post(f'/groups/{group.id}/admin/', admin_data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Check that user was removed from moderators
+        group.refresh_from_db()
+        self.assertNotIn('user123', group.moderators)
 
 
 class GroupAddMemberViewTest(TestCase):

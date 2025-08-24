@@ -258,6 +258,16 @@ class GroupPost(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def clean(self):
+        """Custom validation for GroupPost model"""
+        super().clean()
+
+        if not self.content or not self.content.strip():
+            raise ValidationError("Content cannot be empty")
+
+        if not self.user_id or not self.user_id.strip():
+            raise ValidationError("User ID cannot be empty")
+
     def __str__(self) -> str:
         return f"{self.user_id} in {self.group.name}: {self.content}..."
 

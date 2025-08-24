@@ -15,8 +15,11 @@ def set_default_group(apps, schema_editor):
             'name': 'General',
             'description': 'General community for all posts',
             'creator_id': 'system',
-            'admins': [],
-            'members': []
+            'creator_name': 'System',
+            'moderators': [],
+            'moderator_names': [],
+            'members': [],
+            'member_names': []
         }
     )
 

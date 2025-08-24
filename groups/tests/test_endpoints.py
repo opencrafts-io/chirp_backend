@@ -35,8 +35,10 @@ class GroupsEndpointTest(TestCase):
             name='Test Group',
             description='Test description',
             creator_id=self.test_user_id,
-            admins=[self.test_user_id],
-            members=[self.test_user_id]
+            moderators=[self.test_user_id],
+            moderator_names=['Test User 1'],
+            members=[self.test_user_id],
+            member_names=['Test User 1']
         )
 
         response = self.client.get(
@@ -71,15 +73,19 @@ class GroupsEndpointTest(TestCase):
         group1 = Group.objects.create(
             name='My Group',
             creator_id=self.test_user_id,
-            admins=[self.test_user_id],
-            members=[self.test_user_id]
+            moderators=[self.test_user_id],
+            moderator_names=['Test User 1'],
+            members=[self.test_user_id],
+            member_names=['Test User 1']
         )
 
         Group.objects.create(
             name='Other Group',
             creator_id=self.test_user_id_2,
-            admins=[self.test_user_id_2],
-            members=[self.test_user_id_2]
+            moderators=[self.test_user_id_2],
+            moderator_names=['Test User 2'],
+            members=[self.test_user_id_2],
+            member_names=['Test User 2']
         )
 
         response = self.client.get(
@@ -106,7 +112,7 @@ class GroupsEndpointTest(TestCase):
         created_group = Group.objects.first()
         self.assertEqual(created_group.name, 'Test Group')
         self.assertEqual(created_group.creator_id, self.test_user_id)
-        self.assertIn(self.test_user_id, created_group.admins)
+        self.assertIn(self.test_user_id, created_group.moderators)
         self.assertIn(self.test_user_id, created_group.members)
 
     def test_post_group_without_jwt(self):
@@ -152,8 +158,10 @@ class GroupsEndpointTest(TestCase):
         Group.objects.create(
             name='Test Group',
             creator_id=self.test_user_id,
-            admins=[self.test_user_id],
-            members=[self.test_user_id]
+            moderators=[self.test_user_id],
+            moderator_names=['Test User 1'],
+            members=[self.test_user_id],
+            member_names=['Test User 1']
         )
 
         response = self.client.post(
@@ -176,7 +184,7 @@ class GroupsEndpointTest(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        expected_fields = ['id', 'name', 'description', 'creator_id', 'admins', 'members', 'created_at']
+        expected_fields = ['id', 'name', 'description', 'creator_id', 'moderators', 'members', 'created_at']
         for field in expected_fields:
             self.assertIn(field, response.data)
 
@@ -191,7 +199,7 @@ class GroupsEndpointTest(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['creator_id'], self.test_user_id)
-        self.assertIn(self.test_user_id, response.data['admins'])
+        self.assertIn(self.test_user_id, response.data['moderators'])
         self.assertIn(self.test_user_id, response.data['members'])
 
     def test_unsupported_http_methods(self):
@@ -227,8 +235,10 @@ class GroupMemberEndpointTest(TestCase):
             name='Test Group',
             description='A test group',
             creator_id=self.test_user_id,
-            admins=[self.test_user_id],
-            members=[self.test_user_id, self.test_user_id_2]
+            moderators=[self.test_user_id],
+            moderator_names=['Test User 1'],
+            members=[self.test_user_id, self.test_user_id_2],
+            member_names=['Test User 1', 'Test User 2']
         )
 
         encoded_name = urllib.parse.quote(self.group.name, safe='')
@@ -322,8 +332,10 @@ class GroupInviteEndpointTest(TestCase):
             name='Test Group',
             description='A test group',
             creator_id=self.test_user_id,
-            admins=[self.test_user_id],
-            members=[self.test_user_id, self.test_user_id_2]
+            moderators=[self.test_user_id],
+            moderator_names=['Test User 1'],
+            members=[self.test_user_id, self.test_user_id_2],
+            member_names=['Test User 1', 'Test User 2']
         )
 
         encoded_name = urllib.parse.quote(self.group.name, safe='')
@@ -416,8 +428,10 @@ class GroupAcceptInviteEndpointTest(TestCase):
             name='Test Group',
             description='A test group',
             creator_id=self.test_user_id,
-            admins=[self.test_user_id],
-            members=[self.test_user_id]
+            moderators=[self.test_user_id],
+            moderator_names=['Test User 1'],
+            members=[self.test_user_id],
+            member_names=['Test User 1']
         )
 
         # Create an invite
@@ -488,8 +502,10 @@ class GroupPostEndpointTest(TestCase):
             name='Test Group',
             description='A test group',
             creator_id=self.test_user_id,
-            admins=[self.test_user_id],
-            members=[self.test_user_id]
+            moderators=[self.test_user_id],
+            moderator_names=['Test User 1'],
+            members=[self.test_user_id],
+            member_names=['Test User 1']
         )
 
         encoded_name = urllib.parse.quote(self.group.name, safe='')
@@ -612,8 +628,10 @@ class GroupJoinLeaveEndpointTest(TestCase):
             name='Test Group',
             description='A test group for join/leave testing',
             creator_id=self.test_user_id,
-            admins=[self.test_user_id],
-            members=[self.test_user_id]
+            moderators=[self.test_user_id],
+            moderator_names=['Test User 1'],
+            members=[self.test_user_id],
+            member_names=['Test User 1']
         )
 
     def _get_auth_headers(self, user_id=None):
@@ -695,8 +713,10 @@ class GroupJoinLeaveEndpointTest(TestCase):
             name='Another Group',
             description='Another test group',
             creator_id=self.test_user_id_2,
-            admins=[self.test_user_id_2],
-            members=[self.test_user_id_2]
+            moderators=[self.test_user_id_2],
+            moderator_names=['Test User 2'],
+            members=[self.test_user_id_2],
+            member_names=['Test User 2']
         )
 
         response = self.client.get(

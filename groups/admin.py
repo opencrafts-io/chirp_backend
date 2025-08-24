@@ -4,7 +4,7 @@ from .models import Group, GroupPost, GroupInvite
 
 @admin.register(Group)
 class GroupAdmin(admin.ModelAdmin):
-    list_display = ('name', 'creator_name', 'is_private', 'member_count', 'moderator_count', 'created_at')
+    list_display = ('name', 'creator_name', 'is_private', 'created_at')
     list_filter = ('is_private', 'created_at')
     search_fields = ('name', 'description', 'creator_id', 'creator_name')
     readonly_fields = ('created_at', 'updated_at')
@@ -31,11 +31,9 @@ class GroupAdmin(admin.ModelAdmin):
 
     def member_count(self, obj):
         return len(obj.members) if obj.members else 0
-    member_count.short_description = 'Members'
 
     def moderator_count(self, obj):
         return len(obj.moderators) if obj.moderators else 0
-    moderator_count.short_description = 'Moderators'
 
 
 @admin.register(GroupPost)
@@ -46,7 +44,6 @@ class GroupPostAdmin(admin.ModelAdmin):
 
     def content_preview(self, obj):
         return obj.content[:50] + '...' if len(obj.content) > 50 else obj.content
-    content_preview.short_description = 'Content'
 
 
 @admin.register(GroupInvite)
