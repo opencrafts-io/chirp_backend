@@ -4,9 +4,12 @@ from .models import Group, GroupPost, GroupInvite
 
 class GroupSerializer(serializers.ModelSerializer):
     creator_id = serializers.CharField(read_only=True, max_length=100)
+    creator_name = serializers.CharField(read_only=True, max_length=100)
     is_private = serializers.BooleanField(default=False)
     moderators = serializers.ListField(child=serializers.CharField(), read_only=True)
+    moderator_names = serializers.ListField(child=serializers.CharField(), read_only=True)
     banned_users = serializers.ListField(child=serializers.CharField(), read_only=True)
+    banned_user_names = serializers.ListField(child=serializers.CharField(), read_only=True)
     rules = serializers.ListField(child=serializers.CharField(), read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)
 
@@ -18,13 +21,15 @@ class GroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
         fields = [
-            'id', 'name', 'description', 'creator_id', 'admins', 'moderators',
-            'members', 'banned_users', 'is_private', 'rules', 'created_at', 'updated_at',
+            'id', 'name', 'description', 'creator_id', 'creator_name', 'admins', 'admin_names',
+            'moderators', 'moderator_names', 'members', 'member_names', 'banned_users',
+            'banned_user_names', 'is_private', 'rules', 'created_at', 'updated_at',
             'user_role', 'can_post', 'can_moderate', 'can_admin'
         ]
         read_only_fields = [
-            'id', 'creator_id', 'admins', 'moderators', 'members',
-            'banned_users', 'rules', 'created_at', 'updated_at'
+            'id', 'creator_id', 'creator_name', 'admins', 'admin_names', 'moderators',
+            'moderator_names', 'members', 'member_names', 'banned_users',
+            'banned_user_names', 'rules', 'created_at', 'updated_at'
         ]
 
     def validate_name(self, value):

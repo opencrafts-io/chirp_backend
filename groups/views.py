@@ -46,10 +46,13 @@ class GroupCreateView(APIView):
 
         data = request.data.copy()
         data['creator_id'] = request.user_id
+        data['creator_name'] = getattr(request, 'user_name', f"User {request.user_id}")
 
         # Creator automatically becomes admin and member
         data['admins'] = [request.user_id]
+        data['admin_names'] = [data['creator_name']]
         data['members'] = [request.user_id]
+        data['member_names'] = [data['creator_name']]
 
         serializer = GroupSerializer(data=data)
         if serializer.is_valid():
@@ -91,6 +94,7 @@ class GroupJoinView(APIView):
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         user_id = request.user_id
+        user_name = getattr(request, 'user_name', f"User {user_id}")
 
         # Check if user is already a member
         if group.is_member(user_id):
@@ -101,7 +105,7 @@ class GroupJoinView(APIView):
             return Response({'error': 'You are banned from this community'}, status=status.HTTP_403_FORBIDDEN)
 
         # Add user as member
-        group.add_member(user_id, user_id)  # Self-join for public groups
+        group.add_member(user_id, user_name, user_id)
 
         serializer = GroupSerializer(group)
         return Response(serializer.data)
@@ -343,4 +347,36 @@ class GroupRulesView(APIView):
             })
         except ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GroupUsersView(APIView):
+    """List all users in a community with their roles and names"""
+
+    def get(self, request, group_id):
+        """Get list of all users in the community (anyone with access can view)"""
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if user can view this group
+        if not group.can_view(request.user_id):
+            return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        user_list = group.get_user_list()
+
+        return Response({
+            'group_id': group_id,
+            'group_name': group.name,
+            'total_users': (
+                1 +  # creator
+                len(user_list['admins']) +
+                len(user_list['moderators']) +
+                len(user_list['members'])
+            ),
+            'users': user_list
+        })
 

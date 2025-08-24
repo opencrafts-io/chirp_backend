@@ -11,10 +11,15 @@ class Group(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
     creator_id = models.CharField(max_length=100)
+    creator_name = models.CharField(max_length=100, default='User')
     admins = models.JSONField(default=list)
+    admin_names = models.JSONField(default=list)
     moderators = models.JSONField(default=list)
+    moderator_names = models.JSONField(default=list)
     members = models.JSONField(default=list)
+    member_names = models.JSONField(default=list)
     banned_users = models.JSONField(default=list)
+    banned_user_names = models.JSONField(default=list)
     is_private = models.BooleanField(default=False)
     rules = models.JSONField(default=list)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -60,15 +65,18 @@ class Group(models.Model):
             return False
         return self.is_member(user_id)
 
-    def add_admin(self, user_id: str, added_by: str):
+    def add_admin(self, user_id: str, user_name: str, added_by: str):
         """Add an admin to the group (only existing admins can do this)"""
         if not self.is_admin(added_by):
             raise ValidationError("Only admins can add other admins")
 
         if user_id not in self.admins and user_id != self.creator_id:
             current_admins = list(self.admins)
+            current_admin_names = list(self.admin_names)
             current_admins.append(user_id)
+            current_admin_names.append(user_name)
             self.admins = current_admins
+            self.admin_names = current_admin_names
             self.save()
 
     def remove_admin(self, user_id: str, removed_by: str):
@@ -78,19 +86,26 @@ class Group(models.Model):
 
         if user_id in self.admins and user_id != self.creator_id:
             current_admins = list(self.admins)
+            current_admin_names = list(self.admin_names)
+            index = current_admins.index(user_id)
             current_admins.remove(user_id)
+            current_admin_names.pop(index)
             self.admins = current_admins
+            self.admin_names = current_admin_names
             self.save()
 
-    def add_moderator(self, user_id: str, added_by: str):
+    def add_moderator(self, user_id: str, user_name: str, added_by: str):
         """Add a moderator to the group (only admins can do this)"""
         if not self.is_admin(added_by):
             raise ValidationError("Only admins can add moderators")
 
         if user_id not in self.moderators and not self.is_admin(user_id):
             current_moderators = list(self.moderators)
+            current_moderator_names = list(self.moderator_names)
             current_moderators.append(user_id)
+            current_moderator_names.append(user_name)
             self.moderators = current_moderators
+            self.moderator_names = current_moderator_names
             self.save()
 
     def remove_moderator(self, user_id: str, removed_by: str):
@@ -100,19 +115,26 @@ class Group(models.Model):
 
         if user_id in self.moderators:
             current_moderators = list(self.moderators)
+            current_moderator_names = list(self.moderator_names)
+            index = current_moderators.index(user_id)
             current_moderators.remove(user_id)
+            current_moderator_names.pop(index)
             self.moderators = current_moderators
+            self.moderator_names = current_moderator_names
             self.save()
 
-    def add_member(self, user_id: str, added_by: str):
+    def add_member(self, user_id: str, user_name: str, added_by: str):
         """Add a member to the group (only admins/moderators can do this)"""
         if not self.is_moderator(added_by):
             raise ValidationError("Only admins/moderators can add members")
 
         if user_id not in self.members and not self.is_moderator(user_id):
             current_members = list(self.members)
+            current_member_names = list(self.member_names)
             current_members.append(user_id)
+            current_member_names.append(user_name)
             self.members = current_members
+            self.member_names = current_member_names
             self.save()
 
     def remove_member(self, user_id: str, removed_by: str):
@@ -122,33 +144,54 @@ class Group(models.Model):
 
         if user_id in self.members:
             current_members = list(self.members)
+            current_member_names = list(self.member_names)
+            index = current_members.index(user_id)
             current_members.remove(user_id)
+            current_member_names.pop(index)
             self.members = current_members
+            self.member_names = current_member_names
             self.save()
 
-    def ban_user(self, user_id: str, banned_by: str):
+    def ban_user(self, user_id: str, user_name: str, banned_by: str):
         """Ban a user from the group (only admins can do this)"""
         if not self.is_admin(banned_by):
             raise ValidationError("Only admins can ban users")
 
         if user_id not in self.banned_users:
             current_banned = list(self.banned_users)
+            current_banned_names = list(self.banned_user_names)
             current_banned.append(user_id)
+            current_banned_names.append(user_name)
             self.banned_users = current_banned
+            self.banned_user_names = current_banned_names
 
             # Remove from members, moderators, and admins if they were in those roles
             if user_id in self.members:
                 current_members = list(self.members)
+                current_member_names = list(self.member_names)
+                index = current_members.index(user_id)
                 current_members.remove(user_id)
+                current_member_names.pop(index)
                 self.members = current_members
+                self.member_names = current_member_names
+
             if user_id in self.moderators:
                 current_moderators = list(self.moderators)
+                current_moderator_names = list(self.moderator_names)
+                index = current_moderators.index(user_id)
                 current_moderators.remove(user_id)
+                current_moderator_names.pop(index)
                 self.moderators = current_moderators
+                self.moderator_names = current_moderator_names
+
             if user_id in self.admins and user_id != self.creator_id:
                 current_admins = list(self.admins)
+                current_admin_names = list(self.admin_names)
+                index = current_admins.index(user_id)
                 current_admins.remove(user_id)
+                current_admin_names.pop(index)
                 self.admins = current_admins
+                self.admin_names = current_admin_names
             self.save()
 
     def unban_user(self, user_id: str, unbanned_by: str):
@@ -158,8 +201,12 @@ class Group(models.Model):
 
         if user_id in self.banned_users:
             current_banned = list(self.banned_users)
+            current_banned_names = list(self.banned_user_names)
+            index = current_banned.index(user_id)
             current_banned.remove(user_id)
+            current_banned_names.pop(index)
             self.banned_users = current_banned
+            self.banned_user_names = current_banned_names
             self.save()
 
     def add_rule(self, rule: str, added_by: str):
@@ -205,6 +252,32 @@ class Group(models.Model):
     def get_rules(self) -> list:
         """Get all community rules"""
         return list(self.rules) if self.rules else []
+
+    def get_user_list(self) -> dict:
+        """Get a complete list of all users in the group with their names and roles"""
+        return {
+            'creator': {
+                'user_id': self.creator_id,
+                'user_name': self.creator_name,
+                'role': 'creator'
+            },
+            'admins': [
+                {'user_id': user_id, 'user_name': name, 'role': 'admin'}
+                for user_id, name in zip(self.admins, self.admin_names)
+            ],
+            'moderators': [
+                {'user_id': user_id, 'user_name': name, 'role': 'moderator'}
+                for user_id, name in zip(self.moderators, self.moderator_names)
+            ],
+            'members': [
+                {'user_id': user_id, 'user_name': name, 'role': 'member'}
+                for user_id, name in zip(self.members, self.member_names)
+            ],
+            'banned': [
+                {'user_id': user_id, 'user_name': name, 'role': 'banned'}
+                for user_id, name in zip(self.banned_users, self.banned_user_names)
+            ]
+        }
 
 
 class GroupPost(models.Model):
