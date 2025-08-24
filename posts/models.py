@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+import os
 
 class Attachment(models.Model):
     ATTACHMENT_TYPE_CHOICES = [
@@ -16,8 +17,8 @@ class Attachment(models.Model):
         max_length=10, choices=ATTACHMENT_TYPE_CHOICES, default="image"
     )
     file = models.FileField(upload_to="attachments/")
-    file_size = models.BigIntegerField(null=True, blank=True)  # Track file size
-    original_filename = models.CharField(max_length=255, null=True, blank=True)  # Keep original name
+    file_size = models.BigIntegerField(null=True, blank=True)
+    original_filename = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
@@ -33,6 +34,15 @@ class Attachment(models.Model):
             except (OSError, ValueError):
                 pass  # File might not exist yet
         super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.file:
+            try:
+                if os.path.isfile(self.file.path):
+                    os.remove(self.file.path)
+            except (OSError, ValueError):
+                pass
+        super().delete(*args, **kwargs)
 
     def get_file_url(self):
         """Generate the full URL for the file"""
@@ -54,11 +64,15 @@ class Attachment(models.Model):
 
 
 class Post(models.Model):
+    group = models.ForeignKey('groups.Group', on_delete=models.CASCADE, related_name='community_posts', default=1)
     user_id = models.CharField(max_length=100)
     content = models.TextField(max_length=280)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     like_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['-created_at']
 
     def clean(self):
         """Custom validation for post model"""
@@ -76,8 +90,18 @@ class Post(models.Model):
         if len(str(self.user_id)) > 100:
             raise ValidationError("User ID cannot exceed 100 characters.")
 
+        if not self.group:
+            raise ValidationError("Group is required.")
+
+    def delete(self, *args, **kwargs):
+        """Custom delete method to ensure all attachments are properly deleted"""
+        for attachment in self.attachments.all():
+            attachment.delete()
+
+        super().delete(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.user_id}: {self.content}..."
+        return f"{self.user_id} in {self.group.name}: {self.content[:50]}..."
 
 class PostLike(models.Model):
     user_id = models.CharField(max_length=100)
