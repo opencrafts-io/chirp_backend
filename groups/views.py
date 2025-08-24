@@ -257,3 +257,90 @@ class GroupSettingsView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+class GroupRulesView(APIView):
+    """Manage community rules/guidelines"""
+
+    def get(self, request, group_id):
+        """Get community rules (anyone can view if they can access the group)"""
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if user can view this group
+        if not group.can_view(request.user_id):
+            return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        return Response({
+            'group_id': group_id,
+            'group_name': group.name,
+            'rules': group.get_rules()
+        })
+
+    @require_community_role('admin')
+    def post(self, request, group_id):
+        """Add a new rule to the community (only admins can do this)"""
+        rule = request.data.get('rule')
+        if not rule:
+            return Response({'error': 'Rule content is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            group.add_rule(rule, request.user_id)
+            return Response({
+                'message': 'Rule added successfully',
+                'rules': group.get_rules()
+            })
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @require_community_role('admin')
+    def put(self, request, group_id):
+        """Update all community rules (only admins can do this)"""
+        rules = request.data.get('rules')
+        if not isinstance(rules, list):
+            return Response({'error': 'Rules must be a list'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            group.update_rules(rules, request.user_id)
+            return Response({
+                'message': 'Rules updated successfully',
+                'rules': group.get_rules()
+            })
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @require_community_role('admin')
+    def delete(self, request, group_id):
+        """Remove a specific rule from the community (only admins can do this)"""
+        rule = request.data.get('rule')
+        if not rule:
+            return Response({'error': 'Rule content is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            group.remove_rule(rule, request.user_id)
+            return Response({
+                'message': 'Rule removed successfully',
+                'rules': group.get_rules()
+            })
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+

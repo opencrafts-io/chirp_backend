@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     GroupListView, GroupCreateView, GroupDetailView, GroupJoinView, GroupLeaveView,
-    GroupModerationView, GroupAdminView, GroupSettingsView
+    GroupModerationView, GroupAdminView, GroupSettingsView, GroupRulesView
 )
 
 urlpatterns = [
@@ -16,4 +16,7 @@ urlpatterns = [
     path('<int:group_id>/moderate/', GroupModerationView.as_view(), name='group-moderate'),
     path('<int:group_id>/admin/', GroupAdminView.as_view(), name='group-admin'),
     path('<int:group_id>/settings/', GroupSettingsView.as_view(), name='group-settings'),
+
+    # Community rules/guidelines
+    path('<int:group_id>/rules/', GroupRulesView.as_view(), name='group-rules'),
 ]

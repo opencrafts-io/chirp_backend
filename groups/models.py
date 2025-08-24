@@ -16,6 +16,7 @@ class Group(models.Model):
     members = models.JSONField(default=list)
     banned_users = models.JSONField(default=list)
     is_private = models.BooleanField(default=False)
+    rules = models.JSONField(default=list)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -160,6 +161,50 @@ class Group(models.Model):
             current_banned.remove(user_id)
             self.banned_users = current_banned
             self.save()
+
+    def add_rule(self, rule: str, added_by: str):
+        """Add a rule to the community (only admins can do this)"""
+        if not self.is_admin(added_by):
+            raise ValidationError("Only admins can add community rules")
+
+        if not rule or not rule.strip():
+            raise ValidationError("Rule cannot be empty")
+
+        current_rules = list(self.rules)
+        if rule.strip() not in current_rules:
+            current_rules.append(rule.strip())
+            self.rules = current_rules
+            self.save()
+
+    def remove_rule(self, rule: str, removed_by: str):
+        """Remove a rule from the community (only admins can do this)"""
+        if not self.is_admin(removed_by):
+            raise ValidationError("Only admins can remove community rules")
+
+        current_rules = list(self.rules)
+        if rule in current_rules:
+            current_rules.remove(rule)
+            self.rules = current_rules
+            self.save()
+
+    def update_rules(self, rules: list, updated_by: str):
+        """Update all community rules (only admins can do this)"""
+        if not self.is_admin(updated_by):
+            raise ValidationError("Only admins can update community rules")
+
+        # Validate rules
+        if not isinstance(rules, list):
+            raise ValidationError("Rules must be a list")
+
+        # Filter out empty rules
+        valid_rules = [rule.strip() for rule in rules if rule and rule.strip()]
+
+        self.rules = valid_rules
+        self.save()
+
+    def get_rules(self) -> list:
+        """Get all community rules"""
+        return list(self.rules) if self.rules else []
 
 
 class GroupPost(models.Model):

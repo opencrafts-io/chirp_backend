@@ -7,6 +7,7 @@ class GroupSerializer(serializers.ModelSerializer):
     is_private = serializers.BooleanField(default=False)
     moderators = serializers.ListField(child=serializers.CharField(), read_only=True)
     banned_users = serializers.ListField(child=serializers.CharField(), read_only=True)
+    rules = serializers.ListField(child=serializers.CharField(), read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)
 
     user_role = serializers.SerializerMethodField()
@@ -18,12 +19,12 @@ class GroupSerializer(serializers.ModelSerializer):
         model = Group
         fields = [
             'id', 'name', 'description', 'creator_id', 'admins', 'moderators',
-            'members', 'banned_users', 'is_private', 'created_at', 'updated_at',
+            'members', 'banned_users', 'is_private', 'rules', 'created_at', 'updated_at',
             'user_role', 'can_post', 'can_moderate', 'can_admin'
         ]
         read_only_fields = [
             'id', 'creator_id', 'admins', 'moderators', 'members',
-            'banned_users', 'created_at', 'updated_at'
+            'banned_users', 'rules', 'created_at', 'updated_at'
         ]
 
     def validate_name(self, value):
