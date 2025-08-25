@@ -44,11 +44,32 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'channels',
     'posts',
     'groups',
     'dmessages',
-    'conversations'
+    'conversations',
+    'websocket_chat',
 ]
+
+# Django Channels Configuration
+ASGI_APPLICATION = 'chirp.asgi.application'
+
+# Channel Layers for Redis
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/1')],
+        },
+    },
+}
+
+# WebSocket Security Settings
+WEBSOCKET_RATE_LIMIT = 100
+WEBSOCKET_HEARTBEAT_INTERVAL = 30
+WEBSOCKET_CONNECTION_TIMEOUT = 300
+WEBSOCKET_MAX_MESSAGE_SIZE = 1024 * 1024
 
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [],
