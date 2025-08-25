@@ -24,16 +24,29 @@ class AttachmentSerializer(serializers.ModelSerializer):
         return obj.get_file_size_mb()
 
 
+class GroupSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    description = serializers.CharField()
+
+
 class PostSerializer(serializers.ModelSerializer):
     is_liked = serializers.BooleanField(read_only=True)
     attachments = AttachmentSerializer(many=True, read_only=True)
     content = serializers.CharField(max_length=280, required=False, allow_blank=True)
+    group = GroupSerializer(read_only=True)
+    group_id = serializers.IntegerField(write_only=True, required=False, default=1)
 
     class Meta:
         model = Post
         fields = [
             "id",
+            "group",
+            "group_id",
             "user_id",
+            "user_name",
+            "email",
+            "avatar_url",
             "content",
             "created_at",
             "updated_at",
@@ -47,5 +60,5 @@ class PostSerializer(serializers.ModelSerializer):
 class PostReplySerializer(serializers.ModelSerializer):
     class Meta:
         model = PostReply
-        fields = ('id', 'parent_post', 'user_id', 'content', 'created_at', 'updated_at')
+        fields = ('id', 'parent_post', 'user_id', 'user_name', 'email', 'avatar_url', 'content', 'created_at', 'updated_at')
         read_only_fields = ['user_id', 'parent_post']

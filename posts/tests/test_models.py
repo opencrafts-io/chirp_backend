@@ -1,7 +1,7 @@
 from django.test import TestCase
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
-from ..models import Post
+from ..models import Post, Attachment
 
 
 class postsModelTest(TestCase):
@@ -113,3 +113,62 @@ class postsModelTest(TestCase):
         # Verify both posts are retrieved
         self.assertIn(post1, all_posts)
         self.assertIn(post2, all_posts)
+
+
+class PostDeletionTest(TestCase):
+    def setUp(self):
+        """Set up test data"""
+        self.user_id = 'test_user_123'
+        self.post = Post.objects.create(
+            user_id=self.user_id,
+            content='Test post with attachments'
+        )
+
+    def test_post_deletion_deletes_attachments(self):
+        """Test that deleting a post also deletes all its attachments"""
+        # Create some attachments for the post
+        attachment1 = Attachment.objects.create(
+            post=self.post,
+            attachment_type='image',
+            file='test_image1.jpg',
+            file_size=1024,
+            original_filename='test_image1.jpg'
+        )
+        attachment2 = Attachment.objects.create(
+            post=self.post,
+            attachment_type='file',
+            file='test_file1.pdf',
+            file_size=2048,
+            original_filename='test_file1.pdf'
+        )
+
+        # Verify attachments exist
+        self.assertEqual(self.post.attachments.count(), 2)
+        self.assertEqual(Attachment.objects.count(), 2)
+
+        # Delete the post
+        self.post.delete()
+
+        # Verify attachments are also deleted
+        self.assertEqual(Attachment.objects.count(), 0)
+        self.assertEqual(Post.objects.count(), 0)
+
+    def test_attachment_deletion_handles_missing_files(self):
+        """Test that attachment deletion handles missing files gracefully"""
+        # Create an attachment with a non-existent file
+        attachment = Attachment.objects.create(
+            post=self.post,
+            attachment_type='image',
+            file='non_existent_file.jpg',
+            file_size=1024,
+            original_filename='non_existent_file.jpg'
+        )
+
+        # This should not raise an exception
+        try:
+            attachment.delete()
+        except Exception as e:
+            self.fail(f"Attachment deletion should handle missing files gracefully: {e}")
+
+        # Verify attachment is deleted from database
+        self.assertEqual(Attachment.objects.count(), 0)

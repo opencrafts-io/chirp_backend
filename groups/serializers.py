@@ -1,17 +1,41 @@
 from rest_framework import serializers
 from .models import Group, GroupPost, GroupInvite
 
+
 class GroupSerializer(serializers.ModelSerializer):
-    creator_id = serializers.CharField(read_only=True, max_length=100)
+    creator_id = serializers.CharField(max_length=100)
+    creator_name = serializers.CharField(max_length=100)
+    is_private = serializers.BooleanField(default=False)
+    moderators = serializers.ListField(child=serializers.CharField(), required=False)
+    moderator_names = serializers.ListField(child=serializers.CharField(), required=False)
+    members = serializers.ListField(child=serializers.CharField(), required=False)
+    member_names = serializers.ListField(child=serializers.CharField(), required=False)
+    banned_users = serializers.ListField(child=serializers.CharField(), read_only=True)
+    banned_user_names = serializers.ListField(child=serializers.CharField(), read_only=True)
+    rules = serializers.ListField(child=serializers.CharField(), read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
+
+    # Image fields
+    logo = serializers.ImageField(required=False, allow_null=True)
+    banner = serializers.ImageField(required=False, allow_null=True)
+    logo_url = serializers.SerializerMethodField()
+    banner_url = serializers.SerializerMethodField()
+
+    user_role = serializers.SerializerMethodField()
+    can_post = serializers.SerializerMethodField()
+    can_moderate = serializers.SerializerMethodField()
 
     class Meta:
         model = Group
-        fields = ['id', 'name', 'description', 'creator_id', 'admins', 'members', 'created_at']
-        read_only_fields =  ['id', 'creator_id', 'admins', 'members', 'created_at']
-        extra_kwargs = {
-            'admins': {'read_only': True},
-            'members': {'read_only': True},
-        }
+        fields = [
+            'id', 'name', 'description', 'creator_id', 'creator_name', 'moderators',
+            'moderator_names', 'members', 'member_names', 'banned_users',
+            'banned_user_names', 'is_private', 'rules', 'logo', 'banner', 'logo_url', 'banner_url',
+            'created_at', 'updated_at', 'user_role', 'can_post', 'can_moderate'
+        ]
+        read_only_fields = [
+            'id', 'banned_users', 'banned_user_names', 'rules', 'created_at', 'updated_at'
+        ]
 
     def validate_name(self, value):
         """Validate group name"""
@@ -22,6 +46,55 @@ class GroupSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Group name cannot exceed 100 characters.")
 
         return value
+
+    def get_user_role(self, obj):
+        """Get the user's role in this group"""
+        request = self.context.get('request')
+        if not request or not hasattr(request, 'user_id'):
+            return None
+
+        if obj.creator_id == request.user_id:
+            return 'creator'
+        elif request.user_id in obj.moderators:
+            return 'moderator'
+        elif request.user_id in obj.members:
+            return 'member'
+        elif request.user_id in obj.banned_users:
+            return 'banned'
+        return None
+
+    def get_can_post(self, obj):
+        """Check if user can post in this group"""
+        request = self.context.get('request')
+        if not request or not hasattr(request, 'user_id'):
+            return False
+        return obj.can_post(request.user_id)
+
+    def get_can_moderate(self, obj):
+        """Check if user can moderate this group"""
+        request = self.context.get('request')
+        if not request or not hasattr(request, 'user_id'):
+            return False
+        return obj.can_moderate(request.user_id)
+
+    def get_logo_url(self, obj):
+        """Get the full URL for the logo"""
+        if obj.logo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.logo.url)
+            return obj.logo.url
+        return None
+
+    def get_banner_url(self, obj):
+        """Get the full URL for the banner"""
+        if obj.banner:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.banner.url)
+            return obj.banner.url
+        return None
+
 
 class GroupPostSerializer(serializers.ModelSerializer):
     user_id = serializers.CharField(read_only=True, max_length=100)
@@ -37,6 +110,7 @@ class GroupPostSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Content cannot be empty.")
 
         return value
+
 
 class GroupInviteSerializer(serializers.ModelSerializer):
     inviter_id = serializers.CharField(read_only=True, max_length=100)

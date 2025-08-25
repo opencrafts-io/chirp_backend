@@ -1,235 +1,366 @@
-from rest_framework.views import APIView
+from rest_framework import generics, status
 from rest_framework.response import Response
-from rest_framework import status
-from .models import Group, GroupInvite, GroupPost
-from .serializers import GroupSerializer, GroupPostSerializer, GroupInviteSerializer
+from rest_framework.views import APIView
+from .models import Group, GroupInvite
+from .serializers import GroupSerializer
+from chirp.permissions import require_community_role, CommunityPermission
+from django.shortcuts import get_object_or_404
+from django.db import models
+from django.core.exceptions import ValidationError
 
-class GroupListCreateView(APIView):
+
+class GroupListView(APIView):
+    """List all public groups or groups user is a member of"""
+
     def get(self, request):
-        # Require authentication for viewing groups
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
-        from chirp.pagination import StandardResultsSetPagination
+        user_id = request.user_id
 
-        # The filter works when we use the user_id as a string in the contains lookup
-        user_groups = Group.objects.filter(members__contains=request.user_id).order_by('-created_at')
+        # Get public groups
+        public_groups = Group.objects.filter(is_private=False)
 
-        # Apply pagination
-        paginator = StandardResultsSetPagination()
-        paginated_groups = paginator.paginate_queryset(user_groups, request)
+        # Get private groups user is a member of
+        user_groups = Group.objects.filter(
+            models.Q(members__contains=[user_id]) |
+            models.Q(moderators__contains=[user_id]) |
+            models.Q(creator_id=user_id)
+        )
 
-        serializer = GroupSerializer(paginated_groups, many=True)
-        return paginator.get_paginated_response(serializer.data)
+        # Combine and remove duplicates
+        all_groups = list(public_groups) + list(user_groups)
+        unique_groups = list({group.id: group for group in all_groups}.values())
+
+        serializer = GroupSerializer(unique_groups, many=True)
+        return Response(serializer.data)
+
+
+class GroupCreateView(APIView):
+    """Create a new community"""
 
     def post(self, request):
-        # Require authentication for creating groups
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         data = request.data.copy()
+        data['creator_id'] = request.user_id
+        data['creator_name'] = getattr(request, 'user_name', f"User {request.user_id}")
+
+        # Creator automatically becomes moderator and member
+        data['moderators'] = [request.user_id]
+        data['moderator_names'] = [data['creator_name']]
+        data['members'] = [request.user_id]
+        data['member_names'] = [data['creator_name']]
+
         serializer = GroupSerializer(data=data)
         if serializer.is_valid():
-            serializer.save(
-                creator_id=request.user_id,
-                admins=[request.user_id],
-                members=[request.user_id]
-            )
+            group = serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class GroupDiscoverView(APIView):
-    def get(self, request):
-        # Require authentication for viewing groups
+
+class GroupDetailView(APIView):
+    """View community details"""
+
+    def get(self, request, group_id):
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
-        from chirp.pagination import StandardResultsSetPagination
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Get all groups and add membership status for the current user
-        all_groups = Group.objects.all().order_by('-created_at')
+        # Check if user can view this group
+        if not group.can_view(request.user_id):
+            return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Apply pagination
-        paginator = StandardResultsSetPagination()
-        paginated_groups = paginator.paginate_queryset(all_groups, request)
+        serializer = GroupSerializer(group, context={'request': request})
+        return Response(serializer.data)
 
-        # Add membership status to each group
-        groups_with_status = []
-        for group in paginated_groups:
-            group_data = GroupSerializer(group).data
-            group_data['is_member'] = request.user_id in group.members
-            group_data['is_admin'] = request.user_id in group.admins
-            group_data['is_creator'] = request.user_id == group.creator_id
-            groups_with_status.append(group_data)
-
-        return paginator.get_paginated_response(groups_with_status)
 
 class GroupJoinView(APIView):
-    def post(self, request, group_name):
-        # Require authentication
+    """Join a community"""
+
+    def post(self, request, group_id):
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            group = Group.objects.get(name=group_name)
-
-            # Check if user is already a member
-            if request.user_id in group.members:
-                return Response({
-                    'message': 'Already a member of this group',
-                    'group': GroupSerializer(group).data
-                }, status=status.HTTP_200_OK)
-
-            # Add user to group members
-            group.members.append(request.user_id)
-            group.save()
-
-            return Response({
-                'message': f'Successfully joined group "{group.name}"',
-                'group': GroupSerializer(group).data
-            }, status=status.HTTP_200_OK)
-
+            group = Group.objects.get(id=group_id)
         except Group.DoesNotExist:
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        user_id = request.user_id
+        user_name = getattr(request, 'user_name', f"User {user_id}")
+
+        # Check if user is already a member
+        if group.is_member(user_id):
+            return Response({'message': 'Already a member'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if user is banned
+        if user_id in group.banned_users:
+            return Response({'error': 'You are banned from this community'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Add user as member
+        group.add_member(user_id, user_name, user_id)
+
+        serializer = GroupSerializer(group, context={'request': request})
+        return Response(serializer.data)
+
 
 class GroupLeaveView(APIView):
-    def post(self, request, group_name):
-        # Require authentication
+    """Leave a community"""
+
+    def post(self, request, group_id):
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            group = Group.objects.get(name=group_name)
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-            # Check if user is a member
-            if request.user_id not in group.members:
-                return Response({'error': 'Not a member of this group'}, status=status.HTTP_400_BAD_REQUEST)
+        user_id = request.user_id
 
-            # Prevent creator from leaving (they should transfer ownership or delete the group)
-            if request.user_id == group.creator_id:
-                return Response({'error': 'Group creator cannot leave. Transfer ownership or delete the group.'}, status=status.HTTP_400_BAD_REQUEST)
+        # Creator cannot leave
+        if user_id == group.creator_id:
+            return Response({'error': 'Creator cannot leave the community'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Remove user from group members
-            group.members.remove(request.user_id)
+        # Remove user from all roles
+        if user_id in group.moderators:
+            current_moderators = list(group.moderators)
+            current_moderators.remove(user_id)
+            group.moderators = current_moderators
 
-            # Remove from admins if they were an admin
-            if request.user_id in group.admins:
-                group.admins.remove(request.user_id)
+        if user_id in group.members:
+            current_members = list(group.members)
+            current_members.remove(user_id)
+            group.members = current_members
 
-            group.save()
+        group.save()
 
+        return Response({'message': 'Successfully left the community'})
+
+
+class GroupModerationView(APIView):
+    """Moderate community members and content"""
+
+    def post(self, request, group_id):
+        """Add/remove members, moderators, or ban users"""
+        action = request.data.get('action')
+        target_user_id = request.data.get('user_id')
+
+        if not action or not target_user_id:
+            return Response({'error': 'Action and user_id required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        user_id = request.user_id
+
+        try:
+            if action == 'add_member':
+                group.add_member(target_user_id, target_user_id, user_id)
+                message = f'Added {target_user_id} as member'
+            elif action == 'remove_member':
+                group.remove_member(target_user_id, user_id)
+                message = f'Removed {target_user_id} as member'
+            elif action == 'add_moderator':
+                group.add_moderator(target_user_id, target_user_id, user_id)
+                message = f'Added {target_user_id} as moderator'
+            elif action == 'remove_moderator':
+                group.remove_moderator(target_user_id, user_id)
+                message = f'Removed {target_user_id} as moderator'
+            elif action == 'ban':
+                group.ban_user(target_user_id, target_user_id, user_id)
+                message = f'Banned {target_user_id}'
+            elif action == 'unban':
+                group.unban_user(target_user_id, user_id)
+                message = f'Unbanned {target_user_id}'
+            else:
+                return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
+
+            serializer = GroupSerializer(group, context={'request': request})
             return Response({
-                'message': f'Successfully left group "{group.name}"',
-                'group': GroupSerializer(group).data
-            }, status=status.HTTP_200_OK)
+                'message': message,
+                'group': serializer.data
+            })
 
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GroupAdminView(APIView):
+    """Moderator-only community management"""
+
+    def post(self, request, group_id):
+        """Add/remove moderators (only existing moderators can do this)"""
+        action = request.data.get('action')
+        target_user_id = request.data.get('user_id')
+
+        if not action or not target_user_id:
+            return Response({'error': 'Action and user_id required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            group = Group.objects.get(id=group_id)
         except Group.DoesNotExist:
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-class GroupAddMemberView(APIView):
-    def post(self, request, group_name):
-        # Require authentication
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        user_id = request.user_id
 
         try:
-            group = Group.objects.get(name=group_name)
-            if request.user_id not in group.admins:
-                return Response({'error': 'Not an admin'}, status=status.HTTP_403_FORBIDDEN)
-            user_id = request.data.get('user_id')
-            if user_id and user_id not in group.members:
-                group.members.append(user_id)
-                group.save()
-                # Send notification to group about new member
-                notification = f"User {user_id} has been added to the group."
-                # TO DO!!!!! NOTIFICATION SYSTEM LINKING
-                return Response({
-                    **GroupSerializer(group).data,
-                    'notification': notification
-                })
-            return Response(GroupSerializer(group).data)
-        except Group.DoesNotExist:
-            return Response({'error': 'Group Not Found'}, status=status.HTTP_404_NOT_FOUND)
+            if action == 'add_moderator':
+                group.add_moderator(target_user_id, target_user_id, user_id)
+                message = f'Added {target_user_id} as moderator'
+            elif action == 'remove_moderator':
+                group.remove_moderator(target_user_id, user_id)
+                message = f'Removed {target_user_id} as moderator'
+            else:
+                return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
+
+            serializer = GroupSerializer(group, context={'request': request})
+            return Response({
+                'message': message,
+                'group': serializer.data
+            })
+
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class GroupInviteView(APIView):
-    def post(self, request, group_name):
-        # Require authentication
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+class GroupSettingsView(APIView):
+    """Update community settings"""
 
+    def put(self, request, group_id):
+        """Update group settings (only moderators can do this)"""
         try:
-            group = Group.objects.get(name=group_name)
-            if request.user_id not in group.admins:
-                return Response({'error': 'Not an admin'}, status=status.HTTP_403_FORBIDDEN)
-            data = request.data.copy()
-            data['group'] = group.id
-            serializer = GroupInviteSerializer(data=data)
-            if serializer.is_valid():
-                serializer.save(inviter_id=request.user_id)
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            group = Group.objects.get(id=group_id)
         except Group.DoesNotExist:
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
+        allowed_fields = ['name', 'description', 'is_private']
+        data = {k: v for k, v in request.data.items() if k in allowed_fields}
 
-class GroupAcceptInviteView(APIView):
-    def post(self, request, invite_id):
-        # Require authentication
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        if 'logo' in request.FILES:
+            group.logo = request.FILES['logo']
+        if 'banner' in request.FILES:
+            group.banner = request.FILES['banner']
 
+        serializer = GroupSerializer(group, data=data, partial=True)
+        if serializer.is_valid():
+            group.save()
+            return Response(GroupSerializer(group, context={'request': request}).data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GroupRulesView(APIView):
+    """Manage community rules/guidelines"""
+
+    def get(self, request, group_id):
+        """Get all community rules"""
         try:
-            invite = GroupInvite.objects.get(id=invite_id, invitee_id=request.user_id)
-            group = invite.group
-            if request.user_id not in group.members:
-                group.members.append(request.user_id)
-                group.save()
-            invite.delete()  # Always delete the invite
-            return Response(GroupSerializer(group).data)
-        except GroupInvite.DoesNotExist:
-            return Response({'error': 'Invite not Found'}, status=status.HTTP_404_NOT_FOUND)
-
-class GroupPostListCreateView(APIView):
-    def get(self, request, group_name):
-        # Require authentication
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
-
-        from chirp.pagination import StandardResultsSetPagination
-
-        try:
-            group = Group.objects.get(name=group_name)
-            if request.user_id not in group.members:
-                return Response({'error': 'Not a group member'}, status=status.HTTP_403_FORBIDDEN)
-
-            posts = GroupPost.objects.filter(group=group).order_by("-created_at")
-
-            # Apply pagination
-            paginator = StandardResultsSetPagination()
-            paginated_posts = paginator.paginate_queryset(posts, request)
-
-            serializer = GroupPostSerializer(paginated_posts, many=True)
-            return paginator.get_paginated_response(serializer.data)
+            group = Group.objects.get(id=group_id)
         except Group.DoesNotExist:
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    def post(self, request, group_name):
-        # Require authentication
+        return Response({
+            'group_id': group_id,
+            'group_name': group.name,
+            'rules': group.get_rules()
+        })
+
+    def post(self, request, group_id):
+        """Add a new rule to the community (only moderators can do this)"""
+        rule = request.data.get('rule')
+        if not rule:
+            return Response({'error': 'Rule content is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            group.add_rule(rule, request.user_id)
+            return Response({
+                'message': 'Rule added successfully',
+                'rules': group.get_rules()
+            })
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request, group_id):
+        """Update all community rules (only moderators can do this)"""
+        rules = request.data.get('rules')
+        if not isinstance(rules, list):
+            return Response({'error': 'Rules must be a list'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            group.update_rules(rules, request.user_id)
+            return Response({
+                'message': 'Rules updated successfully',
+                'rules': group.get_rules()
+            })
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, group_id):
+        """Remove a specific rule from the community (only moderators can do this)"""
+        rule = request.data.get('rule')
+        if not rule:
+            return Response({'error': 'Rule content is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            group.remove_rule(rule, request.user_id)
+            return Response({
+                'message': 'Rule removed successfully',
+                'rules': group.get_rules()
+            })
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GroupUsersView(APIView):
+    """List all users in a community with their roles and names"""
+
+    def get(self, request, group_id):
+        """Get list of all users in the community (anyone with access can view)"""
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            group = Group.objects.get(name=group_name)
-            if request.user_id not in group.members:
-                return Response({'error': 'Not a group member'}, status=status.HTTP_403_FORBIDDEN)
-            data = request.data.copy()
-            data['group'] = group.id
-            serializer = GroupPostSerializer(data=data)
-            if serializer.is_valid():
-                serializer.save(user_id=request.user_id)
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            group = Group.objects.get(id=group_id)
         except Group.DoesNotExist:
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if user can view this group
+        if not group.can_view(request.user_id):
+            return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        user_list = group.get_user_list()
+
+        return Response({
+            'group_id': group_id,
+            'group_name': group.name,
+            'total_users': (
+                1 +  # creator
+                len(user_list['moderators']) +
+                len(user_list['members'])
+            ),
+            'users': user_list
+        })
 
