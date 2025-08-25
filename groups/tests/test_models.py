@@ -19,7 +19,10 @@ class GroupModelTest(TestCase):
 
     def test_create_valid_group(self):
         """Test creating a valid group with all required fields."""
-        group = Group.objects.create(**self.valid_group_data)
+        # Use a high ID to avoid conflicts with migration data
+        group_data = self.valid_group_data.copy()
+        group_data['id'] = 1000
+        group = Group.objects.create(**group_data)
 
         self.assertEqual(group.name, 'Test Group')
         self.assertEqual(group.description, 'A test group')
@@ -31,16 +34,21 @@ class GroupModelTest(TestCase):
 
     def test_group_string_representation(self):
         """Test the __str__ method returns group name."""
-        group = Group.objects.create(**self.valid_group_data)
+        group_data = self.valid_group_data.copy()
+        group_data['id'] = 1001
+        group = Group.objects.create(**group_data)
         self.assertEqual(str(group), 'Test Group')
 
     def test_group_name_uniqueness(self):
         """Test that group names must be unique."""
-        Group.objects.create(**self.valid_group_data)
+        group_data = self.valid_group_data.copy()
+        group_data['id'] = 1002
+        Group.objects.create(**group_data)
 
         # Try to create another group with the same name
         duplicate_data = self.valid_group_data.copy()
         duplicate_data['creator_id'] = 'user456'
+        duplicate_data['id'] = 1003
 
         with self.assertRaises(Exception):  # Should raise IntegrityError
             Group.objects.create(**duplicate_data)
@@ -66,6 +74,7 @@ class GroupModelTest(TestCase):
     def test_group_description_can_be_blank(self):
         """Test that group description can be blank."""
         group_data = self.valid_group_data.copy()
+        group_data['id'] = 1008
         group_data['description'] = ''
 
         group = Group.objects.create(**group_data)
@@ -74,6 +83,7 @@ class GroupModelTest(TestCase):
     def test_group_json_fields_default_to_list(self):
         """Test that moderators and members default to empty lists."""
         group = Group.objects.create(
+            id=1004,
             name='Minimal Group',
             creator_id='user123',
             creator_name='Test User'
@@ -87,6 +97,7 @@ class GroupModelTest(TestCase):
     def test_group_json_fields_handle_lists(self):
         """Test that moderators and members handle list data properly."""
         group_data = self.valid_group_data.copy()
+        group_data['id'] = 1005
         group_data['moderators'] = ['user1', 'user2']
         group_data['moderator_names'] = ['User1', 'User2']
         group_data['members'] = ['user1', 'user2', 'user3']
@@ -99,14 +110,17 @@ class GroupModelTest(TestCase):
 
     def test_group_auto_timestamp(self):
         """Test that created_at is automatically set."""
-        group = Group.objects.create(**self.valid_group_data)
+        group_data = self.valid_group_data.copy()
+        group_data['id'] = 1006
+        group = Group.objects.create(**group_data)
         self.assertIsNotNone(group.created_at)
 
 
 class GroupPostModelTest(TestCase):
     def setUp(self):
-        # Create a group without specifying ID to avoid conflicts
+        # Create a group with explicit ID to avoid conflicts
         self.group = Group.objects.create(
+            id=1007,
             name='Test Group for Posts',
             description='A test group for posts',
             creator_id='user123',
@@ -218,8 +232,9 @@ class GroupPostModelTest(TestCase):
 
 class GroupInviteModelTest(TestCase):
     def setUp(self):
-        # Create a group without specifying ID to avoid conflicts
+        # Create a group with explicit ID to avoid conflicts with migration data
         self.group = Group.objects.create(
+            id=999,  # Use a high ID to avoid conflicts
             name='Test Group for Invites',
             description='A test group for invites',
             creator_id='user123',
@@ -238,6 +253,7 @@ class GroupInviteModelTest(TestCase):
 
         # Create a second group for testing multiple invites
         self.second_group = Group.objects.create(
+            id=998,  # Use a different high ID to avoid conflicts
             name='Second Group for Invites',
             description='Another test group for invites',
             creator_id='user456',
@@ -329,6 +345,7 @@ class GroupInviteModelTest(TestCase):
     def test_same_user_multiple_invites(self):
         """Test same user can be invited to multiple groups."""
         group2 = Group.objects.create(
+            id=997,  # Use a different high ID to avoid conflicts
             name='Second Group for Multiple Invites',
             creator_id='user456',
             moderators=['user456'],
