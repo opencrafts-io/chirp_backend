@@ -10,6 +10,7 @@ class Conversation(models.Model):
 
     class Meta:
         db_table = 'conversations_conversation'
+        ordering = ['-last_message_at', '-created_at']
 
     def __str__(self):
         return f"Conversation {self.conversation_id}"
