@@ -7,6 +7,8 @@ from chirp.permissions import require_community_role, CommunityPermission
 from django.shortcuts import get_object_or_404
 from django.db import models
 from django.core.exceptions import ValidationError
+from .models import InviteLink
+from .serializers import InviteLinkSerializer
 
 
 class GroupListView(APIView):
@@ -44,14 +46,20 @@ class GroupCreateView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         data = request.data.copy()
-        data['creator_id'] = request.user_id
-        data['creator_name'] = getattr(request, 'user_name', f"User {request.user_id}")
 
-        # Creator automatically becomes moderator and member
-        data['moderators'] = [request.user_id]
-        data['moderator_names'] = [data['creator_name']]
-        data['members'] = [request.user_id]
-        data['member_names'] = [data['creator_name']]
+        user_id = data.get('user_id', request.user_id)
+        user_name = data.get('user_name', getattr(request, 'user_name', f"User {request.user_id}"))
+
+        data['creator_id'] = user_id
+        data['creator_name'] = user_name
+
+        if 'is_public' in data:
+            data['is_private'] = not data.pop('is_public')
+
+        data['moderators'] = [user_id]
+        data['moderator_names'] = [user_name]
+        data['members'] = [user_id]
+        data['member_names'] = [user_name]
 
         serializer = GroupSerializer(data=data)
         if serializer.is_valid():
@@ -237,24 +245,38 @@ class GroupSettingsView(APIView):
 
     def put(self, request, group_id):
         """Update group settings (only moderators can do this)"""
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
         try:
             group = Group.objects.get(id=group_id)
         except Group.DoesNotExist:
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        allowed_fields = ['name', 'description', 'is_private']
-        data = {k: v for k, v in request.data.items() if k in allowed_fields}
+        user_id = request.user_id
 
+        # Check if user is a moderator
+        if user_id not in group.moderators and user_id != group.creator_id:
+            return Response({'error': 'Only moderators can update group settings'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Update the group fields directly
+        allowed_fields = ['name', 'description', 'is_private']
+        for field in allowed_fields:
+            if field in request.data:
+                setattr(group, field, request.data[field])
+
+        # Handle file uploads
         if 'logo' in request.FILES:
             group.logo = request.FILES['logo']
         if 'banner' in request.FILES:
             group.banner = request.FILES['banner']
 
-        serializer = GroupSerializer(group, data=data, partial=True)
-        if serializer.is_valid():
-            group.save()
-            return Response(GroupSerializer(group, context={'request': request}).data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Save the changes
+        group.save()
+
+        # Return updated group data
+        serializer = GroupSerializer(group, context={'request': request})
+        return Response(serializer.data)
 
 
 class GroupRulesView(APIView):
@@ -362,5 +384,157 @@ class GroupUsersView(APIView):
                 len(user_list['members'])
             ),
             'users': user_list
+        })
+
+
+class GroupDeleteView(APIView):
+    """Delete a community (only moderators can do this)"""
+
+    def delete(self, request, group_id):
+        """Delete the group (only moderators can do this)"""
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        user_id = request.user_id
+
+        if user_id not in group.moderators and user_id != group.creator_id:
+            return Response({'error': 'Only moderators can delete groups'}, status=status.HTTP_403_FORBIDDEN)
+
+        group_name = group.name
+        group_id_value = group.id
+
+        group.delete()
+
+        return Response({
+            'message': f'Group "{group_name}" has been successfully deleted',
+            'deleted_group_id': group_id_value
+        }, status=status.HTTP_200_OK)
+
+
+class InviteLinkCreateView(APIView):
+    """Create invite links for a community (moderators only)"""
+
+    def post(self, request, group_id):
+        """Create a new invite link"""
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        user_id = request.user_id
+
+        if user_id not in group.moderators and user_id != group.creator_id:
+            return Response({'error': 'Only moderators can create invite links'}, status=status.HTTP_403_FORBIDDEN)
+
+        expiration_hours = request.data.get('expiration_hours', 72)
+        if expiration_hours not in [72, 168]:
+            return Response({'error': 'Invalid expiration time. Choose 72 (hours) or 168 (1 week)'}, status=status.HTTP_400_BAD_REQUEST)
+
+        invite_data = {
+            'group': group.id,  # Pass group ID, not group object
+            'created_by': user_id,
+            'created_by_name': getattr(request, 'user_name', f"User {user_id}"),
+            'expiration_hours': expiration_hours
+        }
+
+        serializer = InviteLinkSerializer(data=invite_data)
+        if serializer.is_valid():
+            invite_link = serializer.save()
+
+            # Generate the full invite URL
+            invite_url = f"https://qachirp.opencrafts.io/groups/{group_id}/join/invite/{invite_link.token}/"
+
+            return Response({
+                'message': 'Invite link created successfully',
+                'invite_link': InviteLinkSerializer(invite_link).data,
+                'invite_url': invite_url
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class InviteLinkJoinView(APIView):
+    """Join a community using an invite link"""
+
+    def post(self, request, group_id, invite_token):
+        """Join group using invite link"""
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            invite_link = InviteLink.objects.get(token=invite_token, group=group)
+        except InviteLink.DoesNotExist:
+            return Response({'error': 'Invalid invite link'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if invite link can be used
+        if not invite_link.can_be_used():
+            if invite_link.is_used:
+                return Response({'error': 'This invite link has already been used. Kindly request for a new invite link from the community moderator.'}, status=status.HTTP_400_BAD_REQUEST)
+            elif invite_link.is_expired():
+                return Response({'error': 'This invite link has expired. Kindly request for a new invite link from the community moderator.'}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({'error': 'This invite link cannot be used. Kindly request for a new invite link from the community moderator.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user_id = request.user_id
+        user_name = request.data.get('user_name', getattr(request, 'user_name', f"User {user_id}"))
+        user_email = request.data.get('user_email')
+
+        if group.is_member(user_id):
+            return Response({'message': 'Already a member of this community'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if user_id in group.banned_users:
+            return Response({'error': 'You are banned from this community'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            group.add_member(user_id, user_name, user_id)
+
+            invite_link.mark_as_used(user_id, user_name)
+
+            return Response({
+                'message': 'Successfully joined community using invite link',
+                'group': GroupSerializer(group, context={'request': request}).data
+            }, status=status.HTTP_200_OK)
+
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class InviteLinkListView(APIView):
+    """List all invite links for a community (moderators only)"""
+
+    def get(self, request, group_id):
+        """Get all invite links for the community"""
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        user_id = request.user_id
+
+        if user_id not in group.moderators and user_id != group.creator_id:
+            return Response({'error': 'Only moderators can view invite links'}, status=status.HTTP_403_FORBIDDEN)
+
+        invite_links = InviteLink.objects.filter(group=group).order_by('-created_at')
+        serializer = InviteLinkSerializer(invite_links, many=True)
+
+        return Response({
+            'group_name': group.name,
+            'invite_links': serializer.data
         })
 

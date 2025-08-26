@@ -18,10 +18,10 @@ class PostCreateView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        group_id = self.kwargs.get('group_id') or serializer.validated_data.get('group_id')
+        group_id = self.kwargs.get('group_id')
         if not group_id:
             return Response(
-                {"detail": "group_id is required."},
+                {"detail": "group_id is required in URL path."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

@@ -62,7 +62,8 @@ class WebSocketAuthMiddleware(BaseMiddleware):
             # Use Verisafe JWT validation
             from chirp.verisafe_jwt import verify_verisafe_jwt
             payload = verify_verisafe_jwt(token)
-            return payload.get('user_id')
+            user_id = payload.get('user_id') or payload.get('sub')
+            return user_id
         except Exception:
             return None
 

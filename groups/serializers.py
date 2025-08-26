@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Group, GroupPost, GroupInvite
+from .models import Group, GroupPost, GroupInvite, InviteLink
 
 
 class GroupSerializer(serializers.ModelSerializer):
@@ -129,4 +129,44 @@ class GroupInviteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invitee ID cannot exceed 100 characters.")
 
         return value
+
+
+class InviteLinkSerializer(serializers.ModelSerializer):
+    """Serializer for community invite links"""
+
+    group_name = serializers.CharField(source='group.name', read_only=True)
+    created_by_name = serializers.CharField(read_only=True)
+    expires_at = serializers.DateTimeField(read_only=True)
+    is_expired = serializers.BooleanField(read_only=True)
+    can_be_used = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = InviteLink
+        fields = [
+            'id', 'group', 'group_name', 'created_by', 'created_by_name',
+            'token', 'expiration_hours', 'created_at', 'expires_at',
+            'is_used', 'used_by', 'used_by_name', 'used_at',
+            'is_expired', 'can_be_used'
+        ]
+        read_only_fields = [
+            'id', 'group_name', 'created_by', 'created_by_name',
+            'token', 'created_at', 'expires_at', 'is_used',
+            'used_by', 'used_by_name', 'used_at', 'is_expired', 'can_be_used'
+        ]
+
+    def create(self, validated_data):
+        """Create invite link with auto-generated token"""
+        import secrets
+        import string
+
+        # Generate unique token
+        alphabet = string.ascii_letters + string.digits
+        token = ''.join(secrets.choice(alphabet) for _ in range(32))
+
+        # Ensure token uniqueness
+        while InviteLink.objects.filter(token=token).exists():
+            token = ''.join(secrets.choice(alphabet) for _ in range(32))
+
+        validated_data['token'] = token
+        return super().create(validated_data)
 

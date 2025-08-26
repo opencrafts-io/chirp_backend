@@ -39,4 +39,5 @@ txaio==25.6.1
 typing_extensions==4.15.0
 urllib3==2.5.0
 webencodings==0.5.1
+websockets==15.0.1
 zope.interface==7.2
