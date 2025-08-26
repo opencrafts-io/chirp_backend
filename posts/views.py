@@ -141,7 +141,6 @@ class PostListView(APIView):
                 Q(is_private=False) |
                 Q(members__contains=[user_id]) |
                 Q(moderators__contains=[user_id]) |
-                Q(admins__contains=[user_id]) |
                 Q(creator_id=user_id)
             )
             posts = Post.objects.filter(group__in=accessible_groups).order_by('-created_at')
