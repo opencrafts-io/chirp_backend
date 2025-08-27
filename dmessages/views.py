@@ -121,3 +121,130 @@ class MessageReadView(APIView):
         message.save()
         serializer = MessageSerializer(message)
         return Response(serializer.data)
+
+
+class MessageEditView(APIView):
+    """Edit a specific message"""
+
+    def put(self, request, message_id):
+        """Edit message content"""
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            message = Message.objects.get(id=message_id)
+        except Message.DoesNotExist:
+            return Response({'error': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        user_id = request.user_id
+
+        # Check if user is the message sender
+        if message.sender_id != user_id:
+            return Response({'error': 'You can only edit your own messages'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Check if message is too old (e.g., 24 hours)
+        from django.utils import timezone
+        from datetime import timedelta
+
+        if message.created_at < timezone.now() - timedelta(hours=24):
+            return Response({'error': 'Messages can only be edited within 24 hours'}, status=status.HTTP_400_BAD_REQUEST)
+
+        new_content = request.data.get('content', '').strip()
+        if not new_content:
+            return Response({'error': 'Message content cannot be empty'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update message
+        message.content = new_content
+        message.is_edited = True
+        message.edited_at = timezone.now()
+        message.save()
+
+        serializer = MessageSerializer(message, context={'request': request})
+        return Response({
+            'message': 'Message updated successfully',
+            'message_data': serializer.data
+        })
+
+
+class MessageDeleteView(APIView):
+    """Delete a specific message"""
+
+    def delete(self, request, message_id):
+        """Delete message"""
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            message = Message.objects.get(id=message_id)
+        except Message.DoesNotExist:
+            return Response({'error': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        user_id = request.user_id
+
+        # Check if user is the message sender
+        if message.sender_id != user_id:
+            return Response({'error': 'You can only delete your own messages'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Soft delete - mark as deleted instead of removing from DB
+        message.is_deleted = True
+        message.deleted_at = timezone.now()
+        message.save()
+
+        return Response({
+            'message': 'Message deleted successfully',
+            'message_id': message_id
+        })
+
+
+class ConversationMessageListView(APIView):
+    """Get paginated messages for a conversation"""
+
+    def get(self, request, conversation_id):
+        """Get paginated messages for a conversation"""
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            conversation = Conversation.objects.get(id=conversation_id)
+        except Conversation.DoesNotExist:
+            return Response({'error': 'Conversation not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        user_id = request.user_id
+
+        # Check if user is participant
+        if user_id not in conversation.participants:
+            return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Get pagination parameters
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 50))
+
+        # Get messages (exclude deleted ones)
+        messages = Message.objects.filter(
+            conversation=conversation,
+            is_deleted=False
+        ).order_by('-created_at')
+
+        # Paginate
+        from django.core.paginator import Paginator
+        paginator = Paginator(messages, page_size)
+
+        try:
+            page_obj = paginator.page(page)
+        except:
+            return Response({'error': 'Invalid page number'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = MessageSerializer(page_obj.object_list, many=True, context={'request': request})
+
+        return Response({
+            'messages': serializer.data,
+            'pagination': {
+                'current_page': page,
+                'total_pages': paginator.num_pages,
+                'total_messages': paginator.count,
+                'has_next': page_obj.has_next(),
+                'has_previous': page_obj.has_previous(),
+                'next_page': page_obj.next_page_number() if page_obj.has_next() else None,
+                'previous_page': page_obj.previous_page_number() if page_obj.has_previous() else None
+            }
+        })

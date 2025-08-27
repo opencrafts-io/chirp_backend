@@ -72,6 +72,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.handle_leave_conversation(data)
             elif message_type == 'chat_message':
                 await self.handle_chat_message(data)
+            elif message_type == 'edit_message':
+                await self.handle_edit_message(data)
+            elif message_type == 'delete_message':
+                await self.handle_delete_message(data)
+            elif message_type == 'typing_start':
+                await self.handle_typing_start(data)
+            elif message_type == 'typing_stop':
+                await self.handle_typing_stop(data)
             elif message_type == 'heartbeat':
                 await self.handle_heartbeat()
             else:
@@ -302,3 +310,148 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return file_info
         except Exception:
             return None
+
+    async def handle_edit_message(self, data):
+        """Handle editing a message"""
+        message_id = data.get('message_id')
+        new_content = data.get('content', '').strip()
+
+        if not message_id or not new_content:
+            await self.send_error("Message ID and content required")
+            return
+
+        # Verify user is in conversation
+        if not self.room_group_name:
+            await self.send_error("Not in a conversation")
+            return
+
+        # Edit message in database
+        message = await self.edit_message(message_id, new_content)
+        if not message:
+            await self.send_error("Failed to edit message")
+            return
+
+        # Broadcast edited message to room
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'message_edited',
+                'message': {
+                    'id': message.id,
+                    'sender_id': message.sender_id,
+                    'content': message.content,
+                    'edited_at': message.edited_at.isoformat(),
+                    'conversation_id': self.current_conversation,
+                    'is_edited': True
+                }
+            }
+        )
+
+    async def handle_delete_message(self, data):
+        """Handle deleting a message"""
+        message_id = data.get('message_id')
+
+        if not message_id:
+            await self.send_error("Message ID required")
+            return
+
+        # Verify user is in conversation
+        if not self.room_group_name:
+            await self.send_error("Not in a conversation")
+            return
+
+        # Delete message in database
+        success = await self.delete_message(message_id)
+        if not success:
+            await self.send_error("Failed to delete message")
+            return
+
+        # Broadcast deleted message to room
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'message_deleted',
+                'message_id': message_id,
+                'conversation_id': self.current_conversation
+            }
+        )
+
+    async def handle_typing_start(self, data):
+        """Handle typing start indicator"""
+        if not self.room_group_name:
+            return
+
+        # Broadcast typing start to room
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'typing_start',
+                'user_id': self.user_id,
+                'conversation_id': self.current_conversation
+            }
+        )
+
+    async def handle_typing_stop(self, data):
+        """Handle typing stop indicator"""
+        if not self.room_group_name:
+            return
+
+        # Broadcast typing stop to room
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'typing_stop',
+                'user_id': self.user_id,
+                'conversation_id': self.current_conversation
+            }
+        )
+
+    @database_sync_to_async
+    def edit_message(self, message_id, new_content):
+        """Edit message in database"""
+        try:
+            message = ConversationMessage.objects.get(
+                id=message_id,
+                sender_id=self.user_id,
+                conversation__conversation_id=self.current_conversation
+            )
+
+            # Check if message is too old (24 hours)
+            from django.utils import timezone
+            from datetime import timedelta
+
+            if message.created_at < timezone.now() - timedelta(hours=24):
+                return None
+
+            # Update message
+            message.content = new_content
+            message.is_edited = True
+            message.edited_at = timezone.now()
+            message.save()
+
+            return message
+        except ConversationMessage.DoesNotExist:
+            return None
+        except Exception:
+            return None
+
+    @database_sync_to_async
+    def delete_message(self, message_id):
+        """Delete message in database (soft delete)"""
+        try:
+            message = ConversationMessage.objects.get(
+                id=message_id,
+                sender_id=self.user_id,
+                conversation__conversation_id=self.current_conversation
+            )
+
+            # Soft delete
+            message.is_deleted = True
+            message.deleted_at = timezone.now()
+            message.save()
+
+            return True
+        except ConversationMessage.DoesNotExist:
+            return False
+        except Exception:
+            return False

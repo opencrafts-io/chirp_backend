@@ -439,7 +439,7 @@ class InviteLinkCreateView(APIView):
             return Response({'error': 'Invalid expiration time. Choose 72 (hours) or 168 (1 week)'}, status=status.HTTP_400_BAD_REQUEST)
 
         invite_data = {
-            'group': group.id,  # Pass group ID, not group object
+            'group': group.id,
             'created_by': user_id,
             'created_by_name': getattr(request, 'user_name', f"User {user_id}"),
             'expiration_hours': expiration_hours
@@ -449,7 +449,6 @@ class InviteLinkCreateView(APIView):
         if serializer.is_valid():
             invite_link = serializer.save()
 
-            # Generate the full invite URL
             invite_url = f"https://qachirp.opencrafts.io/groups/{group_id}/join/invite/{invite_link.token}/"
 
             return Response({
