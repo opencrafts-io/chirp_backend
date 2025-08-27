@@ -8,88 +8,134 @@ from .serializers import (
     ConversationMessageSerializer
 )
 from dmessages.models import MessageAttachment
+from rest_framework.views import APIView
 
 
-class ConversationListView(generics.ListAPIView):
-    """
-    Get all conversations for the authenticated user
-    """
-    serializer_class = ConversationSerializer
+class ConversationListView(APIView):
+    """List all conversations for the authenticated user"""
 
-    def get_queryset(self):
-        user_id = getattr(self.request, 'user_id', None)
-        if not user_id:
-            user_id = "default_user_123"
-        return Conversation.objects.filter(participants__contains=[user_id])
+    def get(self, request):
+        """Get all conversations for the user"""
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        user_id = getattr(self.request, 'user_id', None)
-        if not user_id:
-            user_id = "default_user_123"
-        context['user_id'] = user_id
-        return context
+        user_id = request.user_id
 
+        # Get conversations where user is a participant
+        conversations = Conversation.objects.filter(
+            participants__contains=[user_id]
+        ).order_by('-updated_at')
 
-class ConversationDetailView(generics.RetrieveAPIView):
-    """
-    Get conversation details
-    """
-    serializer_class = ConversationSerializer
-    lookup_field = 'conversation_id'
+        # Get last message for each conversation
+        for conversation in conversations:
+            last_message = ConversationMessage.objects.filter(
+                conversation=conversation
+            ).order_by('-created_at').first()
 
-    def get_queryset(self):
-        user_id = getattr(self.request, 'user_id', None)
-        if not user_id:
-            user_id = "default_user_123"
-        return Conversation.objects.filter(participants__contains=[user_id])
+            if last_message:
+                conversation.last_message = last_message
+                conversation.last_message_time = last_message.created_at
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        user_id = getattr(self.request, 'user_id', None)
-        if not user_id:
-            user_id = "default_user_123"
-        context['user_id'] = user_id
-        return context
+        serializer = ConversationSerializer(conversations, many=True, context={'request': request})
+
+        return Response({
+            'results': serializer.data,
+            'total_count': conversations.count()
+        })
 
 
-class ConversationCreateView(generics.CreateAPIView):
-    """
-    Create a new conversation
-    """
-    serializer_class = ConversationCreateSerializer
+class ConversationDetailView(APIView):
+    """Get conversation details and messages"""
 
-    def create(self, request, *args, **kwargs):
-        user_id = getattr(request, 'user_id', None)
+    def get(self, request, conversation_id):
+        """Get conversation details and recent messages"""
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            conversation = Conversation.objects.get(conversation_id=conversation_id)
+        except Conversation.DoesNotExist:
+            return Response({'error': 'Conversation not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        user_id = request.user_id
+
+        # Check if user is participant
+        if user_id not in conversation.participants:
+            return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Get recent messages (last 50)
+        messages = ConversationMessage.objects.filter(
+            conversation=conversation
+        ).order_by('-created_at')[:50]
+
+        # Reverse to show oldest first
+        messages = list(reversed(messages))
+
+        conversation_serializer = ConversationSerializer(conversation, context={'request': request})
+        message_serializer = ConversationMessageSerializer(messages, many=True, context={'request': request})
+
+        return Response({
+            'conversation_id': conversation.conversation_id,
+            'participants': conversation.participants,
+            'messages': message_serializer.data,
+            'total_messages': ConversationMessage.objects.filter(conversation=conversation).count()
+        })
+
+
+class ConversationCreateView(APIView):
+    """Create a new conversation between two users or find existing one"""
+
+    def post(self, request):
+        """Create or find conversation between two users"""
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        user_id = request.user_id
         participants = request.data.get('participants', [])
 
-        if not user_id:
-            user_id = "default_user_123"
-
         # Ensure participants is a list
-        if not isinstance(participants, list):
-            participants = [participants] if participants else []
+        if isinstance(participants, str):
+            participants = [participants]
 
-        # Ensure the current user is included in participants
+        # Add current user to participants if not already included
         if user_id not in participants:
             participants.append(user_id)
 
-        # Check if conversation already exists between these participants
+        if len(participants) < 2:
+            return Response({'error': 'At least 2 participants required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if conversation already exists with these participants
         existing_conversation = Conversation.objects.filter(
             participants__contains=participants
         ).first()
 
         if existing_conversation:
-            serializer = ConversationSerializer(existing_conversation, context={'user_id': user_id})
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            # Return existing conversation
+            serializer = ConversationSerializer(existing_conversation, context={'request': request})
+            return Response({
+                'message': 'Conversation found',
+                'conversation': serializer.data,
+                'is_new': False
+            }, status=status.HTTP_200_OK)
 
         # Create new conversation
-        serializer = self.get_serializer(data={'participants': participants})
-        serializer.is_valid(raise_exception=True)
-        conversation = serializer.save()
+        conversation_data = {
+            'participants': participants,
+            'participant_names': [f"User {pid}" for pid in participants],
+            'created_by': user_id
+        }
 
-        response_serializer = ConversationSerializer(conversation, context={'user_id': user_id})
-        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        serializer = ConversationCreateSerializer(data=conversation_data)
+        if serializer.is_valid():
+            conversation = serializer.save()
+
+            return Response({
+                'message': 'Conversation created successfully',
+                'conversation': ConversationSerializer(conversation, context={'request': request}).data,
+                'is_new': True
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ConversationMessagesView(generics.ListCreateAPIView):

@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 
 class Group(models.Model):
@@ -280,5 +281,54 @@ class GroupInvite(models.Model):
 
     def __str__(self) -> str:
         return f"Invitee to {self.group.name} for {self.invitee_id}"
+
+
+class InviteLink(models.Model):
+    """Model for community invite links"""
+
+    EXPIRATION_CHOICES = [
+        (72, '72 hours'),
+        (168, '1 week'),
+    ]
+
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='invite_links')
+    created_by = models.CharField(max_length=255)
+    created_by_name = models.CharField(max_length=255)
+    token = models.CharField(max_length=100, unique=True)
+    expiration_hours = models.IntegerField(choices=EXPIRATION_CHOICES, default=72)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+    used_by = models.CharField(max_length=255, null=True, blank=True)
+    used_by_name = models.CharField(max_length=255, null=True, blank=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'invite_links'
+
+    def __str__(self):
+        return f"Invite to {self.group.name} (expires: {self.expires_at})"
+
+    def is_expired(self):
+        """Check if the invite link has expired"""
+        return timezone.now() > self.expires_at
+
+    def can_be_used(self):
+        """Check if the invite link can be used"""
+        return not self.is_used and not self.is_expired()
+
+    def mark_as_used(self, user_id, user_name):
+        """Mark the invite link as used"""
+        self.is_used = True
+        self.used_by = user_id
+        self.used_by_name = user_name
+        self.used_at = timezone.now()
+        self.save()
+
+    def save(self, *args, **kwargs):
+        """Auto-calculate expiration time when saving"""
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timezone.timedelta(hours=self.expiration_hours)
+        super().save(*args, **kwargs)
 
 
