@@ -39,7 +39,7 @@ class ConversationListView(APIView):
         serializer = ConversationSerializer(conversations, many=True, context={'request': request})
 
         return Response({
-            'conversations': serializer.data,
+            'results': serializer.data,
             'total_count': conversations.count()
         })
 
@@ -53,7 +53,7 @@ class ConversationDetailView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            conversation = Conversation.objects.get(id=conversation_id)
+            conversation = Conversation.objects.get(conversation_id=conversation_id)
         except Conversation.DoesNotExist:
             return Response({'error': 'Conversation not found'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -75,7 +75,8 @@ class ConversationDetailView(APIView):
         message_serializer = ConversationMessageSerializer(messages, many=True, context={'request': request})
 
         return Response({
-            'conversation': conversation_serializer.data,
+            'conversation_id': conversation.conversation_id,
+            'participants': conversation.participants,
             'messages': message_serializer.data,
             'total_messages': ConversationMessage.objects.filter(conversation=conversation).count()
         })
@@ -90,18 +91,22 @@ class ConversationCreateView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         user_id = request.user_id
-        other_user_id = request.data.get('other_user_id')
-        other_user_name = request.data.get('other_user_name', f"User {other_user_id}")
+        participants = request.data.get('participants', [])
 
-        if not other_user_id:
-            return Response({'error': 'other_user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        # Ensure participants is a list
+        if isinstance(participants, str):
+            participants = [participants]
 
-        if user_id == other_user_id:
-            return Response({'error': 'Cannot create conversation with yourself'}, status=status.HTTP_400_BAD_REQUEST)
+        # Add current user to participants if not already included
+        if user_id not in participants:
+            participants.append(user_id)
 
-        # Check if conversation already exists
+        if len(participants) < 2:
+            return Response({'error': 'At least 2 participants required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if conversation already exists with these participants
         existing_conversation = Conversation.objects.filter(
-            participants__contains=[user_id, other_user_id]
+            participants__contains=participants
         ).first()
 
         if existing_conversation:
@@ -115,12 +120,12 @@ class ConversationCreateView(APIView):
 
         # Create new conversation
         conversation_data = {
-            'participants': [user_id, other_user_id],
-            'participant_names': [getattr(request, 'user_name', f"User {user_id}"), other_user_name],
+            'participants': participants,
+            'participant_names': [f"User {pid}" for pid in participants],
             'created_by': user_id
         }
 
-        serializer = ConversationSerializer(data=conversation_data)
+        serializer = ConversationCreateSerializer(data=conversation_data)
         if serializer.is_valid():
             conversation = serializer.save()
 
