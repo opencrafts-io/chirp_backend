@@ -50,10 +50,10 @@ class PostCreateView(generics.CreateAPIView):
 
         content = serializer.validated_data.get("content", "")
 
-        # Get user information from request
-        user_name = getattr(request, 'user_name', f"User {request.user_id}")
-        email = getattr(request, 'user_email', None)
-        avatar_url = getattr(request, 'avatar_url', None)
+        # Get user information from request body or fallback to JWT data
+        user_name = serializer.validated_data.get('user_name', getattr(request, 'user_name', f"User {request.user_id}"))
+        email = serializer.validated_data.get('email', getattr(request, 'user_email', None))
+        avatar_url = serializer.validated_data.get('avatar_url', getattr(request, 'avatar_url', None))
 
         post = serializer.save(
             user_id=self.request.user_id,
@@ -180,10 +180,10 @@ class PostListView(APIView):
                     if not group.can_post(request.user_id):
                         return Response({'error': 'You cannot post in this community'}, status=status.HTTP_403_FORBIDDEN)
 
-                    # Get user information from request
-                    user_name = getattr(request, 'user_name', f"User {request.user_id}")
-                    email = getattr(request, 'user_email', None)
-                    avatar_url = getattr(request, 'avatar_url', None)
+                    # Get user information from request body or fallback to JWT data
+                    user_name = serializer.validated_data.get('user_name', getattr(request, 'user_name', f"User {request.user_id}"))
+                    email = serializer.validated_data.get('email', getattr(request, 'user_email', None))
+                    avatar_url = serializer.validated_data.get('avatar_url', getattr(request, 'avatar_url', None))
 
                     serializer.save(
                         user_id=request.user_id,
@@ -257,9 +257,9 @@ class CommentCreateView(generics.CreateAPIView):
 
         serializer.save(
             user_id=self.request.user_id,
-            user_name=getattr(self.request, 'user_name', f"User {self.request.user_id}"),
-            email=getattr(self.request, 'user_email', None),
-            avatar_url=getattr(self.request, 'avatar_url', None),
+            user_name=self.request.data.get('user_name', getattr(self.request, 'user_name', f"User {self.request.user_id}")),
+            email=self.request.data.get('email', getattr(self.request, 'user_email', None)),
+            avatar_url=self.request.data.get('avatar_url', getattr(self.request, 'avatar_url', None)),
             post=post,
             parent_comment=parent_comment,
             depth=depth
