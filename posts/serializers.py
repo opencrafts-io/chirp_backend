@@ -54,7 +54,6 @@ class PostSerializer(serializers.ModelSerializer):
     content = serializers.CharField(max_length=280, required=False, allow_blank=True)
     group = GroupSerializer(read_only=True)
     group_id = serializers.IntegerField(write_only=True, required=False, default=1)
-    comments = CommentSerializer(many=True, read_only=True)
     comment_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -73,7 +72,6 @@ class PostSerializer(serializers.ModelSerializer):
             "like_count",
             "is_liked",
             "attachments",
-            "comments",
             "comment_count",
         ]
         read_only_fields = ["user_id", "like_count"]
