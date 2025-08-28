@@ -3,7 +3,7 @@ from .views import (
     PostListView,
     PostCreateView,
     PostDetailView,
-    PostReplyCreateView,
+    CommentCreateView,
     PostLikeToggleView,
     GroupPostListView,
 )
@@ -17,5 +17,5 @@ urlpatterns = [
 
     path("<int:post_id>/", PostDetailView.as_view(), name="post-detail"),
     path("<int:pk>/like/", PostLikeToggleView.as_view(), name="post-like"),
-    path("<int:post_id>/reply/", PostReplyCreateView.as_view(), name="post-reply"),
+    path("<int:post_id>/reply/", CommentCreateView.as_view(), name="post-comments"),
 ]

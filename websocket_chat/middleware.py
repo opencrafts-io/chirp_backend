@@ -1,11 +1,7 @@
-import json
-import jwt
 import time
 from django.conf import settings
 from channels.middleware import BaseMiddleware
-from channels.db import database_sync_to_async
 from django.core.cache import cache
-from django.http import HttpResponseForbidden
 from urllib.parse import parse_qs
 
 

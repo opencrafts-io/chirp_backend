@@ -6,7 +6,6 @@ from django.core.cache import cache
 from django.conf import settings
 from conversations.models import Conversation, ConversationMessage
 from dmessages.models import MessageAttachment
-import html
 import bleach
 
 
@@ -88,7 +87,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except json.JSONDecodeError:
             await self.send_error("Invalid JSON format")
         except Exception as e:
-            await self.send_error("Internal server error")
+            await self.send_error(f"Internal server error: {e}")
 
     async def handle_join_conversation(self, data):
         """Handle joining a conversation room"""

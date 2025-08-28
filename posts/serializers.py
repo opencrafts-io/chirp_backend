@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Attachment, Post, PostReply, PostLike
+from .models import Attachment, Post, Comment, PostLike
 
 
 class AttachmentSerializer(serializers.ModelSerializer):
@@ -30,12 +30,32 @@ class GroupSerializer(serializers.Serializer):
     description = serializers.CharField()
 
 
+class CommentSerializer(serializers.ModelSerializer):
+    replies = serializers.SerializerMethodField()
+    user_avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Comment
+        fields = ['id', 'content', 'user_id', 'user_name', 'user_avatar',
+                 'created_at', 'updated_at', 'depth', 'replies']
+
+    def get_replies(self, obj):
+        if obj.replies.exists():
+            return CommentSerializer(obj.replies.all(), many=True, context=self.context).data
+        return []
+
+    def get_user_avatar(self, obj):
+        return obj.avatar_url
+
+
 class PostSerializer(serializers.ModelSerializer):
     is_liked = serializers.BooleanField(read_only=True)
     attachments = AttachmentSerializer(many=True, read_only=True)
     content = serializers.CharField(max_length=280, required=False, allow_blank=True)
     group = GroupSerializer(read_only=True)
     group_id = serializers.IntegerField(write_only=True, required=False, default=1)
+    comments = CommentSerializer(many=True, read_only=True)
+    comment_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
@@ -53,12 +73,10 @@ class PostSerializer(serializers.ModelSerializer):
             "like_count",
             "is_liked",
             "attachments",
+            "comments",
+            "comment_count",
         ]
         read_only_fields = ["user_id", "like_count"]
 
-
-class PostReplySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PostReply
-        fields = ('id', 'parent_post', 'user_id', 'user_name', 'email', 'avatar_url', 'content', 'created_at', 'updated_at')
-        read_only_fields = ['user_id', 'parent_post']
+    def get_comment_count(self, obj):
+        return obj.comments.count()
