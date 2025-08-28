@@ -4,10 +4,15 @@ from .models import Group, GroupPost, GroupInvite
 
 @admin.register(Group)
 class GroupAdmin(admin.ModelAdmin):
-    list_display = ('name', 'creator_name', 'is_private', 'created_at')
+    list_display = ('name', 'creator_name', 'is_private', 'member_count', 'moderator_count', 'created_at')
     list_filter = ('is_private', 'created_at')
     search_fields = ('name', 'description', 'creator_id', 'creator_name')
     readonly_fields = ('created_at', 'updated_at')
+    actions = ['delete_selected']
+
+    # Allow deletion from admin
+    def has_delete_permission(self, request, obj=None):
+        return True
 
     fieldsets = (
         ('Basic Information', {

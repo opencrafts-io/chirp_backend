@@ -4,6 +4,7 @@ from django.shortcuts import get_object_or_404
 from .models import Conversation, ConversationMessage
 from .serializers import (
     ConversationSerializer,
+    ConversationListSerializer,
     ConversationCreateSerializer,
     ConversationMessageSerializer
 )
@@ -12,33 +13,35 @@ from rest_framework.views import APIView
 
 
 class ConversationListView(APIView):
-    """List all conversations for the authenticated user"""
+    """List all conversations for a specific user"""
 
     def get(self, request):
-        """Get all conversations for the user"""
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        """Get all conversations for the specified user"""
+        # Get user_id from query parameter
+        user_id = request.GET.get('user_id')
 
-        user_id = request.user_id
+        if not user_id:
+            return Response({
+                'error': 'user_id query parameter is required',
+                'example': 'GET /conversations/?user_id=default_user_123'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Get conversations where user is a participant
+        # Get conversations where user is a participant with optimized queries
         conversations = Conversation.objects.filter(
             participants__contains=[user_id]
-        ).order_by('-updated_at')
+        ).prefetch_related(
+            'messages'  # Prefetch messages to avoid N+1 queries
+        ).order_by('-last_message_at', '-created_at')
 
-        # Get last message for each conversation
-        for conversation in conversations:
-            last_message = ConversationMessage.objects.filter(
-                conversation=conversation
-            ).order_by('-created_at').first()
-
-            if last_message:
-                conversation.last_message = last_message
-                conversation.last_message_time = last_message.created_at
-
-        serializer = ConversationSerializer(conversations, many=True, context={'request': request})
+        # Use lightweight serializer for listing (no full messages)
+        serializer = ConversationListSerializer(
+            conversations,
+            many=True,
+            context={'request': request, 'user_id': user_id}
+        )
 
         return Response({
+            'user_id': user_id,
             'results': serializer.data,
             'total_count': conversations.count()
         })
@@ -49,23 +52,29 @@ class ConversationDetailView(APIView):
 
     def get(self, request, conversation_id):
         """Get conversation details and recent messages"""
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        # Get user_id from query parameter
+        user_id = request.GET.get('user_id')
+
+        if not user_id:
+            return Response({
+                'error': 'user_id query parameter is required',
+                'example': 'GET /conversations/{conversation_id}/?user_id=default_user_123'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             conversation = Conversation.objects.get(conversation_id=conversation_id)
         except Conversation.DoesNotExist:
             return Response({'error': 'Conversation not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        user_id = request.user_id
-
         # Check if user is participant
         if user_id not in conversation.participants:
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Get recent messages (last 50)
+        # Get recent messages (last 50) with optimized query
         messages = ConversationMessage.objects.filter(
             conversation=conversation
+        ).select_related('conversation').prefetch_related(
+            'attachments'  # Prefetch attachments to avoid N+1 queries
         ).order_by('-created_at')[:50]
 
         # Reverse to show oldest first
@@ -87,10 +96,15 @@ class ConversationCreateView(APIView):
 
     def post(self, request):
         """Create or find conversation between two users"""
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        # Get user_id from query parameter
+        user_id = request.GET.get('user_id')
 
-        user_id = request.user_id
+        if not user_id:
+            return Response({
+                'error': 'user_id query parameter is required',
+                'example': 'POST /conversations/create/?user_id=default_user_123'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         participants = request.data.get('participants', [])
 
         # Ensure participants is a list
@@ -146,9 +160,9 @@ class ConversationMessagesView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         conversation_id = self.kwargs.get('conversation_id')
-        user_id = getattr(self.request, 'user_id', None)
+        user_id = self.request.GET.get('user_id')
         if not user_id:
-            user_id = "default_user_123"
+            return ConversationMessage.objects.none()
 
         # Verify user is part of the conversation
         conversation = get_object_or_404(
@@ -161,7 +175,7 @@ class ConversationMessagesView(generics.ListCreateAPIView):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        user_id = getattr(self.request, 'user_id', None)
+        user_id = self.request.GET.get('user_id')
         if not user_id:
             user_id = "default_user_123"
         context['user_id'] = user_id
@@ -169,10 +183,13 @@ class ConversationMessagesView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         conversation_id = self.kwargs.get('conversation_id')
-        user_id = getattr(request, 'user_id', None)
+        user_id = request.GET.get('user_id')
 
         if not user_id:
-            user_id = "default_user_123"
+            return Response({
+                'error': 'user_id query parameter is required',
+                'example': 'POST /conversations/{conversation_id}/messages/?user_id=default_user_123'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         # Verify user is part of the conversation
         conversation = get_object_or_404(

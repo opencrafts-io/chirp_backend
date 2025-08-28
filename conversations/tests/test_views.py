@@ -43,7 +43,7 @@ class ConversationAttachmentTest(APITestCase):
 
     def test_create_message_with_attachment(self):
         """Test creating a conversation message with an image attachment"""
-        url = reverse('conversations:conversation-messages', kwargs={'conversation_id': self.conversation.conversation_id})
+        url = f"{reverse('conversations:conversation-messages', kwargs={'conversation_id': self.conversation.conversation_id})}?user_id={self.user_id}"
         image = self._get_image()
         data = {"content": "Message with attachment", "attachments": [image]}
         response = self.client.post(url, data, format="multipart")
@@ -61,7 +61,7 @@ class ConversationAttachmentTest(APITestCase):
 
     def test_create_message_without_content_but_with_attachment(self):
         """Test creating a message with only attachment (no content)"""
-        url = reverse('conversations:conversation-messages', kwargs={'conversation_id': self.conversation.conversation_id})
+        url = f"{reverse('conversations:conversation-messages', kwargs={'conversation_id': self.conversation.conversation_id})}?user_id={self.user_id}"
         image = self._get_image()
         data = {"attachments": [image]}  # No content
         response = self.client.post(url, data, format="multipart")
@@ -72,7 +72,7 @@ class ConversationAttachmentTest(APITestCase):
 
     def test_create_message_with_multiple_attachments(self):
         """Test creating a message with multiple attachments"""
-        url = reverse('conversations:conversation-messages', kwargs={'conversation_id': self.conversation.conversation_id})
+        url = f"{reverse('conversations:conversation-messages', kwargs={'conversation_id': self.conversation.conversation_id})}?user_id={self.user_id}"
         image1 = self._get_image("test1.png")
         image2 = self._get_image("test2.png")
         data = {"content": "Message with multiple attachments", "attachments": [image1, image2]}
@@ -102,14 +102,14 @@ class ConversationViewsTest(APITestCase):
 
     def test_conversation_list_view(self):
         """Test getting all conversations for a user"""
-        response = self.client.get(reverse('conversations:conversation-list'))
+        response = self.client.get(f"{reverse('conversations:conversation-list')}?user_id={self.user_id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
         self.assertEqual(response.data['results'][0]['conversation_id'], 'conv_test123')
 
     def test_conversation_detail_view(self):
         """Test getting conversation details"""
-        response = self.client.get(reverse('conversations:conversation-detail', kwargs={'conversation_id': 'conv_test123'}))
+        response = self.client.get(f"{reverse('conversations:conversation-detail', kwargs={'conversation_id': 'conv_test123'})}?user_id={self.user_id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['conversation_id'], 'conv_test123')
 
@@ -118,12 +118,12 @@ class ConversationViewsTest(APITestCase):
         data = {
             'participants': ["new_user"]  # The view will automatically add the default user
         }
-        response = self.client.post(reverse('conversations:conversation-create'), data)
+        response = self.client.post(f"{reverse('conversations:conversation-create')}?user_id={self.user_id}", data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     def test_conversation_messages_view(self):
         """Test getting messages for a conversation"""
-        response = self.client.get(reverse('conversations:conversation-messages', kwargs={'conversation_id': 'conv_test123'}))
+        response = self.client.get(f"{reverse('conversations:conversation-messages', kwargs={'conversation_id': 'conv_test123'})}?user_id={self.user_id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
         self.assertEqual(response.data['results'][0]['content'], 'Test message')
@@ -131,7 +131,7 @@ class ConversationViewsTest(APITestCase):
     def test_create_message_in_conversation(self):
         """Test creating a new message in a conversation"""
         data = {'content': 'New message'}
-        response = self.client.post(reverse('conversations:conversation-messages', kwargs={'conversation_id': 'conv_test123'}), data)
+        response = self.client.post(f"{reverse('conversations:conversation-messages', kwargs={'conversation_id': 'conv_test123'})}?user_id={self.user_id}", data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['content'], 'New message')
 

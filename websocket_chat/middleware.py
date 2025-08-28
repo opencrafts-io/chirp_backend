@@ -60,7 +60,12 @@ class WebSocketAuthMiddleware(BaseMiddleware):
             payload = verify_verisafe_jwt(token)
             user_id = payload.get('user_id') or payload.get('sub')
             return user_id
-        except Exception:
+        except Exception as e:
+            # Log the actual error for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"JWT validation failed: {str(e)}")
+            print(f"🔍 JWT Validation Error: {str(e)}")
             return None
 
     async def check_rate_limit(self, user_id):
