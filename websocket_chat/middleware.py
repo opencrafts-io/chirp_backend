@@ -1,11 +1,7 @@
-import json
-import jwt
 import time
 from django.conf import settings
 from channels.middleware import BaseMiddleware
-from channels.db import database_sync_to_async
 from django.core.cache import cache
-from django.http import HttpResponseForbidden
 from urllib.parse import parse_qs
 
 
@@ -64,7 +60,12 @@ class WebSocketAuthMiddleware(BaseMiddleware):
             payload = verify_verisafe_jwt(token)
             user_id = payload.get('user_id') or payload.get('sub')
             return user_id
-        except Exception:
+        except Exception as e:
+            # Log the actual error for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"JWT validation failed: {str(e)}")
+            print(f"🔍 JWT Validation Error: {str(e)}")
             return None
 
     async def check_rate_limit(self, user_id):

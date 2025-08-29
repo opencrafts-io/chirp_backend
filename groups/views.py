@@ -391,19 +391,24 @@ class GroupDeleteView(APIView):
     """Delete a community (only moderators can do this)"""
 
     def delete(self, request, group_id):
-        """Delete the group (only moderators can do this)"""
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        """Delete the group (only creator can do this)"""
+        # Get user_id from query parameter
+        user_id = request.GET.get('user_id')
+
+        if not user_id:
+            return Response({
+                'error': 'user_id query parameter is required',
+                'example': 'DELETE /groups/{group_id}/?user_id=default_user_123'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             group = Group.objects.get(id=group_id)
         except Group.DoesNotExist:
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        user_id = request.user_id
-
-        if user_id not in group.moderators and user_id != group.creator_id:
-            return Response({'error': 'Only moderators can delete groups'}, status=status.HTTP_403_FORBIDDEN)
+        # Only the creator can delete the group
+        if user_id != group.creator_id:
+            return Response({'error': 'Only the group creator can delete this group'}, status=status.HTTP_403_FORBIDDEN)
 
         group_name = group.name
         group_id_value = group.id

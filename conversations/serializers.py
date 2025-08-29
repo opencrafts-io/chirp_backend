@@ -17,15 +17,52 @@ class ConversationMessageSerializer(serializers.ModelSerializer):
         return MessageAttachmentSerializer(attachments, many=True, context=self.context).data
 
 
-class ConversationSerializer(serializers.ModelSerializer):
-    messages = ConversationMessageSerializer(many=True, read_only=True)
+class ConversationListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for listing conversations (without messages)"""
+    message_count = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
         fields = ['conversation_id', 'participants', 'created_at', 'updated_at',
-                 'last_message_at', 'messages', 'last_message', 'unread_count']
+                 'last_message_at', 'message_count', 'last_message', 'unread_count']
+
+    def get_message_count(self, obj):
+        """Get total message count for this conversation"""
+        return obj.messages.count()
+
+    def get_last_message(self, obj):
+        """Get only the last message preview (not full message)"""
+        last_message = obj.messages.last()
+        if last_message:
+            return {
+                'sender_id': last_message.sender_id,
+                'content': last_message.content[:100] + '...' if len(last_message.content) > 100 else last_message.content,
+                'created_at': last_message.created_at,
+                'is_read': last_message.is_read
+            }
+        return None
+
+    def get_unread_count(self, obj):
+        """Get unread message count for the current user"""
+        user_id = self.context.get('user_id')
+        if user_id:
+            return obj.messages.filter(is_read=False).exclude(sender_id=user_id).count()
+        return 0
+
+
+class ConversationSerializer(serializers.ModelSerializer):
+    """Full conversation serializer with messages (for detailed view)"""
+    messages = ConversationMessageSerializer(many=True, read_only=True)
+    last_message = serializers.SerializerMethodField()
+    unread_count = serializers.SerializerMethodField()
+    message_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Conversation
+        fields = ['conversation_id', 'participants', 'created_at', 'updated_at',
+                 'last_message_at', 'messages', 'last_message', 'unread_count', 'message_count']
 
     def get_last_message(self, obj):
         last_message = obj.messages.last()
@@ -38,6 +75,10 @@ class ConversationSerializer(serializers.ModelSerializer):
         if user_id:
             return obj.messages.filter(is_read=False).exclude(sender_id=user_id).count()
         return 0
+
+    def get_message_count(self, obj):
+        """Get total message count for this conversation"""
+        return obj.messages.count()
 
 
 class ConversationCreateSerializer(serializers.ModelSerializer):

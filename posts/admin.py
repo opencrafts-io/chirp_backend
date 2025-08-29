@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Attachment, Post, PostLike, PostReply
+from .models import Attachment, Post, PostLike, Comment
 
 
 @admin.register(Post)
@@ -27,15 +27,16 @@ class PostAdmin(admin.ModelAdmin):
     content_preview.short_description = 'Content'
 
 
-@admin.register(PostReply)
-class PostReplyAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user_name', 'user_id', 'parent_post', 'content_preview', 'created_at')
-    list_filter = ('created_at', 'user_name')
-    search_fields = ('content', 'user_name', 'user_id')
+@admin.register(Comment)
+class CommentAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user_name', 'user_id', 'post', 'parent_comment', 'depth', 'content_preview', 'created_at')
+    list_filter = ('created_at', 'user_name', 'depth', 'is_deleted')
+    search_fields = ('content', 'user_name', 'user_id', 'post__content')
+    list_select_related = ('post', 'parent_comment')
 
     fieldsets = (
-        ('Reply Information', {
-            'fields': ('content', 'parent_post')
+        ('Comment Information', {
+            'fields': ('content', 'post', 'parent_comment', 'depth', 'is_deleted')
         }),
         ('User Information', {
             'fields': ('user_id', 'user_name', 'email', 'avatar_url')
@@ -46,7 +47,7 @@ class PostReplyAdmin(admin.ModelAdmin):
         }),
     )
 
-    def content_preview(self, obj: PostReply) -> str:
+    def content_preview(self, obj: Comment) -> str:
         return obj.content[:50] + '...' if len(obj.content) > 50 else obj.content
     content_preview.short_description = 'Content'
 

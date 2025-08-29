@@ -1,9 +1,11 @@
+from django.test import TestCase
 from django.urls import reverse
-from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
-from ..models import Post
+from rest_framework import status
+from ..models import Comment
+from posts.models import Post
+from groups.models import Group
 from chirp.jwt_utils import generate_test_token
-from ..models import PostReply
 import unittest
 
 
@@ -18,13 +20,26 @@ class StatusAPITestCase(APITestCase):
         self.user_id = 'testuser123'
         token = generate_test_token(self.user_id)
         self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + token)
-        self.post = Post.objects.create(user_id=self.user_id, content='Initial post.')
+
+        # Create a group for the post
+        self.group = Group.objects.create(
+            name="Test Group",
+            description="Test group",
+            creator_id=self.user_id,
+            is_private=False
+        )
+
+        self.post = Post.objects.create(
+            user_id=self.user_id,
+            content='Initial post.',
+            group=self.group
+        )
         self.detail_url = reverse('post-detail', kwargs={'post_id': self.post.pk})
-        self.reply_url = reverse('post-reply', kwargs={'post_id': self.post.pk})
+        self.reply_url = reverse('post-comments', kwargs={'post_id': self.post.pk})
 
     def test_create_post(self):
         """Test creating a post with valid data."""
-        data = {"content": "This is a test post."}
+        data = {"content": "This is a test post.", "group_id": self.group.id}
         response = self.client.post(reverse("post-create"), data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["content"], data["content"])
@@ -79,16 +94,16 @@ class StatusAPITestCase(APITestCase):
 
     def test_create_reply(self):
         """Test creating a reply to a post."""
-        url = reverse("post-reply", kwargs={"post_id": self.post.pk})
+        url = reverse("post-comments", kwargs={"post_id": self.post.pk})
         data = {"content": "This is a reply."}
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["content"], data["content"])
-        self.assertEqual(PostReply.objects.count(), 1)
+        self.assertEqual(Comment.objects.count(), 1)
 
     def test_create_reply_non_existent_post(self):
         """Test creating a reply to a non-existent post."""
-        url = reverse("post-reply", kwargs={"post_id": 999})
+        url = reverse("post-comments", kwargs={"post_id": 999})
         data = {"content": "This should fail."}
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

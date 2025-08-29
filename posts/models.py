@@ -109,6 +109,12 @@ class Post(models.Model):
 
         super().delete(*args, **kwargs)
 
+    def get_threaded_comments(self):
+        """Get all comments organized in a threaded structure"""
+        return self.comments.filter(parent_comment__isnull=True).prefetch_related(
+            'replies', 'replies__replies', 'replies__replies__replies'
+        )
+
     def __str__(self):
         return f"{self.user_id}: {self.content[:50]}..."
 
@@ -123,8 +129,9 @@ class PostLike(models.Model):
     def __str__(self):
         return f"Like by {self.user_id} on post {self.post}"
 
-class PostReply(models.Model):
-    parent_post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='replies')
+class Comment(models.Model):
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='comments')
+    parent_comment = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
     user_id = models.CharField(max_length=100)
     user_name = models.CharField(max_length=100, default='User')
     email = models.EmailField(max_length=255, null=True, blank=True)
@@ -132,13 +139,25 @@ class PostReply(models.Model):
     content = models.TextField(max_length=280)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    depth = models.PositiveIntegerField(default=0)
+    is_deleted = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['post', 'parent_comment']),
+            models.Index(fields=['depth']),
+        ]
 
     def clean(self):
-        """Custom validation for post reply model"""
+        """Custom validation for comment model"""
         super().clean()
 
         if not self.content:
             raise ValidationError("Content is required.")
+
+        if len(str(self.content)) > 280:
+            raise ValidationError("Content cannot exceed 280 characters.")
 
         if not self.user_name:
             raise ValidationError("User name is required.")
@@ -146,5 +165,14 @@ class PostReply(models.Model):
         if len(str(self.user_name)) > 100:
             raise ValidationError("User name cannot exceed 100 characters.")
 
+        if self.depth > 10:
+            raise ValidationError("Comment depth cannot exceed 10 levels.")
+
+    def save(self, *args, **kwargs):
+        """Auto-calculate depth if not set"""
+        if self.parent_comment and not self.depth:
+            self.depth = self.parent_comment.depth + 1
+        super().save(*args, **kwargs)
+
     def __str__(self) -> str:
-        return f"Reply by {self.user_id} to post: {self.parent_post.content}..."
+        return f"Comment by {self.user_id} on post: {self.post.content[:50]}..."

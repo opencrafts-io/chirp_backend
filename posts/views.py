@@ -2,8 +2,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import Attachment, Post, PostLike, PostReply
-from .serializers import PostReplySerializer, PostSerializer
+from .models import Attachment, Post, Comment, PostLike
+from .serializers import CommentSerializer, PostSerializer
 from django.db.models import Exists, F, OuterRef, Q
 from chirp.permissions import require_permission, CommunityPermission
 from groups.models import Group
@@ -50,10 +50,10 @@ class PostCreateView(generics.CreateAPIView):
 
         content = serializer.validated_data.get("content", "")
 
-        # Get user information from request
-        user_name = getattr(request, 'user_name', f"User {request.user_id}")
-        email = getattr(request, 'user_email', None)
-        avatar_url = getattr(request, 'avatar_url', None)
+        # Get user information from request body or fallback to JWT data
+        user_name = serializer.validated_data.get('user_name', getattr(request, 'user_name', f"User {request.user_id}"))
+        email = serializer.validated_data.get('email', getattr(request, 'user_email', None))
+        avatar_url = serializer.validated_data.get('avatar_url', getattr(request, 'avatar_url', None))
 
         post = serializer.save(
             user_id=self.request.user_id,
@@ -106,7 +106,9 @@ class GroupPostListView(APIView):
         if not group.can_view(request.user_id):
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        posts = Post.objects.filter(group=group).order_by('-created_at')
+        posts = Post.objects.filter(group=group).select_related('group').prefetch_related(
+            'attachments', 'comments__replies__replies__replies'
+        ).order_by('-created_at')
 
         paginator = StandardResultsSetPagination()
         paginated_posts = paginator.paginate_queryset(posts, request)
@@ -131,7 +133,9 @@ class PostListView(APIView):
                 # Check if user can view this group
                 if not group.can_view(request.user_id):
                     return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
-                posts = Post.objects.filter(group=group).order_by('-created_at')
+                posts = Post.objects.filter(group=group).select_related('group').prefetch_related(
+                    'attachments', 'comments__replies__replies__replies'
+                ).order_by('-created_at')
             except Group.DoesNotExist:
                 return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
         else:
@@ -143,7 +147,9 @@ class PostListView(APIView):
                 Q(moderators__contains=[user_id]) |
                 Q(creator_id=user_id)
             )
-            posts = Post.objects.filter(group__in=accessible_groups).order_by('-created_at')
+            posts = Post.objects.filter(group__in=accessible_groups).select_related('group').prefetch_related(
+                'attachments', 'comments__replies__replies__replies'
+            ).order_by('-created_at')
 
         # Apply pagination
         paginator = StandardResultsSetPagination()
@@ -174,10 +180,10 @@ class PostListView(APIView):
                     if not group.can_post(request.user_id):
                         return Response({'error': 'You cannot post in this community'}, status=status.HTTP_403_FORBIDDEN)
 
-                    # Get user information from request
-                    user_name = getattr(request, 'user_name', f"User {request.user_id}")
-                    email = getattr(request, 'user_email', None)
-                    avatar_url = getattr(request, 'avatar_url', None)
+                    # Get user information from request body or fallback to JWT data
+                    user_name = serializer.validated_data.get('user_name', getattr(request, 'user_name', f"User {request.user_id}"))
+                    email = serializer.validated_data.get('email', getattr(request, 'user_email', None))
+                    avatar_url = serializer.validated_data.get('avatar_url', getattr(request, 'avatar_url', None))
 
                     serializer.save(
                         user_id=request.user_id,
@@ -200,7 +206,9 @@ class PostDetailView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            post = Post.objects.get(id=post_id)
+            post = Post.objects.select_related('group').prefetch_related(
+                'attachments', 'comments__replies__replies__replies'
+            ).get(id=post_id)
             serializer = PostSerializer(post)
             return Response(serializer.data)
         except Post.DoesNotExist:
@@ -232,36 +240,36 @@ class PostDetailView(APIView):
             return Response({'error': 'Post not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
-class PostReplyCreateView(generics.CreateAPIView):
-    queryset = PostReply.objects.all()
-    serializer_class = PostReplySerializer
+class CommentCreateView(generics.CreateAPIView):
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
 
     def perform_create(self, serializer):
-        parent_post = get_object_or_404(Post, pk=self.kwargs["post_id"])
+        post = get_object_or_404(Post, pk=self.kwargs["post_id"])
+        parent_comment_id = self.request.data.get('parent_comment_id')
 
-        # Get user information from request
-        user_name = getattr(self.request, 'user_name', f"User {self.request.user_id}")
-        email = getattr(self.request, 'user_email', None)
-        avatar_url = getattr(self.request, 'avatar_url', None)
+        if parent_comment_id:
+            parent_comment = get_object_or_404(Comment, pk=parent_comment_id)
+            depth = parent_comment.depth + 1
+        else:
+            parent_comment = None
+            depth = 0
 
         serializer.save(
             user_id=self.request.user_id,
-            user_name=user_name,
-            email=email,
-            avatar_url=avatar_url,
-            parent_post=parent_post
+            user_name=self.request.data.get('user_name', getattr(self.request, 'user_name', f"User {self.request.user_id}")),
+            email=self.request.data.get('email', getattr(self.request, 'user_email', None)),
+            avatar_url=self.request.data.get('avatar_url', getattr(self.request, 'avatar_url', None)),
+            post=post,
+            parent_comment=parent_comment,
+            depth=depth
         )
 
     def get(self, request, post_id):
-        from chirp.pagination import StandardResultsSetPagination
-
-        replies = PostReply.objects.filter(parent_post_id=post_id).order_by("-created_at")
-
-        paginator = StandardResultsSetPagination()
-        paginated_replies = paginator.paginate_queryset(replies, request)
-
-        serializer = self.get_serializer(paginated_replies, many=True)
-        return paginator.get_paginated_response(serializer.data)
+        post = get_object_or_404(Post, pk=post_id)
+        threaded_comments = post.get_threaded_comments()
+        serializer = self.get_serializer(threaded_comments, many=True)
+        return Response(serializer.data)
 
 
 class PostLikeView(APIView):
