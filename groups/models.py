@@ -1,6 +1,68 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+import os
+
+
+class GroupImage(models.Model):
+    IMAGE_TYPE_CHOICES = [
+        ("logo", "Logo"),
+        ("banner", "Banner"),
+    ]
+
+    group = models.ForeignKey(
+        "Group", on_delete=models.CASCADE, related_name="images"
+    )
+    image_type = models.CharField(
+        max_length=10, choices=IMAGE_TYPE_CHOICES, default="logo"
+    )
+    file = models.ImageField(upload_to="groups/images/")
+    file_size = models.BigIntegerField(null=True, blank=True)
+    original_filename = models.CharField(max_length=255, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('group', 'image_type')
+
+    def save(self, *args, **kwargs):
+        if self.file and not self.file_size:
+            try:
+                self.file_size = self.file.size
+            except (OSError, ValueError):
+                pass
+        if self.file and not self.original_filename:
+            try:
+                self.original_filename = self.file.name
+            except (OSError, ValueError):
+                pass
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.file:
+            try:
+                if os.path.isfile(self.file.path):
+                    os.remove(self.file.path)
+            except (OSError, ValueError):
+                pass
+        return super().delete(*args, **kwargs)
+
+    def get_file_url(self):
+        """Generate the full URL for the file"""
+        if self.file:
+            try:
+                return self.file.url
+            except (OSError, ValueError):
+                return None
+        return None
+
+    def get_file_size_mb(self):
+        """Get file size in MB"""
+        if self.file_size:
+            return round(self.file_size / (1024 * 1024), 2)
+        return None
+
+    def __str__(self):
+        return f"{self.image_type} image for group {self.group.name}"
 
 
 class Group(models.Model):
@@ -21,8 +83,6 @@ class Group(models.Model):
     banned_user_names = models.JSONField(default=list)
     is_private = models.BooleanField(default=False)
     rules = models.JSONField(default=list)
-    logo = models.ImageField(upload_to='groups/logos/', null=True, blank=True, help_text='Community logo (square image recommended)')
-    banner = models.ImageField(upload_to='groups/banners/', null=True, blank=True, help_text='Community banner image (wide image recommended)')
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -32,6 +92,14 @@ class Group(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    def get_logo(self):
+        """Get the logo image if it exists"""
+        return self.images.filter(image_type='logo').first()
+
+    def get_banner(self):
+        """Get the banner image if it exists"""
+        return self.images.filter(image_type='banner').first()
 
     def clean(self):
         """Custom validation for group model"""
@@ -65,7 +133,11 @@ class Group(models.Model):
 
     def can_moderate(self, user_id: str) -> bool:
         """Check if user can moderate this group"""
-        return self.is_moderator(user_id)
+        # Creator always has moderation rights
+        if user_id == self.creator_id:
+            return True
+        # Check if user is in moderators list
+        return user_id in self.moderators
 
     def add_moderator(self, user_id: str, user_name: str, added_by: str):
         """Add a moderator to the group (only existing moderators can do this)"""
@@ -241,14 +313,14 @@ class Group(models.Model):
 
     def get_logo_url(self):
         """Get the URL for the community logo"""
-        if self.logo:
-            return self.logo.url
+        if self.get_logo():
+            return self.get_logo().get_file_url()
         return None
 
     def get_banner_url(self):
         """Get the URL for the community banner"""
-        if self.banner:
-            return self.banner.url
+        if self.get_banner():
+            return self.get_banner().get_file_url()
         return None
 
 

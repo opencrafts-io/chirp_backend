@@ -7,6 +7,7 @@ from .serializers import CommentSerializer, PostSerializer
 from django.db.models import Exists, F, OuterRef, Q
 from chirp.permissions import require_permission, CommunityPermission
 from groups.models import Group
+from rest_framework.exceptions import ValidationError, PermissionDenied
 
 
 class PostCreateView(generics.CreateAPIView):
@@ -243,13 +244,18 @@ class PostDetailView(APIView):
 class CommentCreateView(generics.CreateAPIView):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
+    permission_classes = [CommunityPermission]
 
     def perform_create(self, serializer):
         post = get_object_or_404(Post, pk=self.kwargs["post_id"])
         parent_comment_id = self.request.data.get('parent_comment_id')
 
         if parent_comment_id:
-            parent_comment = get_object_or_404(Comment, pk=parent_comment_id)
+            parent_comment = get_object_or_404(Comment, pk=parent_comment_id, post=post)
+
+            if parent_comment.depth >= 10:
+                raise ValidationError("Maximum comment depth reached (10 levels)")
+
             depth = parent_comment.depth + 1
         else:
             parent_comment = None
@@ -270,6 +276,30 @@ class CommentCreateView(generics.CreateAPIView):
         threaded_comments = post.get_threaded_comments()
         serializer = self.get_serializer(threaded_comments, many=True)
         return Response(serializer.data)
+
+
+class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
+    permission_classes = [CommunityPermission]
+
+    def get_object(self):
+        post_id = self.kwargs.get('post_id')
+        comment_id = self.kwargs.get('comment_id')
+        return get_object_or_404(Comment, id=comment_id, post_id=post_id)
+
+    def perform_update(self, serializer):
+        comment = self.get_object()
+        if comment.user_id != self.request.user_id:
+            raise PermissionDenied("You can only edit your own comments")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.user_id != self.request.user_id:
+            raise PermissionDenied("You can only delete your own comments")
+        instance.is_deleted = True
+        instance.content = "[deleted]"
+        instance.save()
 
 
 class PostLikeView(APIView):
