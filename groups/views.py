@@ -1,7 +1,7 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import Group, GroupInvite
+from .models import Group, GroupInvite, GroupImage
 from .serializers import GroupSerializer
 from chirp.permissions import require_community_role, CommunityPermission
 from django.shortcuts import get_object_or_404
@@ -86,6 +86,70 @@ class GroupDetailView(APIView):
 
         serializer = GroupSerializer(group, context={'request': request})
         return Response(serializer.data)
+
+    def put(self, request, group_id):
+        """Update group details and images"""
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        user_id = request.user_id
+        can_mod = group.can_moderate(user_id)
+        is_creator = user_id == group.creator_id
+        is_in_moderators = user_id in group.moderators
+
+        if not can_mod:
+            return Response({
+                'error': 'Access denied',
+                'debug': {
+                    'user_id': user_id,
+                    'group_creator': group.creator_id,
+                    'is_creator': is_creator,
+                    'moderators': group.moderators,
+                    'is_in_moderators': is_in_moderators,
+                    'can_moderate': can_mod
+                }
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        data = request.data.copy()
+        serializer = GroupSerializer(group, data=data, partial=True, context={'request': request})
+
+        if serializer.is_valid():
+            group = serializer.save()
+
+            logo_file = request.FILES.get('logo')
+            banner_file = request.FILES.get('banner')
+
+            if logo_file:
+                existing_logo = group.images.filter(image_type='logo').first()
+                if existing_logo:
+                    existing_logo.delete()
+
+                GroupImage.objects.create(
+                    group=group,
+                    image_type='logo',
+                    file=logo_file
+                )
+
+            if banner_file:
+                existing_banner = group.images.filter(image_type='banner').first()
+                if existing_banner:
+                    existing_banner.delete()
+
+                GroupImage.objects.create(
+                    group=group,
+                    image_type='banner',
+                    file=banner_file
+                )
+
+            response_serializer = GroupSerializer(group, context={'request': request})
+            return Response(response_serializer.data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class GroupJoinView(APIView):
@@ -419,6 +483,9 @@ class GroupDeleteView(APIView):
             'message': f'Group "{group_name}" has been successfully deleted',
             'deleted_group_id': group_id_value
         }, status=status.HTTP_200_OK)
+
+
+
 
 
 class InviteLinkCreateView(APIView):

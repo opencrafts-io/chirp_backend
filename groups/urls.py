@@ -17,7 +17,7 @@ urlpatterns = [
     # Community moderation
     path('<int:group_id>/moderate/', GroupModerationView.as_view(), name='group-moderate'),
     path('<int:group_id>/admin/', GroupAdminView.as_view(), name='group-admin'),
-    path('<int:group_id>/settings/', GroupSettingsView.as_view(), name='group-settings'),
+    path('<int:group_id>/settings/', GroupModerationView.as_view(), name='group-settings'),
     path('<int:group_id>/delete/', GroupDeleteView.as_view(), name='group-delete'),
 
     # Invite links

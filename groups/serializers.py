@@ -1,5 +1,27 @@
 from rest_framework import serializers
-from .models import Group, GroupPost, GroupInvite, InviteLink
+from .models import Group, GroupPost, GroupInvite, InviteLink, GroupImage
+
+
+class GroupImageSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+    file_size_mb = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GroupImage
+        fields = ["id", "image_type", "file_url", "file_size_mb", "original_filename", "created_at"]
+
+    def get_file_url(self, obj):
+        """Generate the full URL for the file"""
+        if obj.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return None
+
+    def get_file_size_mb(self, obj):
+        """Get file size in MB"""
+        return obj.get_file_size_mb()
 
 
 class GroupSerializer(serializers.ModelSerializer):
@@ -15,9 +37,6 @@ class GroupSerializer(serializers.ModelSerializer):
     rules = serializers.ListField(child=serializers.CharField(), read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)
 
-    # Image fields
-    logo = serializers.ImageField(required=False, allow_null=True)
-    banner = serializers.ImageField(required=False, allow_null=True)
     logo_url = serializers.SerializerMethodField()
     banner_url = serializers.SerializerMethodField()
 
@@ -30,7 +49,7 @@ class GroupSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'description', 'creator_id', 'creator_name', 'moderators',
             'moderator_names', 'members', 'member_names', 'banned_users',
-            'banned_user_names', 'is_private', 'rules', 'logo', 'banner', 'logo_url', 'banner_url',
+            'banned_user_names', 'is_private', 'rules', 'logo_url', 'banner_url',
             'created_at', 'updated_at', 'user_role', 'can_post', 'can_moderate'
         ]
         read_only_fields = [
@@ -79,20 +98,22 @@ class GroupSerializer(serializers.ModelSerializer):
 
     def get_logo_url(self, obj):
         """Get the full URL for the logo"""
-        if obj.logo:
+        logo = obj.get_logo()
+        if logo:
             request = self.context.get('request')
             if request:
-                return request.build_absolute_uri(obj.logo.url)
-            return obj.logo.url
+                return request.build_absolute_uri(logo.get_file_url())
+            return logo.get_file_url()
         return None
 
     def get_banner_url(self, obj):
         """Get the full URL for the banner"""
-        if obj.banner:
+        banner = obj.get_banner()
+        if banner:
             request = self.context.get('request')
             if request:
-                return request.build_absolute_uri(obj.banner.url)
-            return obj.banner.url
+                return request.build_absolute_uri(banner.get_file_url())
+            return banner.get_file_url()
         return None
 
 
