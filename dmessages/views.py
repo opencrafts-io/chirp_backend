@@ -211,21 +211,17 @@ class ConversationMessageListView(APIView):
 
         user_id = request.user_id
 
-        # Check if user is participant
         if user_id not in conversation.participants:
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Get pagination parameters
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 50))
 
-        # Get messages (exclude deleted ones)
         messages = Message.objects.filter(
             conversation=conversation,
             is_deleted=False
         ).order_by('-created_at')
 
-        # Paginate
         from django.core.paginator import Paginator
         paginator = Paginator(messages, page_size)
 

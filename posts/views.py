@@ -120,9 +120,6 @@ class GroupPostListView(APIView):
 
 class PostListView(APIView):
     def get(self, request):
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
-
         from chirp.pagination import StandardResultsSetPagination
 
         # Get group filter from query params
@@ -131,26 +128,33 @@ class PostListView(APIView):
         if group_id:
             try:
                 group = Group.objects.get(id=group_id)
-                # Check if user can view this group
-                if not group.can_view(request.user_id):
-                    return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+                if group.is_private:
+                    if not hasattr(request, 'user_id') or not request.user_id:
+                        return Response({'error': 'Authentication required for private groups'}, status=status.HTTP_401_UNAUTHORIZED)
+                    if not group.can_view(request.user_id):
+                        return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+
                 posts = Post.objects.filter(group=group).select_related('group').prefetch_related(
                     'attachments', 'comments__replies__replies__replies'
                 ).order_by('-created_at')
             except Group.DoesNotExist:
                 return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
         else:
-            # Show posts from groups user can view
-            user_id = request.user_id
-            accessible_groups = Group.objects.filter(
-                Q(is_private=False) |
-                Q(members__contains=[user_id]) |
-                Q(moderators__contains=[user_id]) |
-                Q(creator_id=user_id)
-            )
-            posts = Post.objects.filter(group__in=accessible_groups).select_related('group').prefetch_related(
-                'attachments', 'comments__replies__replies__replies'
-            ).order_by('-created_at')
+            if hasattr(request, 'user_id') and request.user_id:
+                user_id = request.user_id
+                accessible_groups = Group.objects.filter(
+                    Q(is_private=False) |
+                    Q(members__contains=[user_id]) |
+                    Q(moderators__contains=[user_id]) |
+                    Q(creator_id=user_id)
+                )
+                posts = Post.objects.filter(group__in=accessible_groups).select_related('group').prefetch_related(
+                    'attachments', 'comments__replies__replies__replies'
+                ).order_by('-created_at')
+            else:
+                posts = Post.objects.filter(group__is_private=False).select_related('group').prefetch_related(
+                    'attachments', 'comments__replies__replies__replies'
+                ).order_by('-created_at')
 
         # Apply pagination
         paginator = StandardResultsSetPagination()
@@ -203,13 +207,17 @@ class PostListView(APIView):
 
 class PostDetailView(APIView):
     def get(self, request, post_id):
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
-
         try:
             post = Post.objects.select_related('group').prefetch_related(
                 'attachments', 'comments__replies__replies__replies'
             ).get(id=post_id)
+
+            if post.group.is_private:
+                if not hasattr(request, 'user_id') or not request.user_id:
+                    return Response({'error': 'Authentication required for private groups'}, status=status.HTTP_401_UNAUTHORIZED)
+                if not post.group.can_view(request.user_id):
+                    return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+
             serializer = PostSerializer(post)
             return Response(serializer.data)
         except Post.DoesNotExist:
@@ -246,6 +254,17 @@ class CommentCreateView(generics.CreateAPIView):
     serializer_class = CommentSerializer
     permission_classes = [CommunityPermission]
 
+    def get_permissions(self):
+        try:
+            post = get_object_or_404(Post, pk=self.kwargs["post_id"])
+            if not post.group.is_private:
+                from rest_framework.permissions import AllowAny
+                return [AllowAny()]
+        except:
+            pass
+
+        return super().get_permissions()
+
     def perform_create(self, serializer):
         post = get_object_or_404(Post, pk=self.kwargs["post_id"])
         parent_comment_id = self.request.data.get('parent_comment_id')
@@ -262,10 +281,10 @@ class CommentCreateView(generics.CreateAPIView):
             depth = 0
 
         serializer.save(
-            user_id=self.request.user_id,
-            user_name=self.request.data.get('user_name', getattr(self.request, 'user_name', f"User {self.request.user_id}")),
+            user_id=self.request.data.get('user_id'),
+            user_name=self.request.data.get('user_name', getattr(self.request, 'user_name', f"User {self.request.data.get('user_id')}")),
             email=self.request.data.get('email', getattr(self.request, 'user_email', None)),
-            avatar_url=self.request.data.get('avatar_url', getattr(self.request, 'avatar_url', None)),
+            avatar_url=self.request.data.get('user_avatar', getattr(self.request, 'avatar_url', None)),
             post=post,
             parent_comment=parent_comment,
             depth=depth
@@ -282,6 +301,17 @@ class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
     permission_classes = [CommunityPermission]
+
+    def get_permissions(self):
+        try:
+            post_id = self.kwargs.get('post_id')
+            post = Post.objects.get(id=post_id)
+            if not post.group.is_private:
+                from rest_framework.permissions import AllowAny
+                return [AllowAny()]
+        except:
+            pass
+        return super().get_permissions()
 
     def get_object(self):
         post_id = self.kwargs.get('post_id')

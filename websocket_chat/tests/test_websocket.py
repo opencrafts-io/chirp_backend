@@ -7,7 +7,6 @@ Run this to test the WebSocket implementation
 import asyncio
 import websockets
 import json
-import time
 
 # Configuration
 WEBSOCKET_URL = "ws://localhost:8000/ws/chat/"
@@ -100,7 +99,7 @@ async def test_invalid_token():
     print(f"\nTesting with invalid token: {uri}")
 
     try:
-        async with websockets.connect(uri) as websocket:
+        async with websockets.connect(uri):
             print("❌ Should not connect with invalid token")
     except Exception as e:
         if "403" in str(e) or "Forbidden" in str(e):
