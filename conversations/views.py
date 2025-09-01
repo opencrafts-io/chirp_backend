@@ -26,14 +26,12 @@ class ConversationListView(APIView):
                 'example': 'GET /conversations/?user_id=default_user_123'
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Get conversations where user is a participant with optimized queries
         conversations = Conversation.objects.filter(
             participants__contains=[user_id]
         ).prefetch_related(
-            'messages'  # Prefetch messages to avoid N+1 queries
+            'messages'
         ).order_by('-last_message_at', '-created_at')
 
-        # Use lightweight serializer for listing (no full messages)
         serializer = ConversationListSerializer(
             conversations,
             many=True,
@@ -70,11 +68,10 @@ class ConversationDetailView(APIView):
         if user_id not in conversation.participants:
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Get recent messages (last 50) with optimized query
         messages = ConversationMessage.objects.filter(
             conversation=conversation
         ).select_related('conversation').prefetch_related(
-            'attachments'  # Prefetch attachments to avoid N+1 queries
+            'attachments'  
         ).order_by('-created_at')[:50]
 
         # Reverse to show oldest first
@@ -107,24 +104,20 @@ class ConversationCreateView(APIView):
 
         participants = request.data.get('participants', [])
 
-        # Ensure participants is a list
         if isinstance(participants, str):
             participants = [participants]
 
-        # Add current user to participants if not already included
         if user_id not in participants:
             participants.append(user_id)
 
         if len(participants) < 2:
             return Response({'error': 'At least 2 participants required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if conversation already exists with these participants
         existing_conversation = Conversation.objects.filter(
             participants__contains=participants
         ).first()
 
         if existing_conversation:
-            # Return existing conversation
             serializer = ConversationSerializer(existing_conversation, context={'request': request})
             return Response({
                 'message': 'Conversation found',

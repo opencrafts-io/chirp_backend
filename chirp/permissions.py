@@ -40,6 +40,9 @@ class CommunityPermission(BasePermission):
         if not user_id:
             return False
 
+        if not group.is_private:
+            return True
+
         if self.required_role == 'moderator':
             return group.is_moderator(user_id)
         elif self.required_role == 'member':

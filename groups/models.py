@@ -129,6 +129,10 @@ class Group(models.Model):
         """Check if user can post in this group"""
         if user_id in self.banned_users:
             return False
+
+        if not self.is_private:
+            return True
+
         return self.is_member(user_id)
 
     def can_moderate(self, user_id: str) -> bool:
