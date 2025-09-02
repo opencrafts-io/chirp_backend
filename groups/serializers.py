@@ -180,12 +180,9 @@ class InviteLinkSerializer(serializers.ModelSerializer):
         import secrets
         import string
 
-        # Generate unique token
         alphabet = string.ascii_letters + string.digits
         token = ''.join(secrets.choice(alphabet) for _ in range(32))
-
-        # Ensure token uniqueness
-        while InviteLink.objects.filter(token=token).exists():
+        while InviteLink._default_manager.filter(token=token).exists():
             token = ''.join(secrets.choice(alphabet) for _ in range(32))
 
         validated_data['token'] = token

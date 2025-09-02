@@ -9,7 +9,7 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from .models import InviteLink
 from .serializers import InviteLinkSerializer
-
+import logging
 
 class GroupListView(APIView):
     """List all public groups or groups user is a member of"""
@@ -47,6 +47,9 @@ class GroupCreateView(APIView):
 
         data = request.data.copy()
 
+        logging.info(f"Received data: {data}")
+        logging.info(f"Files: {request.FILES}")
+
         user_id = data.get('user_id', request.user_id)
         user_name = data.get('user_name', getattr(request, 'user_name', f"User {request.user_id}"))
 
@@ -56,14 +59,48 @@ class GroupCreateView(APIView):
         if 'is_public' in data:
             data['is_private'] = not data.pop('is_public')
 
-        data['moderators'] = [user_id]
-        data['moderator_names'] = [user_name]
-        data['members'] = [user_id]
-        data['member_names'] = [user_name]
+        if isinstance(data.get('moderators'), str):
+            data['moderators'] = [data['moderators']]
+        else:
+            data['moderators'] = [user_id]
+
+        if isinstance(data.get('moderator_names'), str):
+            data['moderator_names'] = [data['moderator_names']]
+        else:
+            data['moderator_names'] = [user_name]
+
+        if isinstance(data.get('members'), str):
+            data['members'] = [data['members']]
+        else:
+            data['members'] = [user_id]
+
+        if isinstance(data.get('member_names'), str):
+            data['member_names'] = [data['member_names']]
+        else:
+            data['member_names'] = [user_name]
 
         serializer = GroupSerializer(data=data)
         if serializer.is_valid():
             group = serializer.save()
+
+            # Handle logo upload
+            logo_file = request.FILES.get('logo')
+            if logo_file:
+                GroupImage.objects.create(
+                    group=group,
+                    image_type='logo',
+                    file=logo_file
+                )
+
+            # Handle banner upload
+            banner_file = request.FILES.get('banner')
+            if banner_file:
+                GroupImage.objects.create(
+                    group=group,
+                    image_type='banner',
+                    file=banner_file
+                )
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
