@@ -20,10 +20,8 @@ class GroupListView(APIView):
 
         user_id = request.user_id
 
-        # Get public groups
         public_groups = Group.objects.filter(is_private=False)
 
-        # Get private groups user is a member of
         user_groups = Group.objects.filter(
             models.Q(members__contains=[user_id]) |
             models.Q(moderators__contains=[user_id]) |
@@ -50,40 +48,32 @@ class GroupCreateView(APIView):
         logging.info(f"Received data: {data}")
         logging.info(f"Files: {request.FILES}")
 
-        user_id = data.get('user_id', request.user_id)
-        user_name = data.get('user_name', getattr(request, 'user_name', f"User {request.user_id}"))
+        clean_data = {}
+        for key, value in data.items():
+            if isinstance(value, list) and len(value) == 1:
+                clean_data[key] = value[0]
+            else:
+                clean_data[key] = value
 
-        data['creator_id'] = user_id
-        data['creator_name'] = user_name
+        user_id = clean_data.get('user_id', request.user_id)
+        user_name = clean_data.get('user_name', getattr(request, 'user_name', f"User {request.user_id}"))
 
-        if 'is_public' in data:
-            data['is_private'] = not data.pop('is_public')
+        clean_data['creator_id'] = user_id
+        clean_data['creator_name'] = user_name
 
-        if isinstance(data.get('moderators'), str):
-            data['moderators'] = [data['moderators']]
-        else:
-            data['moderators'] = [user_id]
+        if 'is_public' in clean_data:
+            clean_data['is_private'] = not clean_data.pop('is_public')
 
-        if isinstance(data.get('moderator_names'), str):
-            data['moderator_names'] = [data['moderator_names']]
-        else:
-            data['moderator_names'] = [user_name]
+        clean_data['moderators'] = [str(user_id)]
+        clean_data['moderator_names'] = [str(user_name)]
+        clean_data['members'] = [str(user_id)]
+        clean_data['member_names'] = [str(user_name)]
 
-        if isinstance(data.get('members'), str):
-            data['members'] = [data['members']]
-        else:
-            data['members'] = [user_id]
-
-        if isinstance(data.get('member_names'), str):
-            data['member_names'] = [data['member_names']]
-        else:
-            data['member_names'] = [user_name]
-
-        serializer = GroupSerializer(data=data)
+        logging.info(f"Clean data after processing: {clean_data}")
+        serializer = GroupSerializer(data=clean_data, context={'request': request})
         if serializer.is_valid():
             group = serializer.save()
 
-            # Handle logo upload
             logo_file = request.FILES.get('logo')
             if logo_file:
                 GroupImage.objects.create(
@@ -92,7 +82,6 @@ class GroupCreateView(APIView):
                     file=logo_file
                 )
 
-            # Handle banner upload
             banner_file = request.FILES.get('banner')
             if banner_file:
                 GroupImage.objects.create(
@@ -117,7 +106,6 @@ class GroupDetailView(APIView):
         except Group.DoesNotExist:
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Check if user can view this group
         if not group.can_view(request.user_id):
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -204,15 +192,12 @@ class GroupJoinView(APIView):
         user_id = request.user_id
         user_name = getattr(request, 'user_name', f"User {user_id}")
 
-        # Check if user is already a member
         if group.is_member(user_id):
             return Response({'message': 'Already a member'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if user is banned
         if user_id in group.banned_users:
             return Response({'error': 'You are banned from this community'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Add user as member
         group.add_member(user_id, user_name, user_id)
 
         serializer = GroupSerializer(group, context={'request': request})
@@ -233,11 +218,9 @@ class GroupLeaveView(APIView):
 
         user_id = request.user_id
 
-        # Creator cannot leave
         if user_id == group.creator_id:
             return Response({'error': 'Creator cannot leave the community'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Remove user from all roles
         if user_id in group.moderators:
             current_moderators = list(group.moderators)
             current_moderators.remove(user_id)
@@ -356,26 +339,21 @@ class GroupSettingsView(APIView):
 
         user_id = request.user_id
 
-        # Check if user is a moderator
         if user_id not in group.moderators and user_id != group.creator_id:
             return Response({'error': 'Only moderators can update group settings'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Update the group fields directly
         allowed_fields = ['name', 'description', 'is_private']
         for field in allowed_fields:
             if field in request.data:
                 setattr(group, field, request.data[field])
 
-        # Handle file uploads
         if 'logo' in request.FILES:
             group.logo = request.FILES['logo']
         if 'banner' in request.FILES:
             group.banner = request.FILES['banner']
 
-        # Save the changes
         group.save()
 
-        # Return updated group data
         serializer = GroupSerializer(group, context={'request': request})
         return Response(serializer.data)
 
@@ -470,7 +448,6 @@ class GroupUsersView(APIView):
         except Group.DoesNotExist:
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Check if user can view this group
         if not group.can_view(request.user_id):
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -493,7 +470,6 @@ class GroupDeleteView(APIView):
 
     def delete(self, request, group_id):
         """Delete the group (only creator can do this)"""
-        # Get user_id from query parameter
         user_id = request.GET.get('user_id')
 
         if not user_id:
@@ -507,7 +483,6 @@ class GroupDeleteView(APIView):
         except Group.DoesNotExist:
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Only the creator can delete the group
         if user_id != group.creator_id:
             return Response({'error': 'Only the group creator can delete this group'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -587,7 +562,6 @@ class InviteLinkJoinView(APIView):
         except InviteLink.DoesNotExist:
             return Response({'error': 'Invalid invite link'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Check if invite link can be used
         if not invite_link.can_be_used():
             if invite_link.is_used:
                 return Response({'error': 'This invite link has already been used. Kindly request for a new invite link from the community moderator.'}, status=status.HTTP_400_BAD_REQUEST)
