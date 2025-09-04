@@ -17,7 +17,6 @@ class JWTManager:
     """
 
     def __init__(self):
-        # Don't access settings immediately
         self._test_secret = None
         self._algorithm = None
         self._public_key = None
@@ -37,11 +36,9 @@ class JWTManager:
     def _get_public_key(self):
         """Get the public key, with lazy loading."""
         if self._public_key is None:
-            # For HS256 (symmetric), use the same secret for both signing and verification
             if self._get_algorithm() == 'HS256':
                 self._public_key = self._get_test_secret()
             else:
-                # For asymmetric algorithms like RS256, use the configured public key
                 self._public_key = getattr(settings, 'JWT_PUBLIC_KEY', self._get_test_secret())
         return self._public_key
 
@@ -57,9 +54,9 @@ class JWTManager:
             str: JWT token string
         """
         payload = {
-            'sub': user_id,  # Subject (user ID)
-            'iat': int(time.time()),  # Issued at
-            'exp': int(time.time()) + (expires_in_hours * 3600)  # Expiration
+            'sub': user_id,
+            'iat': int(time.time()),
+            'exp': int(time.time()) + (expires_in_hours * 3600)
         }
 
         return jwt.encode(payload, self._get_test_secret(), algorithm=self._get_algorithm())
@@ -78,8 +75,6 @@ class JWTManager:
             jwt.InvalidTokenError: If token is invalid
         """
         try:
-            # For testing, use the test secret
-            # In production, this would use your JWT provider's public key
             payload = jwt.decode(
                 token,
                 self._get_public_key(),
@@ -108,7 +103,6 @@ class JWTManager:
             return None
 
 
-# Global JWT manager instance - create lazily
 _jwt_manager = None
 
 def _get_jwt_manager():
@@ -119,7 +113,6 @@ def _get_jwt_manager():
     return _jwt_manager
 
 
-# Convenience functions for easy testing
 def generate_test_token(user_id, expires_in_hours=24):
     """Generate a test JWT token for the given user ID."""
     return _get_jwt_manager().generate_token(user_id, expires_in_hours)

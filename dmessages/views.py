@@ -3,20 +3,23 @@ from rest_framework.response import Response
 from rest_framework import status, generics
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
+from django.core.paginator import Paginator
+
+from conversations.models import Conversation
 from .models import Message, MessageAttachment
 from .serializers import MessageSerializer
+from django.utils import timezone
+from datetime import timedelta
 
 class MessageListCreateView(APIView):
     def get(self, request):
-        # Require authentication for viewing messages
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         from chirp.pagination import StandardResultsSetPagination
 
-        messages = Message.objects.filter(recipient_id=request.user_id).order_by("-created_at")
+        messages = Message._default_manager.filter(recipient_id=request.user_id).order_by("-created_at")
 
-        # Apply pagination
         paginator = StandardResultsSetPagination()
         paginated_messages = paginator.paginate_queryset(messages, request)
 
@@ -24,7 +27,6 @@ class MessageListCreateView(APIView):
         return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
-        # Require authentication for sending messages
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -55,13 +57,12 @@ class MessageListCreateView(APIView):
                 else:
                     attachment_type = "file"
 
-                MessageAttachment.objects.create(
+                MessageAttachment._default_manager.create(
                     message=message,
                     file=file,
                     attachment_type=attachment_type
                 )
 
-            # Return response with attachments
             response_serializer = MessageSerializer(message)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -72,13 +73,13 @@ class MessageDetailView(generics.RetrieveUpdateDestroyAPIView):
     Retrieve, update, or delete a message
     """
     serializer_class = MessageSerializer
-    queryset = Message.objects.all()
+    queryset = Message._default_manager.all()
 
     def get_queryset(self):
         user_id = getattr(self.request, 'user_id', None)
         if not user_id:
             user_id = "default_user_123"
-        return Message.objects.filter(
+        return Message._default_manager.filter(
             Q(sender_id=user_id) | Q(recipient_id=user_id)
         )
 
@@ -132,19 +133,15 @@ class MessageEditView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            message = Message.objects.get(id=message_id)
+            message = Message._default_manager.get(id=message_id)
         except Message.DoesNotExist:
             return Response({'error': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)
 
         user_id = request.user_id
 
-        # Check if user is the message sender
         if message.sender_id != user_id:
             return Response({'error': 'You can only edit your own messages'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Check if message is too old (e.g., 24 hours)
-        from django.utils import timezone
-        from datetime import timedelta
 
         if message.created_at < timezone.now() - timedelta(hours=24):
             return Response({'error': 'Messages can only be edited within 24 hours'}, status=status.HTTP_400_BAD_REQUEST)
@@ -153,7 +150,6 @@ class MessageEditView(APIView):
         if not new_content:
             return Response({'error': 'Message content cannot be empty'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Update message
         message.content = new_content
         message.is_edited = True
         message.edited_at = timezone.now()
@@ -175,17 +171,15 @@ class MessageDeleteView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            message = Message.objects.get(id=message_id)
+            message = Message._default_manager.get(id=message_id)
         except Message.DoesNotExist:
             return Response({'error': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)
 
         user_id = request.user_id
 
-        # Check if user is the message sender
         if message.sender_id != user_id:
             return Response({'error': 'You can only delete your own messages'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Soft delete - mark as deleted instead of removing from DB
         message.is_deleted = True
         message.deleted_at = timezone.now()
         message.save()
@@ -205,8 +199,8 @@ class ConversationMessageListView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            conversation = Conversation.objects.get(id=conversation_id)
-        except Conversation.DoesNotExist:
+            conversation = Conversation._default_manager.get(id=conversation_id)
+        except Conversation.DoesNotExist:  # type: ignore
             return Response({'error': 'Conversation not found'}, status=status.HTTP_404_NOT_FOUND)
 
         user_id = request.user_id
@@ -217,12 +211,11 @@ class ConversationMessageListView(APIView):
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 50))
 
-        messages = Message.objects.filter(
+        messages = Message._default_manager.filter(
             conversation=conversation,
             is_deleted=False
         ).order_by('-created_at')
 
-        from django.core.paginator import Paginator
         paginator = Paginator(messages, page_size)
 
         try:

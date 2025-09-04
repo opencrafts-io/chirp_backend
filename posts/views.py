@@ -9,9 +9,8 @@ from chirp.permissions import require_permission, CommunityPermission
 from groups.models import Group
 from rest_framework.exceptions import ValidationError, PermissionDenied
 
-
 class PostCreateView(generics.CreateAPIView):
-    queryset = Post.objects.all()
+    queryset = Post._default_manager.all()
     serializer_class = PostSerializer
     permission_classes = [CommunityPermission]
 
@@ -27,7 +26,7 @@ class PostCreateView(generics.CreateAPIView):
             )
 
         try:
-            group = Group.objects.get(id=group_id)
+            group = Group._default_manager.get(id=group_id)
         except Group.DoesNotExist:
             return Response(
                 {"detail": "Group not found."},
@@ -100,14 +99,14 @@ class GroupPostListView(APIView):
         from chirp.pagination import StandardResultsSetPagination
 
         try:
-            group = Group.objects.get(id=group_id)
+            group = Group._default_manager.get(id=group_id)
         except Group.DoesNotExist:
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         if not group.can_view(request.user_id):
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        posts = Post.objects.filter(group=group).select_related('group').prefetch_related(
+        posts = Post._default_manager.filter(group=group).select_related('group').prefetch_related(
             'attachments', 'comments__replies__replies__replies'
         ).order_by('-created_at')
 
@@ -127,14 +126,14 @@ class PostListView(APIView):
 
         if group_id:
             try:
-                group = Group.objects.get(id=group_id)
+                group = Group._default_manager.get(id=group_id)
                 if group.is_private:
                     if not hasattr(request, 'user_id') or not request.user_id:
                         return Response({'error': 'Authentication required for private groups'}, status=status.HTTP_401_UNAUTHORIZED)
                     if not group.can_view(request.user_id):
                         return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-                posts = Post.objects.filter(group=group).select_related('group').prefetch_related(
+                posts = Post._default_manager.filter(group=group).select_related('group').prefetch_related(
                     'attachments', 'comments__replies__replies__replies'
                 ).order_by('-created_at')
             except Group.DoesNotExist:
@@ -142,21 +141,20 @@ class PostListView(APIView):
         else:
             if hasattr(request, 'user_id') and request.user_id:
                 user_id = request.user_id
-                accessible_groups = Group.objects.filter(
+                accessible_groups = Group._default_manager.filter(
                     Q(is_private=False) |
                     Q(members__contains=[user_id]) |
                     Q(moderators__contains=[user_id]) |
                     Q(creator_id=user_id)
                 )
-                posts = Post.objects.filter(group__in=accessible_groups).select_related('group').prefetch_related(
+                posts = Post._default_manager.filter(group__in=accessible_groups).select_related('group').prefetch_related(
                     'attachments', 'comments__replies__replies__replies'
                 ).order_by('-created_at')
             else:
-                posts = Post.objects.filter(group__is_private=False).select_related('group').prefetch_related(
+                posts = Post._default_manager.filter(group__is_private=False).select_related('group').prefetch_related(
                     'attachments', 'comments__replies__replies__replies'
                 ).order_by('-created_at')
 
-        # Apply pagination
         paginator = StandardResultsSetPagination()
         paginated_posts = paginator.paginate_queryset(posts, request)
 
@@ -170,22 +168,18 @@ class PostListView(APIView):
         data = request.data.copy()
         data['user_id'] = request.user_id
 
-        # Validate group_id is provided
         if 'group_id' not in data:
             return Response({'error': 'group_id is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = PostSerializer(data=data)
         if serializer.is_valid():
-            # Get the group and save the post
             group_id = serializer.validated_data.get('group_id')
             if group_id:
                 try:
-                    group = Group.objects.get(id=group_id)
-                    # Check if user can post in this community
+                    group = Group._default_manager.get(id=group_id)
                     if not group.can_post(request.user_id):
                         return Response({'error': 'You cannot post in this community'}, status=status.HTTP_403_FORBIDDEN)
 
-                    # Get user information from request body or fallback to JWT data
                     user_name = serializer.validated_data.get('user_name', getattr(request, 'user_name', f"User {request.user_id}"))
                     email = serializer.validated_data.get('email', getattr(request, 'user_email', None))
                     avatar_url = serializer.validated_data.get('avatar_url', getattr(request, 'avatar_url', None))
@@ -208,7 +202,7 @@ class PostListView(APIView):
 class PostDetailView(APIView):
     def get(self, request, post_id):
         try:
-            post = Post.objects.select_related('group').prefetch_related(
+            post = Post._default_manager.select_related('group').prefetch_related(
                 'attachments', 'comments__replies__replies__replies'
             ).get(id=post_id)
 
@@ -228,7 +222,7 @@ class PostDetailView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            post = Post.objects.get(id=post_id, user_id=request.user_id)
+            post = Post._default_manager.get(id=post_id, user_id=request.user_id)
             serializer = PostSerializer(post, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
@@ -242,7 +236,7 @@ class PostDetailView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            post = Post.objects.get(id=post_id, user_id=request.user_id)
+            post = Post._default_manager.get(id=post_id, user_id=request.user_id)
             post.delete()
             return Response({'message': 'Post deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
         except Post.DoesNotExist:
@@ -250,7 +244,7 @@ class PostDetailView(APIView):
 
 
 class CommentCreateView(generics.CreateAPIView):
-    queryset = Comment.objects.all()
+    queryset = Comment._default_manager.all()
     serializer_class = CommentSerializer
     permission_classes = [CommunityPermission]
 
@@ -298,14 +292,14 @@ class CommentCreateView(generics.CreateAPIView):
 
 
 class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Comment.objects.all()
+    queryset = Comment._default_manager.all()
     serializer_class = CommentSerializer
     permission_classes = [CommunityPermission]
 
     def get_permissions(self):
         try:
             post_id = self.kwargs.get('post_id')
-            post = Post.objects.get(id=post_id)
+            post = Post._default_manager.get(id=post_id)
             if not post.group.is_private:
                 from rest_framework.permissions import AllowAny
                 return [AllowAny()]
@@ -338,8 +332,8 @@ class PostLikeView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            post = Post.objects.get(id=post_id)
-            like, created = PostLike.objects.get_or_create(
+            post = Post._default_manager.get(id=post_id)
+            like, created = PostLike._default_manager.get_or_create(
                 post=post,
                 user_id=request.user_id
             )
@@ -359,8 +353,8 @@ class PostLikeView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            post = Post.objects.get(id=post_id)
-            like = PostLike.objects.get(post=post, user_id=request.user_id)
+            post = Post._default_manager.get(id=post_id)
+            like = PostLike._default_manager.get(post=post, user_id=request.user_id)
             like.delete()
 
             post.like_count = F('like_count') - 1
@@ -382,8 +376,8 @@ class PostLikeToggleView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            post = Post.objects.get(id=pk)
-            like, created = PostLike.objects.get_or_create(
+            post = Post._default_manager.get(id=pk)
+            like, created = PostLike._default_manager.get_or_create(
                 post=post,
                 user_id=request.user_id
             )

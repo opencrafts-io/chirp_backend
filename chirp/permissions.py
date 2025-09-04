@@ -32,7 +32,7 @@ class CommunityPermission(BasePermission):
             return False
 
         try:
-            group = Group.objects.get(id=group_id)
+            group = Group._default_manager.get(id=group_id)
         except Group.DoesNotExist:
             return False
 
@@ -98,7 +98,7 @@ def require_community_role(role='member'):
                 return JsonResponse({'error': 'Group ID required'}, status=400)
 
             try:
-                group = Group.objects.get(id=group_id)
+                group = Group._default_manager.get(id=group_id)
             except Group.DoesNotExist:
                 return JsonResponse({'error': 'Group not found'}, status=404)
 

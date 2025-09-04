@@ -26,7 +26,7 @@ class MessageAttachment(models.Model):
     def save(self, *args, **kwargs):
         if self.file and not self.file_size:
             try:
-                self.file_size = self.file.size
+                self.file_size = self.file.size  # type: ignore
             except (OSError, ValueError):
                 pass
         if self.file and not self.original_filename:
@@ -40,7 +40,7 @@ class MessageAttachment(models.Model):
         """Generate the full URL for the file"""
         if self.file:
             try:
-                return self.file.url
+                return self.file.url  # type: ignore
             except (OSError, ValueError):
                 return None
         return None
@@ -48,14 +48,14 @@ class MessageAttachment(models.Model):
     def get_file_size_mb(self):
         """Get file size in MB"""
         if self.file_size:
-            return round(self.file_size / (1024 * 1024), 2)
+            return round(self.file_size / (1024 * 1024), 2)  # type: ignore
         return None
 
     def __str__(self):
         if self.message:
-            return f"{self.attachment_type} attachment for message {self.message.id}"
+            return f"{self.attachment_type} attachment for message {self.message.id}"  # type: ignore
         elif self.conversation_message:
-            return f"{self.attachment_type} attachment for conversation message {self.conversation_message.id}"
+            return f"{self.attachment_type} attachment for conversation message {self.conversation_message.id}"  # type: ignore
         return f"{self.attachment_type} attachment"
 
 
@@ -66,8 +66,8 @@ class Message(models.Model):
     content = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    is_read = models.BooleanField(default=False)
-    is_deleted = models.BooleanField(default=False)
+    is_read = models.BooleanField(default=False)  # type: ignore
+    is_deleted = models.BooleanField(default=False)  # type: ignore
 
     def __str__(self):
         return f"{self.sender_id} to {self.recipient_id}: {self.content}..."

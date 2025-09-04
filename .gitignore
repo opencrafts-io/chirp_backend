@@ -19,6 +19,7 @@ db.sqlite3
 # VSCode
 .vscode/
 docs/*
+.cursor/
 # OS
 .DS_Store
 Thumbs.db
