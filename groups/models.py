@@ -58,7 +58,7 @@ class GroupImage(models.Model):
     def get_file_size_mb(self):
         """Get file size in MB"""
         if self.file_size:
-            return round(self.file_size / (1024 * 1024), 2)
+            return round(float(str(self.file_size)) / (1024 * 1024), 2)
         return None
 
     def __str__(self):
@@ -89,17 +89,16 @@ class Group(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-
-    def __str__(self) -> str:
-        return self.name
+    def __str__(self):
+        return str(self.name)
 
     def get_logo(self):
         """Get the logo image if it exists"""
-        return self.images.filter(image_type='logo').first()
+        return GroupImage._default_manager.filter(group=self, image_type='logo').first()
 
     def get_banner(self):
         """Get the banner image if it exists"""
-        return self.images.filter(image_type='banner').first()
+        return GroupImage._default_manager.filter(group=self, image_type='banner').first()
 
     def clean(self):
         """Custom validation for group model"""
@@ -113,11 +112,13 @@ class Group(models.Model):
 
     def is_moderator(self, user_id: str) -> bool:
         """Check if user is a moderator of this group"""
-        return user_id in self.moderators or user_id == self.creator_id
+        moderators = self.moderators if isinstance(self.moderators, list) else []
+        return user_id in moderators or user_id == self.creator_id
 
     def is_member(self, user_id: str) -> bool:
         """Check if user is a member of this group"""
-        return user_id in self.members or self.is_moderator(user_id)
+        members = self.members if isinstance(self.members, list) else []
+        return user_id in members or self.is_moderator(user_id)
 
     def can_view(self, user_id: str) -> bool:
         """Check if user can view this group"""
@@ -127,7 +128,8 @@ class Group(models.Model):
 
     def can_post(self, user_id: str) -> bool:
         """Check if user can post in this group"""
-        if user_id in self.banned_users:
+        banned_users = self.banned_users if isinstance(self.banned_users, list) else []
+        if user_id in banned_users:
             return False
 
         if not self.is_private:
@@ -141,16 +143,17 @@ class Group(models.Model):
         if user_id == self.creator_id:
             return True
         # Check if user is in moderators list
-        return user_id in self.moderators
+        moderators = self.moderators if isinstance(self.moderators, list) else []
+        return user_id in moderators
 
     def add_moderator(self, user_id: str, user_name: str, added_by: str):
         """Add a moderator to the group (only existing moderators can do this)"""
         if not self.is_moderator(added_by):
             raise ValidationError("Only moderators can add other moderators")
 
-        if user_id not in self.moderators and user_id != self.creator_id:
-            current_moderators = list(self.moderators)
-            current_moderator_names = list(self.moderator_names)
+        current_moderators = self.moderators if isinstance(self.moderators, list) else []
+        if user_id not in current_moderators and user_id != self.creator_id:
+            current_moderator_names = self.moderator_names if isinstance(self.moderator_names, list) else []
             current_moderators.append(user_id)
             current_moderator_names.append(user_name)
             self.moderators = current_moderators
@@ -162,9 +165,9 @@ class Group(models.Model):
         if removed_by != self.creator_id:
             raise ValidationError("Only the creator can remove moderators")
 
-        if user_id in self.moderators and user_id != self.creator_id:
-            current_moderators = list(self.moderators)
-            current_moderator_names = list(self.moderator_names)
+        current_moderators = self.moderators if isinstance(self.moderators, list) else []
+        if user_id in current_moderators and user_id != self.creator_id:
+            current_moderator_names = self.moderator_names if isinstance(self.moderator_names, list) else []
             index = current_moderators.index(user_id)
             current_moderators.remove(user_id)
             current_moderator_names.pop(index)
@@ -177,9 +180,9 @@ class Group(models.Model):
         if not self.is_moderator(added_by):
             raise ValidationError("Only moderators can add members")
 
-        if user_id not in self.members and not self.is_moderator(user_id):
-            current_members = list(self.members)
-            current_member_names = list(self.member_names)
+        current_members = self.members if isinstance(self.members, list) else []
+        if user_id not in current_members and not self.is_moderator(user_id):
+            current_member_names = self.member_names if isinstance(self.member_names, list) else []
             current_members.append(user_id)
             current_member_names.append(user_name)
             self.members = current_members
@@ -191,9 +194,9 @@ class Group(models.Model):
         if not self.is_moderator(removed_by):
             raise ValidationError("Only moderators can remove members")
 
-        if user_id in self.members:
-            current_members = list(self.members)
-            current_member_names = list(self.member_names)
+        current_members = self.members if isinstance(self.members, list) else []
+        if user_id in current_members:
+            current_member_names = self.member_names if isinstance(self.member_names, list) else []
             index = current_members.index(user_id)
             current_members.remove(user_id)
             current_member_names.pop(index)
@@ -206,27 +209,25 @@ class Group(models.Model):
         if not self.is_moderator(banned_by):
             raise ValidationError("Only moderators can ban users")
 
-        if user_id not in self.banned_users:
-            current_banned = list(self.banned_users)
-            current_banned_names = list(self.banned_user_names)
+        current_banned = self.banned_users if isinstance(self.banned_users, list) else []
+        if user_id not in current_banned:
+            current_banned_names = self.banned_user_names if isinstance(self.banned_user_names, list) else []
             current_banned.append(user_id)
             current_banned_names.append(user_name)
             self.banned_users = current_banned
             self.banned_user_names = current_banned_names
-
-            # Remove from members, moderators, and admins if they were in those roles
-            if user_id in self.members:
-                current_members = list(self.members)
-                current_member_names = list(self.member_names)
+            current_members = self.members if isinstance(self.members, list) else []
+            if user_id in current_members:
+                current_member_names = self.member_names if isinstance(self.member_names, list) else []
                 index = current_members.index(user_id)
                 current_members.remove(user_id)
                 current_member_names.pop(index)
                 self.members = current_members
                 self.member_names = current_member_names
 
-            if user_id in self.moderators:
-                current_moderators = list(self.moderators)
-                current_moderator_names = list(self.moderator_names)
+            current_moderators = self.moderators if isinstance(self.moderators, list) else []
+            if user_id in current_moderators:
+                current_moderator_names = self.moderator_names if isinstance(self.moderator_names, list) else []
                 index = current_moderators.index(user_id)
                 current_moderators.remove(user_id)
                 current_moderator_names.pop(index)
@@ -239,9 +240,9 @@ class Group(models.Model):
         if not self.is_moderator(unbanned_by):
             raise ValidationError("Only moderators can unban users")
 
-        if user_id in self.banned_users:
-            current_banned = list(self.banned_users)
-            current_banned_names = list(self.banned_user_names)
+        current_banned = self.banned_users if isinstance(self.banned_users, list) else []
+        current_banned_names = self.banned_user_names if isinstance(self.banned_user_names, list) else []
+        if user_id in current_banned:
             index = current_banned.index(user_id)
             current_banned.remove(user_id)
             current_banned_names.pop(index)
@@ -257,7 +258,7 @@ class Group(models.Model):
         if not rule or not rule.strip():
             raise ValidationError("Rule cannot be empty")
 
-        current_rules = list(self.rules)
+        current_rules = self.rules if isinstance(self.rules, list) else []
         if rule.strip() not in current_rules:
             current_rules.append(rule.strip())
             self.rules = current_rules
@@ -268,7 +269,7 @@ class Group(models.Model):
         if not self.is_moderator(removed_by):
             raise ValidationError("Only moderators can remove community rules")
 
-        current_rules = list(self.rules)
+        current_rules = self.rules if isinstance(self.rules, list) else []
         if rule in current_rules:
             current_rules.remove(rule)
             self.rules = current_rules
@@ -279,11 +280,9 @@ class Group(models.Model):
         if not self.is_moderator(updated_by):
             raise ValidationError("Only moderators can update community rules")
 
-        # Validate rules
         if not isinstance(rules, list):
             raise ValidationError("Rules must be a list")
 
-        # Filter out empty rules
         valid_rules = [rule.strip() for rule in rules if rule and rule.strip()]
 
         self.rules = valid_rules
@@ -291,10 +290,16 @@ class Group(models.Model):
 
     def get_rules(self) -> list:
         """Get all community rules"""
-        return list(self.rules) if self.rules else []
+        return self.rules if isinstance(self.rules, list) else []
 
     def get_user_list(self) -> dict:
         """Get a complete list of all users in the group with their names and roles"""
+        current_moderators = self.moderators if isinstance(self.moderators, list) else []
+        current_moderator_names = self.moderator_names if isinstance(self.moderator_names, list) else []
+        current_members = self.members if isinstance(self.members, list) else []
+        current_member_names = self.member_names if isinstance(self.member_names, list) else []
+        current_banned = self.banned_users if isinstance(self.banned_users, list) else []
+        current_banned_names = self.banned_user_names if isinstance(self.banned_user_names, list) else []
         return {
             'creator': {
                 'user_id': self.creator_id,
@@ -303,15 +308,15 @@ class Group(models.Model):
             },
             'moderators': [
                 {'user_id': user_id, 'user_name': name, 'role': 'moderator'}
-                for user_id, name in zip(self.moderators, self.moderator_names)
+                for user_id, name in zip(current_moderators, current_moderator_names)
             ],
             'members': [
                 {'user_id': user_id, 'user_name': name, 'role': 'member'}
-                for user_id, name in zip(self.members, self.member_names)
+                for user_id, name in zip(current_members, current_member_names)
             ],
             'banned': [
                 {'user_id': user_id, 'user_name': name, 'role': 'banned'}
-                for user_id, name in zip(self.banned_users, self.banned_user_names)
+                for user_id, name in zip(current_banned, current_banned_names)
             ]
         }
 
@@ -339,10 +344,10 @@ class GroupPost(models.Model):
         """Custom validation for GroupPost model"""
         super().clean()
 
-        if not self.content or not self.content.strip():
+        if not self.content or not str(self.content).strip():
             raise ValidationError("Content cannot be empty")
 
-        if not self.user_id or not self.user_id.strip():
+        if not self.user_id or not str(self.user_id).strip():
             raise ValidationError("User ID cannot be empty")
 
     def __str__(self) -> str:

@@ -5,7 +5,7 @@ from .models import Group, GroupInvite, GroupImage
 from .serializers import GroupSerializer
 from chirp.permissions import require_community_role, CommunityPermission
 from django.shortcuts import get_object_or_404
-from django.db import models
+from django.db.models import Q
 from django.core.exceptions import ValidationError
 from .models import InviteLink
 from .serializers import InviteLinkSerializer
@@ -20,19 +20,26 @@ class GroupListView(APIView):
 
         user_id = request.user_id
 
-        public_groups = Group.objects.filter(is_private=False)
-
-        user_groups = Group.objects.filter(
-            models.Q(members__contains=[user_id]) |
-            models.Q(moderators__contains=[user_id]) |
-            models.Q(creator_id=user_id)
-        )
+        public_groups = Group._default_manager.filter(is_private=False)
+        if public_groups.exists():
+            public_groups = list(public_groups)
+        else:
+            public_groups = []
+        user_groups = Group._default_manager.filter(
+            Q(members__contains=[user_id]) |  # type: ignore
+            Q(moderators__contains=[user_id]) |  # type: ignore
+            Q(creator_id=user_id)
+        ).distinct()
+        if user_groups.exists():
+            user_groups = list(user_groups)
+        else:
+            user_groups = []
 
         # Combine and remove duplicates
         all_groups = list(public_groups) + list(user_groups)
         unique_groups = list({group.id: group for group in all_groups}.values())
 
-        serializer = GroupSerializer(unique_groups, many=True)
+        serializer = GroupSerializer(unique_groups, many=True, context={'request': request})
         return Response(serializer.data)
 
 
@@ -76,7 +83,7 @@ class GroupCreateView(APIView):
 
             logo_file = request.FILES.get('logo')
             if logo_file:
-                GroupImage.objects.create(
+                GroupImage._default_manager.create(
                     group=group,
                     image_type='logo',
                     file=logo_file
@@ -84,7 +91,7 @@ class GroupCreateView(APIView):
 
             banner_file = request.FILES.get('banner')
             if banner_file:
-                GroupImage.objects.create(
+                GroupImage._default_manager.create(
                     group=group,
                     image_type='banner',
                     file=banner_file
@@ -102,8 +109,8 @@ class GroupDetailView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            group = Group.objects.get(id=group_id)
-        except Group.DoesNotExist:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         if not group.can_view(request.user_id):
@@ -118,8 +125,8 @@ class GroupDetailView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            group = Group.objects.get(id=group_id)
-        except Group.DoesNotExist:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         user_id = request.user_id
@@ -150,22 +157,22 @@ class GroupDetailView(APIView):
             banner_file = request.FILES.get('banner')
 
             if logo_file:
-                existing_logo = group.images.filter(image_type='logo').first()
+                existing_logo = GroupImage._default_manager.filter(group=group, image_type='logo').first()
                 if existing_logo:
                     existing_logo.delete()
 
-                GroupImage.objects.create(
+                GroupImage._default_manager.create(
                     group=group,
                     image_type='logo',
                     file=logo_file
                 )
 
             if banner_file:
-                existing_banner = group.images.filter(image_type='banner').first()
+                existing_banner = GroupImage._default_manager.filter(group=group, image_type='banner').first()
                 if existing_banner:
                     existing_banner.delete()
 
-                GroupImage.objects.create(
+                GroupImage._default_manager.create(
                     group=group,
                     image_type='banner',
                     file=banner_file
@@ -185,8 +192,8 @@ class GroupJoinView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            group = Group.objects.get(id=group_id)
-        except Group.DoesNotExist:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         user_id = request.user_id
@@ -212,8 +219,8 @@ class GroupLeaveView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            group = Group.objects.get(id=group_id)
-        except Group.DoesNotExist:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         user_id = request.user_id
@@ -248,8 +255,8 @@ class GroupModerationView(APIView):
             return Response({'error': 'Action and user_id required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            group = Group.objects.get(id=group_id)
-        except Group.DoesNotExist:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         user_id = request.user_id
@@ -298,8 +305,8 @@ class GroupAdminView(APIView):
             return Response({'error': 'Action and user_id required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            group = Group.objects.get(id=group_id)
-        except Group.DoesNotExist:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         user_id = request.user_id
@@ -333,8 +340,8 @@ class GroupSettingsView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            group = Group.objects.get(id=group_id)
-        except Group.DoesNotExist:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         user_id = request.user_id
@@ -364,8 +371,8 @@ class GroupRulesView(APIView):
     def get(self, request, group_id):
         """Get all community rules"""
         try:
-            group = Group.objects.get(id=group_id)
-        except Group.DoesNotExist:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         return Response({
@@ -381,8 +388,8 @@ class GroupRulesView(APIView):
             return Response({'error': 'Rule content is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            group = Group.objects.get(id=group_id)
-        except Group.DoesNotExist:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         try:
@@ -401,8 +408,8 @@ class GroupRulesView(APIView):
             return Response({'error': 'Rules must be a list'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            group = Group.objects.get(id=group_id)
-        except Group.DoesNotExist:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         try:
@@ -421,8 +428,8 @@ class GroupRulesView(APIView):
             return Response({'error': 'Rule content is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            group = Group.objects.get(id=group_id)
-        except Group.DoesNotExist:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         try:
@@ -444,8 +451,8 @@ class GroupUsersView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            group = Group.objects.get(id=group_id)
-        except Group.DoesNotExist:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         if not group.can_view(request.user_id):
@@ -479,8 +486,8 @@ class GroupDeleteView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            group = Group.objects.get(id=group_id)
-        except Group.DoesNotExist:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         if user_id != group.creator_id:
@@ -509,8 +516,8 @@ class InviteLinkCreateView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            group = Group.objects.get(id=group_id)
-        except Group.DoesNotExist:
+            group = Group.objects.get(id=group_id)  # type: ignore
+        except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         user_id = request.user_id
@@ -533,7 +540,7 @@ class InviteLinkCreateView(APIView):
         if serializer.is_valid():
             invite_link = serializer.save()
 
-            invite_url = f"https://qachirp.opencrafts.io/groups/{group_id}/join/invite/{invite_link.token}/"
+            invite_url = f"https://qachirp.opencrafts.io/groups/{group_id}/join/invite/{invite_link.token}/"  # type: ignore
 
             return Response({
                 'message': 'Invite link created successfully',
@@ -553,13 +560,13 @@ class InviteLinkJoinView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            group = Group.objects.get(id=group_id)
-        except Group.DoesNotExist:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         try:
-            invite_link = InviteLink.objects.get(token=invite_token, group=group)
-        except InviteLink.DoesNotExist:
+            invite_link = InviteLink._default_manager.get(token=invite_token, group=group)
+        except InviteLink.DoesNotExist:  # type: ignore
             return Response({'error': 'Invalid invite link'}, status=status.HTTP_404_NOT_FOUND)
 
         if not invite_link.can_be_used():
@@ -603,8 +610,8 @@ class InviteLinkListView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            group = Group.objects.get(id=group_id)
-        except Group.DoesNotExist:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         user_id = request.user_id
@@ -612,7 +619,7 @@ class InviteLinkListView(APIView):
         if user_id not in group.moderators and user_id != group.creator_id:
             return Response({'error': 'Only moderators can view invite links'}, status=status.HTTP_403_FORBIDDEN)
 
-        invite_links = InviteLink.objects.filter(group=group).order_by('-created_at')
+        invite_links = InviteLink._default_manager.filter(group=group).order_by('-created_at')
         serializer = InviteLinkSerializer(invite_links, many=True)
 
         return Response({

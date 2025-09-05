@@ -22,7 +22,6 @@ class UserSearchService:
         try:
             return cache.get(key)
         except Exception:
-            # Redis connection failed, return None
             return None
 
     def _safe_cache_set(self, key: str, value, timeout: int):
@@ -30,7 +29,6 @@ class UserSearchService:
         try:
             cache.set(key, value, timeout)
         except Exception:
-            # Redis connection failed, ignore
             pass
 
     def search_users(self, query: str, limit: int = 10, search_type: str = 'combined', cache_ttl: int = 300) -> List[Dict]:
@@ -42,31 +40,29 @@ class UserSearchService:
             search_type: Type of search - 'name', 'email', 'username', or 'combined'
             cache_ttl: Cache TTL in seconds (default: 5 minutes)
         """
-        # Normalize and validate inputs
         query = query.strip()
-        limit = min(limit, 50)  # Cap at 50 for performance
+        limit = min(limit, 50)
 
         if not query or len(query) < 2:
             return []
 
-        # Create cache key based on search parameters
         cache_key = f"user_search:{hash(query)}:{limit}:{search_type}"
         cached_results = self._safe_cache_get(cache_key)
 
         if cached_results:
             return cached_results
 
-        # Perform search based on type
         if search_type == 'name':
             results = self.verisafe_client.search_users_by_name(query, limit)
         elif search_type == 'email':
             results = self.verisafe_client.search_users_by_email(query, limit)
         elif search_type == 'username':
             results = self.verisafe_client.search_users_by_username(query, limit)
-        else:  # combined search
+        else:
             results = self.verisafe_client.search_users_combined(query, limit)
 
-        # Cache results
+        results = [user for user in results if user.get('type') == 'human']
+
         self._safe_cache_set(cache_key, results, cache_ttl)
 
         return results
@@ -94,7 +90,6 @@ class UserSearchService:
         user_info = self.verisafe_client.get_user_info(user_id)
 
         if user_info:
-            # Cache for 1 hour
             self._safe_cache_set(cache_key, user_info, 3600)
 
         return user_info
@@ -109,7 +104,6 @@ class UserSearchService:
 
         roles = self.verisafe_client.get_user_roles(user_id)
 
-        # Cache for 30 minutes
         self._safe_cache_set(cache_key, roles, 1800)
 
         return roles
@@ -124,7 +118,6 @@ class UserSearchService:
 
         permissions = self.verisafe_client.get_user_permissions(user_id)
 
-        # Cache for 30 minutes
         self._safe_cache_set(cache_key, permissions, 1800)
 
         return permissions
@@ -142,7 +135,6 @@ class UserSearchService:
             'type': user.get('type', 'human')
         }
 
-# Global service instance
 _user_search_service = None
 
 def get_user_search_service() -> UserSearchService:

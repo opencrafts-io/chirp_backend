@@ -26,7 +26,7 @@ class ConversationListView(APIView):
                 'example': 'GET /conversations/?user_id=default_user_123'
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        conversations = Conversation.objects.filter(
+        conversations = Conversation._default_manager.filter(
             participants__contains=[user_id]
         ).prefetch_related(
             'messages'
@@ -60,21 +60,20 @@ class ConversationDetailView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            conversation = Conversation.objects.get(conversation_id=conversation_id)
-        except Conversation.DoesNotExist:
+            conversation = Conversation._default_manager.get(conversation_id=conversation_id)
+        except Conversation.DoesNotExist:  # type: ignore
             return Response({'error': 'Conversation not found'}, status=status.HTTP_404_NOT_FOUND)
 
         # Check if user is participant
         if user_id not in conversation.participants:
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        messages = ConversationMessage.objects.filter(
+        messages = ConversationMessage._default_manager.filter(
             conversation=conversation
         ).select_related('conversation').prefetch_related(
-            'attachments'  
+            'attachments'
         ).order_by('-created_at')[:50]
 
-        # Reverse to show oldest first
         messages = list(reversed(messages))
 
         conversation_serializer = ConversationSerializer(conversation, context={'request': request})
@@ -84,7 +83,7 @@ class ConversationDetailView(APIView):
             'conversation_id': conversation.conversation_id,
             'participants': conversation.participants,
             'messages': message_serializer.data,
-            'total_messages': ConversationMessage.objects.filter(conversation=conversation).count()
+            'total_messages': ConversationMessage._default_manager.filter(conversation=conversation).count()
         })
 
 
@@ -113,7 +112,7 @@ class ConversationCreateView(APIView):
         if len(participants) < 2:
             return Response({'error': 'At least 2 participants required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        existing_conversation = Conversation.objects.filter(
+        existing_conversation = Conversation._default_manager.filter(
             participants__contains=participants
         ).first()
 
@@ -155,7 +154,7 @@ class ConversationMessagesView(generics.ListCreateAPIView):
         conversation_id = self.kwargs.get('conversation_id')
         user_id = self.request.GET.get('user_id')
         if not user_id:
-            return ConversationMessage.objects.none()
+            return ConversationMessage._default_manager.none()
 
         # Verify user is part of the conversation
         conversation = get_object_or_404(
@@ -164,7 +163,7 @@ class ConversationMessagesView(generics.ListCreateAPIView):
             participants__contains=[user_id]
         )
 
-        return ConversationMessage.objects.filter(conversation=conversation)
+        return ConversationMessage._default_manager.filter(conversation=conversation)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -225,7 +224,7 @@ class ConversationMessagesView(generics.ListCreateAPIView):
             else:
                 attachment_type = "file"
 
-            MessageAttachment.objects.create(
+            MessageAttachment._default_manager.create(
                 conversation_message=message,
                 file=file,
                 attachment_type=attachment_type
