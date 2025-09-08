@@ -90,6 +90,8 @@ class UserSearchService:
         user_info = self.verisafe_client.get_user_info(user_id)
 
         if user_info:
+            if user_info.get('type') != 'human':
+                return None
             self._safe_cache_set(cache_key, user_info, 3600)
 
         return user_info
@@ -123,7 +125,7 @@ class UserSearchService:
         return permissions
 
     def format_user_for_response(self, user: Dict) -> Dict:
-        """Format user data for API response"""
+        """Format user data for API response - only include safe, public fields"""
         return {
             'id': user.get('id'),
             'name': user.get('name', ''),
@@ -131,8 +133,7 @@ class UserSearchService:
             'username': user.get('username'),
             'avatar_url': user.get('avatar_url'),
             'bio': user.get('bio'),
-            'created_at': user.get('created_at'),
-            'type': user.get('type', 'human')
+            'created_at': user.get('created_at')
         }
 
 _user_search_service = None
