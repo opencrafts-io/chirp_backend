@@ -191,24 +191,34 @@ class GroupJoinView(APIView):
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
+        user_name = request.data.get('user_name')
+        user_id = request.data.get('user_id')
+
+        if not user_name or not user_id:
+            return Response({
+                'error': 'user_name and user_id are required in request body'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if user_id != request.user_id:
+            return Response({
+                'error': 'user_id in request body must match authenticated user'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             group = Group._default_manager.get(id=group_id)
         except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        user_id = request.user_id
-        user_name = getattr(request, 'user_name', f"User {user_id}")
-
-        if group.is_member(user_id):
-            return Response({'message': 'Already a member'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if user_id in group.banned_users:
-            return Response({'error': 'You are banned from this community'}, status=status.HTTP_403_FORBIDDEN)
-
-        group.add_member(user_id, user_name, user_id)
+        try:
+            group.self_join(user_id, user_name)
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = GroupSerializer(group, context={'request': request})
-        return Response(serializer.data)
+        return Response({
+            'message': 'Successfully joined the community',
+            'group': serializer.data
+        }, status=status.HTTP_200_OK)
 
 
 class GroupLeaveView(APIView):

@@ -189,6 +189,26 @@ class Group(models.Model):
             self.member_names = current_member_names
             self.save()
 
+    def self_join(self, user_id: str, user_name: str):
+        """Allow a user to join a public group themselves"""
+        if self.is_private:
+            raise ValidationError("Cannot self-join private groups")
+
+        if self.is_member(user_id):
+            raise ValidationError("Already a member of this group")
+
+        if user_id in self.banned_users:
+            raise ValidationError("You are banned from this group")
+
+        current_members = self.members if isinstance(self.members, list) else []
+        current_member_names = self.member_names if isinstance(self.member_names, list) else []
+
+        current_members.append(user_id)
+        current_member_names.append(user_name)
+        self.members = current_members
+        self.member_names = current_member_names
+        self.save()
+
     def remove_member(self, user_id: str, removed_by: str):
         """Remove a member from the group (only admins/moderators can do this)"""
         if not self.is_moderator(removed_by):
