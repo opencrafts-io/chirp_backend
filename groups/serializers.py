@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.conf import settings
 from .models import Group, GroupPost, GroupInvite, InviteLink, GroupImage
 
 
@@ -15,7 +16,10 @@ class GroupImageSerializer(serializers.ModelSerializer):
         if obj.file:
             request = self.context.get('request')
             if request:
-                return request.build_absolute_uri(obj.file.url)
+                url = request.build_absolute_uri(obj.file.url)
+                if getattr(settings, 'USE_TLS', False):
+                    url = url.replace('http://', 'https://')
+                return url
             return obj.file.url
         return None
 
@@ -102,7 +106,10 @@ class GroupSerializer(serializers.ModelSerializer):
         if logo:
             request = self.context.get('request')
             if request:
-                return request.build_absolute_uri(logo.get_file_url())
+                url = request.build_absolute_uri(logo.get_file_url())
+                if getattr(settings, 'USE_TLS', False):
+                    url = url.replace('http://', 'https://')
+                return url
             return logo.get_file_url()
         return None
 
@@ -112,7 +119,10 @@ class GroupSerializer(serializers.ModelSerializer):
         if banner:
             request = self.context.get('request')
             if request:
-                return request.build_absolute_uri(banner.get_file_url())
+                url = request.build_absolute_uri(banner.get_file_url())
+                if getattr(settings, 'USE_TLS', False):
+                    url = url.replace('http://', 'https://')
+                return url
             return banner.get_file_url()
         return None
 

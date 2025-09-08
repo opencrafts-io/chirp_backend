@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.conf import settings
 from .models import Attachment, Post, Comment, PostLike
 
 
@@ -15,7 +16,10 @@ class AttachmentSerializer(serializers.ModelSerializer):
         if obj.file:
             request = self.context.get('request')
             if request:
-                return request.build_absolute_uri(obj.file.url)
+                url = request.build_absolute_uri(obj.file.url)
+                if getattr(settings, 'USE_TLS', False):
+                    url = url.replace('http://', 'https://')
+                return url
             return obj.file.url
         return None
 
