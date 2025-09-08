@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Attachment, Post, PostLike, Comment
+from .models import Attachment, Post, PostLike, Comment, CommentLike
 
 
 @admin.register(Post)
@@ -29,14 +29,15 @@ class PostAdmin(admin.ModelAdmin):
 
 @admin.register(Comment)
 class CommentAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user_name', 'user_id', 'post', 'parent_comment', 'depth', 'content_preview', 'created_at')
+    list_display = ('id', 'user_name', 'user_id', 'post', 'parent_comment', 'depth', 'like_count', 'content_preview', 'created_at')
     list_filter = ('created_at', 'user_name', 'depth', 'is_deleted')
     search_fields = ('content', 'user_name', 'user_id', 'post__content')
     list_select_related = ('post', 'parent_comment')
+    readonly_fields = ('like_count', 'created_at', 'updated_at')
 
     fieldsets = (
         ('Comment Information', {
-            'fields': ('content', 'post', 'parent_comment', 'depth', 'is_deleted')
+            'fields': ('content', 'post', 'parent_comment', 'depth', 'like_count', 'is_deleted')
         }),
         ('User Information', {
             'fields': ('user_id', 'user_name', 'email', 'avatar_url')
@@ -68,3 +69,10 @@ class PostLikeAdmin(admin.ModelAdmin):
     list_display = ('id', 'post', 'user_id', 'created_at')
     list_filter = ('created_at', 'user_id')
     search_fields = ('user_id', 'post__content')
+
+
+@admin.register(CommentLike)
+class CommentLikeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'comment', 'user_id', 'created_at')
+    list_filter = ('created_at', 'user_id')
+    search_fields = ('user_id', 'comment__content')

@@ -2,7 +2,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import Attachment, Post, Comment, PostLike
+from .models import Attachment, Post, Comment, PostLike, CommentLike
 from .serializers import CommentSerializer, PostSerializer
 from django.db.models import Exists, F, OuterRef, Q
 from chirp.permissions import require_permission, CommunityPermission
@@ -404,3 +404,41 @@ class PostLikeToggleView(APIView):
 
         except Post.DoesNotExist:
             return Response({'error': 'Post not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class CommentLikeToggleView(APIView):
+    """Toggle like status for a comment"""
+
+    def post(self, request, comment_id):
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            comment = Comment._default_manager.get(id=comment_id)
+            like, created = CommentLike._default_manager.get_or_create(
+                comment=comment,
+                user_id=request.user_id
+            )
+
+            if created:
+                comment.like_count = F('like_count') + 1
+                comment.save()
+                comment.refresh_from_db()
+                return Response({
+                    "status": "liked",
+                    "like_count": comment.like_count,
+                    "is_liked": True
+                }, status=status.HTTP_200_OK)
+            else:
+                like.delete()
+                comment.like_count = F('like_count') - 1
+                comment.save()
+                comment.refresh_from_db()
+                return Response({
+                    "status": "unliked",
+                    "like_count": comment.like_count,
+                    "is_liked": False
+                }, status=status.HTTP_200_OK)
+
+        except Comment.DoesNotExist:
+            return Response({'error': 'Comment not found'}, status=status.HTTP_404_NOT_FOUND)

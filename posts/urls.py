@@ -6,6 +6,7 @@ from .views import (
     CommentCreateView,
     CommentDetailView,
     PostLikeToggleView,
+    CommentLikeToggleView,
     GroupPostListView,
 )
 
@@ -21,4 +22,5 @@ urlpatterns = [
     path("<int:post_id>/comments/", CommentCreateView.as_view(), name="post-comments"),
     path("<int:post_id>/comments/<int:comment_id>/", CommentDetailView.as_view(), name="comment-detail"),
     path("<int:post_id>/comments/<int:comment_id>/replies/", CommentCreateView.as_view(), name="comment-replies"),
+    path("comments/<int:comment_id>/like/", CommentLikeToggleView.as_view(), name="comment-like"),
 ]
