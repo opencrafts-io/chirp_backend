@@ -642,34 +642,108 @@ class GroupJoinLeaveEndpointTest(TestCase):
 
     def test_join_group_success(self):
         """Test successfully joining a group."""
+        join_data = {
+            'user_id': self.test_user_id_2,
+            'user_name': 'Test User 2'
+        }
         response = self.client.post(
-            f'/groups/{self.group.name}/join/',
+            f'/groups/{self.group.id}/join/',
+            data=json.dumps(join_data),
+            content_type='application/json',
             **self._get_auth_headers(self.test_user_id_2)
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('Successfully joined group', response.data['message'])
+        self.assertIn('Successfully joined the community', response.data['message'])
         self.assertIn(self.test_user_id_2, response.data['group']['members'])
 
     def test_join_group_already_member(self):
         """Test joining a group when already a member."""
+        join_data = {
+            'user_id': self.test_user_id,
+            'user_name': 'Test User 1'
+        }
         response = self.client.post(
-            f'/groups/{self.group.name}/join/',
+            f'/groups/{self.group.id}/join/',
+            data=json.dumps(join_data),
+            content_type='application/json',
             **self._get_auth_headers(self.test_user_id)
         )
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('Already a member', response.data['message'])
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Already a member of this group', response.data['error'])
 
     def test_join_nonexistent_group(self):
         """Test joining a group that doesn't exist."""
+        join_data = {
+            'user_id': self.test_user_id_2,
+            'user_name': 'Test User 2'
+        }
         response = self.client.post(
-            '/groups/nonexistent-group/join/',
+            '/groups/999/join/',
+            data=json.dumps(join_data),
+            content_type='application/json',
             **self._get_auth_headers(self.test_user_id_2)
         )
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertIn('Group not found', response.data['error'])
+
+    def test_join_group_missing_user_data(self):
+        """Test joining a group without required user data."""
+        response = self.client.post(
+            f'/groups/{self.group.id}/join/',
+            data=json.dumps({}),
+            content_type='application/json',
+            **self._get_auth_headers(self.test_user_id_2)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('user_name and user_id are required', response.data['error'])
+
+    def test_join_group_mismatched_user_id(self):
+        """Test joining a group with user_id that doesn't match authenticated user."""
+        join_data = {
+            'user_id': 'different_user_id',
+            'user_name': 'Test User 2'
+        }
+        response = self.client.post(
+            f'/groups/{self.group.id}/join/',
+            data=json.dumps(join_data),
+            content_type='application/json',
+            **self._get_auth_headers(self.test_user_id_2)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('user_id in request body must match authenticated user', response.data['error'])
+
+    def test_join_private_group(self):
+        """Test joining a private group (should fail)."""
+        # Create a private group
+        private_group = Group.objects.create(
+            name='Private Group',
+            description='A private test group',
+            creator_id=self.test_user_id,
+            is_private=True,
+            moderators=[self.test_user_id],
+            moderator_names=['Test User 1'],
+            members=[self.test_user_id],
+            member_names=['Test User 1']
+        )
+
+        join_data = {
+            'user_id': self.test_user_id_2,
+            'user_name': 'Test User 2'
+        }
+        response = self.client.post(
+            f'/groups/{private_group.id}/join/',
+            data=json.dumps(join_data),
+            content_type='application/json',
+            **self._get_auth_headers(self.test_user_id_2)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Cannot self-join private groups', response.data['error'])
 
     def test_leave_group_success(self):
         """Test successfully leaving a group."""

@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Attachment, Post, Comment, PostLike
+from django.conf import settings
+from .models import Attachment, Post, Comment, PostLike, CommentLike
 
 
 class AttachmentSerializer(serializers.ModelSerializer):
@@ -15,7 +16,10 @@ class AttachmentSerializer(serializers.ModelSerializer):
         if obj.file:
             request = self.context.get('request')
             if request:
-                return request.build_absolute_uri(obj.file.url)
+                url = request.build_absolute_uri(obj.file.url)
+                if getattr(settings, 'USE_TLS', False):
+                    url = url.replace('http://', 'https://')
+                return url
             return obj.file.url
         return None
 
@@ -33,11 +37,12 @@ class GroupSerializer(serializers.Serializer):
 class CommentSerializer(serializers.ModelSerializer):
     replies = serializers.SerializerMethodField()
     user_avatar = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
         fields = ['id', 'content', 'user_id', 'user_name', 'user_avatar',
-                 'created_at', 'updated_at', 'depth', 'replies']
+                 'created_at', 'updated_at', 'depth', 'like_count', 'is_liked', 'replies']
 
     def get_replies(self, obj):
         if obj.replies.exists():
@@ -46,6 +51,12 @@ class CommentSerializer(serializers.ModelSerializer):
 
     def get_user_avatar(self, obj):
         return obj.avatar_url
+
+    def get_is_liked(self, obj):
+        request = self.context.get('request')
+        if request and hasattr(request, 'user_id') and request.user_id:
+            return obj.likes.filter(user_id=request.user_id).exists()
+        return False
 
 
 class PostSerializer(serializers.ModelSerializer):
