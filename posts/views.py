@@ -8,6 +8,10 @@ from django.db.models import Exists, F, OuterRef, Q
 from chirp.permissions import require_permission, CommunityPermission
 from groups.models import Group
 from rest_framework.exceptions import ValidationError, PermissionDenied
+from utils.recommendation_engine import get_recommended_posts
+from utils.metrics_service import metrics_service
+from django.utils import timezone
+import time
 
 class PostCreateView(generics.CreateAPIView):
     queryset = Post._default_manager.all()
@@ -121,23 +125,87 @@ class PostListView(APIView):
     def get(self, request):
         from chirp.pagination import StandardResultsSetPagination
 
-        # Get group filter from query params
-        group_id = request.query_params.get('group_id')
+        start_time = time.time()
 
+        # Get query parameters
+        group_id = request.query_params.get('group_id')
+        use_recommendations = request.query_params.get('recommendations', 'true').lower() == 'true'
+        user_id = getattr(request, 'user_id', None)
+
+        try:
+            if use_recommendations and not group_id:
+                posts = self._get_recommended_posts(user_id, group_id)
+                cache_hit = True
+            else:
+                posts = self._get_traditional_posts(request, group_id)
+                cache_hit = False
+
+            # Apply pagination
+            paginator = StandardResultsSetPagination()
+            paginated_posts = paginator.paginate_queryset(posts, request)
+
+            # Serialize posts
+            serializer = PostSerializer(paginated_posts, many=True)
+            response = paginator.get_paginated_response(serializer.data)
+
+            response_time = (time.time() - start_time) * 1000
+            metrics_service.track_recommendation_request(
+                user_id=user_id,
+                group_id=int(group_id) if group_id else None,
+                limit=len(paginated_posts),
+                response_time=response_time,
+                posts_count=len(paginated_posts),
+                cache_hit=cache_hit
+            )
+
+            return response
+
+        except Exception as e:
+            posts = self._get_traditional_posts(request, group_id)
+            paginator = StandardResultsSetPagination()
+            paginated_posts = paginator.paginate_queryset(posts, request)
+            serializer = PostSerializer(paginated_posts, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+    def _get_recommended_posts(self, user_id, group_id):
+        """Get posts using the recommendation system."""
+        try:
+            recommended_posts = get_recommended_posts(
+                user_id=user_id,
+                group_id=int(group_id) if group_id else None,
+                limit=50
+            )
+
+            post_ids = [post.id for post in recommended_posts]
+            posts = Post.objects.filter(id__in=post_ids).select_related('group').prefetch_related(
+                'attachments', 'comments__replies__replies__replies'
+            )
+
+            order_dict = {post.id: i for i, post in enumerate(recommended_posts)}
+            posts_list = list(posts)
+            posts_list.sort(key=lambda x: order_dict.get(x.id, 999))
+
+            return posts_list
+
+        except Exception as e:
+            return self._get_traditional_posts_fallback(user_id, group_id)
+
+    def _get_traditional_posts(self, request, group_id):
+        """Get posts using traditional filtering."""
         if group_id:
             try:
                 group = Group._default_manager.get(id=group_id)
                 if group.is_private:
                     if not hasattr(request, 'user_id') or not request.user_id:
-                        return Response({'error': 'Authentication required for private groups'}, status=status.HTTP_401_UNAUTHORIZED)
+                        raise PermissionError('Authentication required for private groups')
                     if not group.can_view(request.user_id):
-                        return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+                        raise PermissionError('Access denied')
 
-                posts = Post._default_manager.filter(group=group).select_related('group').prefetch_related(
+                return Post._default_manager.filter(group=group).select_related('group').prefetch_related(
                     'attachments', 'comments__replies__replies__replies'
                 ).order_by('-created_at')
             except Group.DoesNotExist:
-                return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+                raise ValueError('Group not found')
         else:
             if hasattr(request, 'user_id') and request.user_id:
                 user_id = request.user_id
@@ -147,19 +215,24 @@ class PostListView(APIView):
                     Q(moderators__contains=[user_id]) |
                     Q(creator_id=user_id)
                 )
-                posts = Post._default_manager.filter(group__in=accessible_groups).select_related('group').prefetch_related(
+                return Post._default_manager.filter(group__in=accessible_groups).select_related('group').prefetch_related(
                     'attachments', 'comments__replies__replies__replies'
                 ).order_by('-created_at')
             else:
-                posts = Post._default_manager.filter(group__is_private=False).select_related('group').prefetch_related(
+                return Post._default_manager.filter(group__is_private=False).select_related('group').prefetch_related(
                     'attachments', 'comments__replies__replies__replies'
                 ).order_by('-created_at')
 
-        paginator = StandardResultsSetPagination()
-        paginated_posts = paginator.paginate_queryset(posts, request)
-
-        serializer = PostSerializer(paginated_posts, many=True)
-        return paginator.get_paginated_response(serializer.data)
+    def _get_traditional_posts_fallback(self, user_id, group_id):
+        """Fallback method for getting posts."""
+        if group_id:
+            return Post._default_manager.filter(group_id=group_id).select_related('group').prefetch_related(
+                'attachments', 'comments__replies__replies__replies'
+            ).order_by('-created_at')
+        else:
+            return Post._default_manager.filter(group__is_private=False).select_related('group').prefetch_related(
+                'attachments', 'comments__replies__replies__replies'
+            ).order_by('-created_at')
 
     def post(self, request):
         if not hasattr(request, 'user_id') or not request.user_id:
@@ -442,3 +515,37 @@ class CommentLikeToggleView(APIView):
 
         except Comment.DoesNotExist:
             return Response({'error': 'Comment not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class RecommendationMetricsView(APIView):
+    """View for getting recommendation system metrics."""
+
+    def get(self, request):
+        """Get recommendation system metrics."""
+        try:
+            system_metrics = metrics_service.get_system_metrics()
+            performance_metrics = metrics_service.get_performance_metrics()
+            content_metrics = metrics_service.get_content_metrics()
+
+            user_id = request.query_params.get('user_id')
+            user_metrics = None
+            if user_id:
+                user_metrics = metrics_service.get_user_metrics(user_id)
+
+            response_data = {
+                'system_metrics': system_metrics,
+                'performance_metrics': performance_metrics,
+                'content_metrics': content_metrics,
+                'timestamp': timezone.now().isoformat()
+            }
+
+            if user_metrics:
+                response_data['user_metrics'] = user_metrics
+
+            return Response(response_data)
+
+        except Exception as e:
+            return Response(
+                {'error': f'Error retrieving metrics: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
