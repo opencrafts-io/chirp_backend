@@ -2,7 +2,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Group, GroupInvite, GroupImage
-from .serializers import GroupSerializer, GroupListSerializer
+from .serializers import GroupSerializer, GroupListSerializer, GroupPostableSerializer
 from chirp.permissions import require_community_role, CommunityPermission
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
@@ -40,6 +40,28 @@ class GroupListView(APIView):
         unique_groups = list({group.id: group for group in all_groups}.values())
 
         serializer = GroupListSerializer(unique_groups, many=True, context={'request': request})
+        return Response(serializer.data)
+
+
+class GroupPostableView(APIView):
+    """Get all groups where the user can post (for post creation dropdown)"""
+
+    def post(self, request):
+        user_id = request.data.get('user_id')
+
+        if not user_id:
+            return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get all groups and filter by membership and can_post logic
+        all_groups = Group._default_manager.all()
+
+        # Filter groups where user is a member and can post
+        postable_groups = []
+        for group in all_groups:
+            if group.is_member(user_id) and group.can_post(user_id):
+                postable_groups.append(group)
+
+        serializer = GroupPostableSerializer(postable_groups, many=True, context={'request': request})
         return Response(serializer.data)
 
 

@@ -91,6 +91,38 @@ class GroupListSerializer(serializers.ModelSerializer):
         return None
 
 
+class GroupPostableSerializer(serializers.ModelSerializer):
+    """Serializer for groups user can post in"""
+    member_count = serializers.SerializerMethodField()
+    logo_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Group
+        fields = [
+            'id', 'name', 'description', 'member_count', 'logo_url'
+        ]
+        read_only_fields = ['id']
+
+    def get_member_count(self, obj):
+        """Get total number of people in the group"""
+        moderators = obj.moderators if isinstance(obj.moderators, list) else []
+        members = obj.members if isinstance(obj.members, list) else []
+        return 1 + len(moderators) + len(members)
+
+    def get_logo_url(self, obj):
+        """Get the full URL for the logo"""
+        logo = obj.get_logo()
+        if logo:
+            request = self.context.get('request')
+            if request:
+                url = request.build_absolute_uri(logo.get_file_url())
+                if getattr(settings, 'USE_TLS', False):
+                    url = url.replace('http://', 'https://')
+                return url
+            return logo.get_file_url()
+        return None
+
+
 class GroupSerializer(serializers.ModelSerializer):
     creator_id = serializers.CharField(max_length=100)
     creator_name = serializers.CharField(max_length=100)
