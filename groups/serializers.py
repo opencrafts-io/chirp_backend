@@ -128,7 +128,9 @@ class GroupSerializer(serializers.ModelSerializer):
     creator_name = serializers.CharField(max_length=100)
     is_private = serializers.BooleanField(default=False)
     moderators = serializers.ListField(child=serializers.CharField(), required=False)
+    moderator_names = serializers.ListField(child=serializers.CharField(), read_only=True)
     members = serializers.ListField(child=serializers.CharField(), required=False)
+    member_names = serializers.ListField(child=serializers.CharField(), read_only=True)
     banned_users = serializers.ListField(child=serializers.CharField(), read_only=True)
     banned_user_names = serializers.ListField(child=serializers.CharField(), read_only=True)
     rules = serializers.ListField(child=serializers.CharField(), read_only=True)
@@ -145,12 +147,12 @@ class GroupSerializer(serializers.ModelSerializer):
         model = Group
         fields = [
             'id', 'name', 'description', 'creator_id', 'creator_name', 'moderators',
-            'members', 'banned_users',
+            'moderator_names', 'members', 'member_names', 'banned_users',
             'banned_user_names', 'is_private', 'rules', 'logo_url', 'banner_url',
             'created_at', 'updated_at', 'user_role', 'can_post', 'can_moderate'
         ]
         read_only_fields = [
-            'id', 'banned_users', 'banned_user_names', 'rules', 'created_at', 'updated_at'
+            'id', 'moderator_names', 'member_names', 'banned_users', 'banned_user_names', 'rules', 'created_at', 'updated_at'
         ]
 
     def validate_name(self, value):
