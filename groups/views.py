@@ -2,7 +2,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Group, GroupInvite, GroupImage
-from .serializers import GroupSerializer
+from .serializers import GroupSerializer, GroupListSerializer
 from chirp.permissions import require_community_role, CommunityPermission
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
@@ -39,7 +39,7 @@ class GroupListView(APIView):
         all_groups = list(public_groups) + list(user_groups)
         unique_groups = list({group.id: group for group in all_groups}.values())
 
-        serializer = GroupSerializer(unique_groups, many=True, context={'request': request})
+        serializer = GroupListSerializer(unique_groups, many=True, context={'request': request})
         return Response(serializer.data)
 
 

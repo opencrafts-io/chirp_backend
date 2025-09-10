@@ -28,14 +28,75 @@ class GroupImageSerializer(serializers.ModelSerializer):
         return obj.get_file_size_mb()
 
 
+class GroupListSerializer(serializers.ModelSerializer):
+    """Serializer for group listing """
+    member_count = serializers.SerializerMethodField()
+    member_preview = serializers.SerializerMethodField()
+    logo_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Group
+        fields = [
+            'id', 'name', 'description', 'member_count', 'member_preview', 'logo_url'
+        ]
+        read_only_fields = ['id']
+
+    def get_member_count(self, obj):
+        """Get total number of people in the group"""
+        moderators = obj.moderators if isinstance(obj.moderators, list) else []
+        members = obj.members if isinstance(obj.members, list) else []
+        return 1 + len(moderators) + len(members)  # +1 for creator
+
+    def get_member_preview(self, obj):
+        """Get first 5 members of the group"""
+        all_members = []
+
+        all_members.append({
+            'user_id': obj.creator_id,
+            'user_name': obj.creator_name,
+            'role': 'creator'
+        })
+
+        moderators = obj.moderators if isinstance(obj.moderators, list) else []
+        moderator_names = obj.moderator_names if isinstance(obj.moderator_names, list) else []
+        for user_id, user_name in zip(moderators, moderator_names):
+            all_members.append({
+                'user_id': user_id,
+                'user_name': user_name,
+                'role': 'moderator'
+            })
+
+        members = obj.members if isinstance(obj.members, list) else []
+        member_names = obj.member_names if isinstance(obj.member_names, list) else []
+        for user_id, user_name in zip(members, member_names):
+            all_members.append({
+                'user_id': user_id,
+                'user_name': user_name,
+                'role': 'member'
+            })
+
+        return all_members[:5]
+
+    def get_logo_url(self, obj):
+        """Get the full URL for the logo"""
+        logo = obj.get_logo()
+        if logo:
+            request = self.context.get('request')
+            if request:
+                url = request.build_absolute_uri(logo.get_file_url())
+                if getattr(settings, 'USE_TLS', False):
+                    url = url.replace('http://', 'https://')
+                return url
+            return logo.get_file_url()
+        return None
+
+
 class GroupSerializer(serializers.ModelSerializer):
     creator_id = serializers.CharField(max_length=100)
     creator_name = serializers.CharField(max_length=100)
     is_private = serializers.BooleanField(default=False)
     moderators = serializers.ListField(child=serializers.CharField(), required=False)
-    moderator_names = serializers.ListField(child=serializers.CharField(), required=False)
     members = serializers.ListField(child=serializers.CharField(), required=False)
-    member_names = serializers.ListField(child=serializers.CharField(), required=False)
     banned_users = serializers.ListField(child=serializers.CharField(), read_only=True)
     banned_user_names = serializers.ListField(child=serializers.CharField(), read_only=True)
     rules = serializers.ListField(child=serializers.CharField(), read_only=True)
@@ -52,7 +113,7 @@ class GroupSerializer(serializers.ModelSerializer):
         model = Group
         fields = [
             'id', 'name', 'description', 'creator_id', 'creator_name', 'moderators',
-            'moderator_names', 'members', 'member_names', 'banned_users',
+            'members', 'banned_users',
             'banned_user_names', 'is_private', 'rules', 'logo_url', 'banner_url',
             'created_at', 'updated_at', 'user_role', 'can_post', 'can_moderate'
         ]
