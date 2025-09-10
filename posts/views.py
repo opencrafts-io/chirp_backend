@@ -117,7 +117,7 @@ class GroupPostListView(APIView):
         paginator = StandardResultsSetPagination()
         paginated_posts = paginator.paginate_queryset(posts, request)
 
-        serializer = PostSerializer(paginated_posts, many=True)
+        serializer = PostSerializer(paginated_posts, many=True, context={'request': request})
         return paginator.get_paginated_response(serializer.data)
 
 
@@ -145,7 +145,7 @@ class PostListView(APIView):
             paginated_posts = paginator.paginate_queryset(posts, request)
 
             # Serialize posts
-            serializer = PostSerializer(paginated_posts, many=True)
+            serializer = PostSerializer(paginated_posts, many=True, context={'request': request})
             response = paginator.get_paginated_response(serializer.data)
 
             response_time = (time.time() - start_time) * 1000
@@ -164,7 +164,7 @@ class PostListView(APIView):
             posts = self._get_traditional_posts(request, group_id)
             paginator = StandardResultsSetPagination()
             paginated_posts = paginator.paginate_queryset(posts, request)
-            serializer = PostSerializer(paginated_posts, many=True)
+            serializer = PostSerializer(paginated_posts, many=True, context={'request': request})
             return paginator.get_paginated_response(serializer.data)
 
     def _get_recommended_posts(self, user_id, group_id):
@@ -244,7 +244,7 @@ class PostListView(APIView):
         if 'group_id' not in data:
             return Response({'error': 'group_id is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = PostSerializer(data=data)
+        serializer = PostSerializer(data=data, context={'request': request})
         if serializer.is_valid():
             group_id = serializer.validated_data.get('group_id')
             if group_id:
@@ -285,7 +285,7 @@ class PostDetailView(APIView):
                 if not post.group.can_view(request.user_id):
                     return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-            serializer = PostSerializer(post)
+            serializer = PostSerializer(post, context={'request': request})
             return Response(serializer.data)
         except Post.DoesNotExist:
             return Response({'error': 'Post not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -296,7 +296,7 @@ class PostDetailView(APIView):
 
         try:
             post = Post._default_manager.get(id=post_id, user_id=request.user_id)
-            serializer = PostSerializer(post, data=request.data, partial=True)
+            serializer = PostSerializer(post, data=request.data, partial=True, context={'request': request})
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data)
