@@ -123,6 +123,68 @@ class GroupPostableSerializer(serializers.ModelSerializer):
         return None
 
 
+class GroupDetailSerializer(serializers.ModelSerializer):
+    """Serializer for group detail view - excludes member lists, includes permissions"""
+    creator_id = serializers.CharField(max_length=100)
+    creator_name = serializers.CharField(max_length=100)
+    is_private = serializers.BooleanField(default=False)
+    moderator_names = serializers.ListField(child=serializers.CharField(), read_only=True)
+    member_names = serializers.ListField(child=serializers.CharField(), read_only=True)
+    rules = serializers.ListField(child=serializers.CharField(), read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
+    logo_url = serializers.SerializerMethodField()
+    banner_url = serializers.SerializerMethodField()
+    can_moderate = serializers.SerializerMethodField()
+    can_post = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Group
+        fields = [
+            'id', 'name', 'description', 'creator_id', 'creator_name', 'moderator_names',
+            'member_names', 'is_private', 'rules', 'logo_url', 'banner_url',
+            'created_at', 'updated_at', 'can_moderate', 'can_post'
+        ]
+        read_only_fields = [
+            'id', 'moderator_names', 'member_names', 'rules', 'created_at', 'updated_at'
+        ]
+
+    def get_logo_url(self, obj):
+        logo = obj.get_logo()
+        if logo:
+            request = self.context.get('request')
+            if request:
+                url = request.build_absolute_uri(logo.get_file_url())
+                if getattr(settings, 'USE_TLS', False):
+                    url = url.replace('http://', 'https://')
+                return url
+            return logo.get_file_url()
+        return None
+
+    def get_banner_url(self, obj):
+        banner = obj.get_banner()
+        if banner:
+            request = self.context.get('request')
+            if request:
+                url = request.build_absolute_uri(banner.get_file_url())
+                if getattr(settings, 'USE_TLS', False):
+                    url = url.replace('http://', 'https://')
+                return url
+            return banner.get_file_url()
+        return None
+
+    def get_can_moderate(self, obj):
+        user_id = self.context.get('user_id')
+        if not user_id:
+            return False
+        return obj.can_moderate(user_id)
+
+    def get_can_post(self, obj):
+        user_id = self.context.get('user_id')
+        if not user_id:
+            return False
+        return obj.can_post(user_id)
+
+
 class GroupSerializer(serializers.ModelSerializer):
     creator_id = serializers.CharField(max_length=100)
     creator_name = serializers.CharField(max_length=100)

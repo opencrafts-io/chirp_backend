@@ -2,7 +2,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Group, GroupInvite, GroupImage
-from .serializers import GroupSerializer, GroupListSerializer, GroupPostableSerializer
+from .serializers import GroupSerializer, GroupListSerializer, GroupPostableSerializer, GroupDetailSerializer
 from chirp.permissions import require_community_role, CommunityPermission
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
@@ -139,6 +139,27 @@ class GroupDetailView(APIView):
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = GroupSerializer(group, context={'request': request})
+        return Response(serializer.data)
+
+
+class GroupDetailWithUserView(APIView):
+    """View community details with user_id in request body"""
+
+    def post(self, request, group_id):
+        user_id = request.data.get('user_id')
+
+        if not user_id:
+            return Response({'error': 'user_id is required in request body'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not group.can_view(user_id):
+            return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = GroupDetailSerializer(group, context={'request': request, 'user_id': user_id})
         return Response(serializer.data)
 
     def put(self, request, group_id):

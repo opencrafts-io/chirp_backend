@@ -98,7 +98,7 @@ class GroupListCreateViewTest(TestCase):
         group_data['id'] = 1016
         group = Group.objects.create(**group_data)
 
-        response = self.client.get(f'/groups/{group.id}/')
+        response = self.client.post(f'/groups/{group.id}/detail/', {'user_id': 'test_user_123'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['name'], 'Test Group')
 
