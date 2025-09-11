@@ -146,10 +146,20 @@ class Group(models.Model):
         moderators = self.moderators if isinstance(self.moderators, list) else []
         return user_id in moderators
 
+    def can_add_moderator(self) -> bool:
+        """Check if more moderators can be added (under the 20 cap)"""
+        moderators = self.moderators if isinstance(self.moderators, list) else []
+        if len(moderators) >= 20:
+            return False
+        return True
+
     def add_moderator(self, user_id: str, user_name: str, added_by: str):
         """Add a moderator to the group (only existing moderators can do this)"""
         if not self.is_moderator(added_by):
             raise ValidationError("Only moderators can add other moderators")
+
+        if not self.can_add_moderator():
+            raise ValidationError("Maximum number of moderators (20) reached for this group")
 
         current_moderators = self.moderators if isinstance(self.moderators, list) else []
         if user_id not in current_moderators and user_id != self.creator_id:

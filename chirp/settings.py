@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'posts',
     'groups',
     'dmessages',
+    'utils',
     'conversations',
     'websocket_chat',
 ]
