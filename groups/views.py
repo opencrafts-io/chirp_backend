@@ -1,6 +1,7 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.pagination import PageNumberPagination
 from .models import Group, GroupInvite, GroupImage
 from .serializers import GroupSerializer, GroupListSerializer, GroupDetailSerializer
 from chirp.permissions import require_community_role, CommunityPermission
@@ -495,11 +496,17 @@ class GroupRulesView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class GroupUsersView(APIView):
-    """List all users in a community with their roles and names"""
+class GroupMembersPagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+
+
+class GroupMembersView(APIView):
+    """List all members in a community with pagination"""
 
     def get(self, request, group_id):
-        """Get list of all users in the community (anyone with access can view)"""
+        """Get paginated list of members in the community"""
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -511,17 +518,104 @@ class GroupUsersView(APIView):
         if not group.can_view(request.user_id):
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        user_list = group.get_user_list()
+        # Get members data
+        members = group.members if isinstance(group.members, list) else []
+        member_names = group.member_names if isinstance(group.member_names, list) else []
 
-        return Response({
-            'group_id': group_id,
-            'group_name': group.name,
-            'total_users': (
-                1 +  # creator
-                len(user_list['moderators']) +
-                len(user_list['members'])
-            ),
-            'users': user_list
+        # Create member objects
+        member_list = []
+        for user_id, user_name in zip(members, member_names):
+            member_list.append({
+                'user_id': user_id,
+                'user_name': user_name,
+                'role': 'member'
+            })
+
+        # Paginate the results
+        paginator = GroupMembersPagination()
+        paginated_members = paginator.paginate_queryset(member_list, request)
+
+        return paginator.get_paginated_response({
+            'count': len(member_list),
+            'members': paginated_members
+        })
+
+
+class GroupModeratorsView(APIView):
+    """List all moderators in a community with pagination"""
+
+    def get(self, request, group_id):
+        """Get paginated list of moderators in the community"""
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not group.can_view(request.user_id):
+            return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Get moderators data
+        moderators = group.moderators if isinstance(group.moderators, list) else []
+        moderator_names = group.moderator_names if isinstance(group.moderator_names, list) else []
+
+        # Create moderator objects
+        moderator_list = []
+        for user_id, user_name in zip(moderators, moderator_names):
+            moderator_list.append({
+                'user_id': user_id,
+                'user_name': user_name,
+                'role': 'moderator'
+            })
+
+        # Paginate the results
+        paginator = GroupMembersPagination()
+        paginated_moderators = paginator.paginate_queryset(moderator_list, request)
+
+        return paginator.get_paginated_response({
+            'count': len(moderator_list),
+            'moderators': paginated_moderators
+        })
+
+
+class GroupBannedUsersView(APIView):
+    """List all banned users in a community with pagination"""
+
+    def get(self, request, group_id):
+        """Get paginated list of banned users in the community"""
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not group.can_view(request.user_id):
+            return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Get banned users data
+        banned_users = group.banned_users if isinstance(group.banned_users, list) else []
+        banned_user_names = group.banned_user_names if isinstance(group.banned_user_names, list) else []
+
+        # Create banned user objects
+        banned_list = []
+        for user_id, user_name in zip(banned_users, banned_user_names):
+            banned_list.append({
+                'user_id': user_id,
+                'user_name': user_name,
+                'role': 'banned'
+            })
+
+        # Paginate the results
+        paginator = GroupMembersPagination()
+        paginated_banned = paginator.paginate_queryset(banned_list, request)
+
+        return paginator.get_paginated_response({
+            'count': len(banned_list),
+            'banned_users': paginated_banned
         })
 
 

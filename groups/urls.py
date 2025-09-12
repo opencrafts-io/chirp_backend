@@ -1,7 +1,8 @@
 from django.urls import path
 from .views import (
     GroupListView, GroupPostableView, GroupCreateView, GroupDetailView, GroupDetailWithUserView, GroupJoinView, GroupLeaveView,
-    GroupModerationView, GroupAdminView, GroupSettingsView, GroupRulesView, GroupUsersView,
+    GroupModerationView, GroupAdminView, GroupSettingsView, GroupRulesView,
+    GroupMembersView, GroupModeratorsView, GroupBannedUsersView,
     GroupDeleteView, InviteLinkCreateView, InviteLinkJoinView, InviteLinkListView
 )
 from posts.views import GroupPostListView, PostCreateView
@@ -31,7 +32,9 @@ urlpatterns = [
     path('<int:group_id>/rules/', GroupRulesView.as_view(), name='group-rules'),
 
     # Community users
-    path('<int:group_id>/users/', GroupUsersView.as_view(), name='group-users'),
+    path('<int:group_id>/members/', GroupMembersView.as_view(), name='group-members'),
+    path('<int:group_id>/moderators/', GroupModeratorsView.as_view(), name='group-moderators'),
+    path('<int:group_id>/banned/', GroupBannedUsersView.as_view(), name='group-banned'),
 
     # Group posts
     path('<int:group_id>/posts/', GroupPostListView.as_view(), name='group-posts'),
