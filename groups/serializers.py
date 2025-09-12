@@ -91,38 +91,6 @@ class GroupListSerializer(serializers.ModelSerializer):
         return None
 
 
-class GroupPostableSerializer(serializers.ModelSerializer):
-    """Serializer for groups user can post in"""
-    member_count = serializers.SerializerMethodField()
-    logo_url = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Group
-        fields = [
-            'id', 'name', 'description', 'member_count', 'logo_url'
-        ]
-        read_only_fields = ['id']
-
-    def get_member_count(self, obj):
-        """Get total number of people in the group"""
-        moderators = obj.moderators if isinstance(obj.moderators, list) else []
-        members = obj.members if isinstance(obj.members, list) else []
-        return 1 + len(moderators) + len(members)
-
-    def get_logo_url(self, obj):
-        """Get the full URL for the logo"""
-        logo = obj.get_logo()
-        if logo:
-            request = self.context.get('request')
-            if request:
-                url = request.build_absolute_uri(logo.get_file_url())
-                if getattr(settings, 'USE_TLS', False):
-                    url = url.replace('http://', 'https://')
-                return url
-            return logo.get_file_url()
-        return None
-
-
 class GroupDetailSerializer(serializers.ModelSerializer):
     """Serializer for group detail view - excludes member lists, includes permissions"""
     creator_id = serializers.CharField(max_length=100)
@@ -136,13 +104,15 @@ class GroupDetailSerializer(serializers.ModelSerializer):
     banner_url = serializers.SerializerMethodField()
     can_moderate = serializers.SerializerMethodField()
     can_post = serializers.SerializerMethodField()
+    banned = serializers.SerializerMethodField()
+    member_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Group
         fields = [
             'id', 'name', 'description', 'creator_id', 'creator_name', 'moderator_names',
             'member_names', 'is_private', 'rules', 'logo_url', 'banner_url',
-            'created_at', 'updated_at', 'can_moderate', 'can_post'
+            'created_at', 'updated_at', 'can_moderate', 'can_post', 'banned', 'member_count'
         ]
         read_only_fields = [
             'id', 'moderator_names', 'member_names', 'rules', 'created_at', 'updated_at'
@@ -183,6 +153,20 @@ class GroupDetailSerializer(serializers.ModelSerializer):
         if not user_id:
             return False
         return obj.can_post(user_id)
+
+    def get_banned(self, obj):
+        """Check if user is banned from this group"""
+        user_id = self.context.get('user_id')
+        if not user_id:
+            return False
+        banned_users = obj.banned_users if isinstance(obj.banned_users, list) else []
+        return user_id in banned_users
+
+    def get_member_count(self, obj):
+        """Get total number of people in the group"""
+        moderators = obj.moderators if isinstance(obj.moderators, list) else []
+        members = obj.members if isinstance(obj.members, list) else []
+        return 1 + len(moderators) + len(members)  # +1 for creator
 
 
 class GroupSerializer(serializers.ModelSerializer):

@@ -2,7 +2,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Group, GroupInvite, GroupImage
-from .serializers import GroupSerializer, GroupListSerializer, GroupPostableSerializer, GroupDetailSerializer
+from .serializers import GroupSerializer, GroupListSerializer, GroupDetailSerializer
 from chirp.permissions import require_community_role, CommunityPermission
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
@@ -61,7 +61,7 @@ class GroupPostableView(APIView):
             if group.is_member(user_id) and group.can_post(user_id):
                 postable_groups.append(group)
 
-        serializer = GroupPostableSerializer(postable_groups, many=True, context={'request': request})
+        serializer = GroupDetailSerializer(postable_groups, many=True, context={'request': request, 'user_id': user_id})
         return Response(serializer.data)
 
 
