@@ -6,7 +6,7 @@ import unittest
 from ..models import Group, GroupPost, GroupInvite
 from ..views import (
     GroupListView, GroupCreateView, GroupDetailView, GroupJoinView, GroupLeaveView,
-    GroupModerationView, GroupAdminView, GroupSettingsView, GroupRulesView, GroupUsersView
+    GroupModerationView, GroupAdminView, GroupSettingsView, GroupRulesView
 )
 from posts.views import GroupPostListView, PostCreateView
 from ..serializers import GroupSerializer, GroupPostSerializer, GroupInviteSerializer
