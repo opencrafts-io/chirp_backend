@@ -92,12 +92,16 @@ class GroupListSerializer(serializers.ModelSerializer):
 
 
 class GroupDetailSerializer(serializers.ModelSerializer):
-    """Serializer for group detail view - excludes member lists, includes permissions"""
+    """Serializer for group detail view - includes member lists and permissions"""
     creator_id = serializers.CharField(max_length=100)
     creator_name = serializers.CharField(max_length=100)
     is_private = serializers.BooleanField(default=False)
+    moderators = serializers.ListField(child=serializers.CharField(), read_only=True)
     moderator_names = serializers.ListField(child=serializers.CharField(), read_only=True)
+    members = serializers.ListField(child=serializers.CharField(), read_only=True)
     member_names = serializers.ListField(child=serializers.CharField(), read_only=True)
+    banned_users = serializers.ListField(child=serializers.CharField(), read_only=True)
+    banned_user_names = serializers.ListField(child=serializers.CharField(), read_only=True)
     rules = serializers.ListField(child=serializers.CharField(), read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)
     logo_url = serializers.SerializerMethodField()
@@ -110,12 +114,14 @@ class GroupDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
         fields = [
-            'id', 'name', 'description', 'creator_id', 'creator_name', 'moderator_names',
-            'member_names', 'is_private', 'rules', 'logo_url', 'banner_url',
+            'id', 'name', 'description', 'creator_id', 'creator_name', 'moderators',
+            'moderator_names', 'members', 'member_names', 'banned_users',
+            'banned_user_names', 'is_private', 'rules', 'logo_url', 'banner_url',
             'created_at', 'updated_at', 'can_moderate', 'can_post', 'banned', 'member_count'
         ]
         read_only_fields = [
-            'id', 'moderator_names', 'member_names', 'rules', 'created_at', 'updated_at'
+            'id', 'moderators', 'moderator_names', 'members', 'member_names',
+            'banned_users', 'banned_user_names', 'rules', 'created_at', 'updated_at'
         ]
 
     def get_logo_url(self, obj):

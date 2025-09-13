@@ -1,16 +1,7 @@
 from django.test import TestCase
-from rest_framework.test import APIRequestFactory
 from rest_framework import status
-from unittest.mock import Mock, patch
 import unittest
-from ..models import Group, GroupPost, GroupInvite
-from ..views import (
-    GroupListView, GroupCreateView, GroupDetailView, GroupJoinView, GroupLeaveView,
-    GroupModerationView, GroupAdminView, GroupSettingsView, GroupRulesView
-)
-from posts.views import GroupPostListView, PostCreateView
-from ..serializers import GroupSerializer, GroupPostSerializer, GroupInviteSerializer
-import urllib.parse
+from ..models import Group, GroupInvite
 
 
 class GroupListCreateViewTest(TestCase):
