@@ -1,6 +1,5 @@
 from django.test import TestCase
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError
 from groups.models import Group, GroupPost, GroupInvite
 
 
