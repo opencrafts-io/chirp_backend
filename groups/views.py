@@ -1,16 +1,13 @@
-from rest_framework import generics, status
+from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
-from .models import Group, GroupInvite, GroupImage
+from .models import Group, GroupImage
 from .serializers import GroupSerializer, GroupListSerializer, GroupDetailSerializer
-from chirp.permissions import require_community_role, CommunityPermission
-from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from django.core.exceptions import ValidationError
 from .models import InviteLink
 from .serializers import InviteLinkSerializer
-import logging
 
 class GroupListView(APIView):
     """List all public groups or groups user is a member of"""
@@ -53,14 +50,13 @@ class GroupPostableView(APIView):
         if not user_id:
             return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Get all groups and filter by membership and can_post logic
         all_groups = Group._default_manager.all()
 
-        # Filter groups where user is a member and can post
         postable_groups = []
         for group in all_groups:
-            if group.is_member(user_id) and group.can_post(user_id):
-                postable_groups.append(group)
+            if group.is_member(user_id):
+                if group.can_post(user_id):
+                    postable_groups.append(group)
 
         serializer = GroupDetailSerializer(postable_groups, many=True, context={'request': request, 'user_id': user_id})
         return Response(serializer.data)
@@ -74,9 +70,6 @@ class GroupCreateView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         data = request.data.copy()
-
-        logging.info(f"Received data: {data}")
-        logging.info(f"Files: {request.FILES}")
 
         clean_data = {}
         for key, value in data.items():
@@ -99,7 +92,6 @@ class GroupCreateView(APIView):
         clean_data['members'] = [str(user_id)]
         clean_data['member_names'] = [str(user_name)]
 
-        logging.info(f"Clean data after processing: {clean_data}")
         serializer = GroupSerializer(data=clean_data, context={'request': request})
         if serializer.is_valid():
             group = serializer.save()
