@@ -69,5 +69,8 @@ class Message(models.Model):
     is_read = models.BooleanField(default=False)  # type: ignore
     is_deleted = models.BooleanField(default=False)  # type: ignore
 
+    sender_ref = models.ForeignKey('users.User', on_delete=models.CASCADE, null=True, blank=True, related_name='sent_messages')
+    recipient_ref = models.ForeignKey('users.User', on_delete=models.CASCADE, null=True, blank=True, related_name='received_messages')
+
     def __str__(self):
         return f"{self.sender_id} to {self.recipient_id}: {self.content}..."

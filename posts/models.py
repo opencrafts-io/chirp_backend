@@ -74,6 +74,8 @@ class Post(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     like_count = models.PositiveIntegerField(default=0)
 
+    user_ref = models.ForeignKey('users.User', on_delete=models.CASCADE, null=True, blank=True, related_name='posts')
+
     class Meta:
         ordering = ['-created_at']
 
@@ -142,6 +144,8 @@ class Comment(models.Model):
     depth = models.PositiveIntegerField(default=0)
     is_deleted = models.BooleanField(default=False)
     like_count = models.PositiveIntegerField(default=0)
+
+    user_ref = models.ForeignKey('users.User', on_delete=models.CASCADE, null=True, blank=True, related_name='comments')
 
     class Meta:
         ordering = ['created_at']
