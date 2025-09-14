@@ -1,7 +1,32 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.shortcuts import get_object_or_404
 import os
+
+
+class GroupMembership(models.Model):
+    ROLE_CHOICES = [
+        ('creator', 'Creator'),
+        ('moderator', 'Moderator'),
+        ('member', 'Member'),
+        ('banned', 'Banned'),
+    ]
+
+    group = models.ForeignKey('Group', on_delete=models.CASCADE, related_name='memberships')
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='group_memberships')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('group', 'user')
+        indexes = [
+            models.Index(fields=['group', 'role']),
+            models.Index(fields=['user', 'role']),
+        ]
+
+    def __str__(self):
+        return f"{self.user} - {self.role} in {self.group.name}"
 
 
 class GroupImage(models.Model):
@@ -112,13 +137,23 @@ class Group(models.Model):
 
     def is_moderator(self, user_id: str) -> bool:
         """Check if user is a moderator of this group"""
-        moderators = self.moderators if isinstance(self.moderators, list) else []
-        return user_id in moderators or user_id == self.creator_id
+        try:
+            from users.models import User
+            user = User._default_manager.get(user_id=user_id)
+            return self.memberships.filter(user=user, role__in=['moderator', 'creator']).exists()
+        except:
+            moderators = self.moderators if isinstance(self.moderators, list) else []
+            return user_id in moderators or user_id == self.creator_id
 
     def is_member(self, user_id: str) -> bool:
         """Check if user is a member of this group"""
-        members = self.members if isinstance(self.members, list) else []
-        return user_id in members or self.is_moderator(user_id)
+        from users.models import User
+        try:
+            user = User._default_manager.get(user_id=user_id)
+            return self.memberships.filter(user=user, role__in=['member', 'moderator', 'creator']).exists()
+        except:
+            members = self.members if isinstance(self.members, list) else []
+            return user_id in members or self.is_moderator(user_id)
 
     def can_view(self, user_id: str) -> bool:
         """Check if user can view this group"""
@@ -139,12 +174,15 @@ class Group(models.Model):
 
     def can_moderate(self, user_id: str) -> bool:
         """Check if user can moderate this group"""
-        # Creator always has moderation rights
-        if user_id == self.creator_id:
-            return True
-        # Check if user is in moderators list
-        moderators = self.moderators if isinstance(self.moderators, list) else []
-        return user_id in moderators
+        from users.models import User
+        try:
+            user = User._default_manager.get(user_id=user_id)
+            return self.memberships.filter(user=user, role__in=['moderator', 'creator']).exists()
+        except:
+            if user_id == self.creator_id:
+                return True
+            moderators = self.moderators if isinstance(self.moderators, list) else []
+            return user_id in moderators
 
     def can_add_moderator(self) -> bool:
         """Check if more moderators can be added (under the 20 cap)"""
@@ -207,7 +245,8 @@ class Group(models.Model):
         if self.is_member(user_id):
             raise ValidationError("Already a member of this group")
 
-        if user_id in self.banned_users:
+        current_banned = self.banned_users if isinstance(self.banned_users, list) else []
+        if user_id in current_banned:
             raise ValidationError("You are banned from this group")
 
         current_members = self.members if isinstance(self.members, list) else []
@@ -361,6 +400,19 @@ class Group(models.Model):
         if self.get_banner():
             return self.get_banner().get_file_url()
         return None
+
+    def sync_json_fields(self):
+        """Sync JSON fields with GroupMembership records for backward compatibility"""
+        memberships = self.memberships.all()
+
+        self.moderators = [m.user.user_id for m in memberships.filter(role='moderator')]
+        self.moderator_names = [m.user.user_name for m in memberships.filter(role='moderator')]
+        self.members = [m.user.user_id for m in memberships.filter(role='member')]
+        self.member_names = [m.user.user_name for m in memberships.filter(role='member')]
+        self.banned_users = [m.user.user_id for m in memberships.filter(role='banned')]
+        self.banned_user_names = [m.user.user_name for m in memberships.filter(role='banned')]
+
+        self.save()
 
 
 class GroupPost(models.Model):

@@ -23,6 +23,8 @@ class ConversationMessage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
 
+    sender_ref = models.ForeignKey('users.User', on_delete=models.CASCADE, null=True, blank=True, related_name='conversation_messages')
+
     class Meta:
         db_table = 'conversations_conversationmessage'
         ordering = ['created_at']

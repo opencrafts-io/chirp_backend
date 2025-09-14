@@ -38,6 +38,8 @@ class CommentSerializer(serializers.ModelSerializer):
     replies = serializers.SerializerMethodField()
     user_avatar = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
+    user_id = serializers.SerializerMethodField()
+    user_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
@@ -48,6 +50,12 @@ class CommentSerializer(serializers.ModelSerializer):
         if obj.replies.exists():
             return CommentSerializer(obj.replies.all(), many=True, context=self.context).data
         return []
+
+    def get_user_id(self, obj):
+        return obj.user_ref.user_id if obj.user_ref else obj.user_id
+
+    def get_user_name(self, obj):
+        return obj.user_ref.user_name if obj.user_ref else obj.user_name
 
     def get_user_avatar(self, obj):
         return obj.avatar_url
@@ -66,6 +74,8 @@ class PostSerializer(serializers.ModelSerializer):
     group = GroupSerializer(read_only=True)
     group_id = serializers.IntegerField(write_only=True, required=False, default=1)
     comment_count = serializers.SerializerMethodField()
+    user_id = serializers.SerializerMethodField()
+    user_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
@@ -85,7 +95,13 @@ class PostSerializer(serializers.ModelSerializer):
             "attachments",
             "comment_count",
         ]
-        read_only_fields = ["user_id", "like_count"]
+        read_only_fields = ["like_count"]
+
+    def get_user_id(self, obj):
+        return obj.user_ref.user_id if obj.user_ref else obj.user_id
+
+    def get_user_name(self, obj):
+        return obj.user_ref.user_name if obj.user_ref else obj.user_name
 
     def get_comment_count(self, obj):
         return obj.comments.count()

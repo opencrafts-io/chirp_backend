@@ -43,9 +43,12 @@ class GroupListSerializer(serializers.ModelSerializer):
 
     def get_member_count(self, obj):
         """Get total number of people in the group"""
-        moderators = obj.moderators if isinstance(obj.moderators, list) else []
-        members = obj.members if isinstance(obj.members, list) else []
-        return 1 + len(moderators) + len(members)  # +1 for creator
+        try:
+            return obj.memberships.count() + 1
+        except:
+            moderators = obj.moderators if isinstance(obj.moderators, list) else []
+            members = obj.members if isinstance(obj.members, list) else []
+            return 1 + len(moderators) + len(members)
 
     def get_member_preview(self, obj):
         """Get first 5 members of the group"""
@@ -170,9 +173,12 @@ class GroupDetailSerializer(serializers.ModelSerializer):
 
     def get_member_count(self, obj):
         """Get total number of people in the group"""
-        moderators = obj.moderators if isinstance(obj.moderators, list) else []
-        members = obj.members if isinstance(obj.members, list) else []
-        return 1 + len(moderators) + len(members)  # +1 for creator
+        try:
+            return obj.memberships.count() + 1
+        except:
+            moderators = obj.moderators if isinstance(obj.moderators, list) else []
+            members = obj.members if isinstance(obj.members, list) else []
+            return 1 + len(moderators) + len(members)
 
 
 class GroupSerializer(serializers.ModelSerializer):

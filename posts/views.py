@@ -59,13 +59,28 @@ class PostCreateView(generics.CreateAPIView):
         email = serializer.validated_data.get('email', getattr(request, 'user_email', None))
         avatar_url = serializer.validated_data.get('avatar_url', getattr(request, 'avatar_url', None))
 
+        from users.models import User
+        user, created = User.objects.get_or_create(
+            user_id=self.request.user_id,
+            defaults={
+                'user_name': user_name,
+                'email': email
+            }
+        )
+
+        if not created and (user.user_name != user_name or user.email != email):
+            user.user_name = user_name
+            user.email = email
+            user.save()
+
         post = serializer.save(
             user_id=self.request.user_id,
             user_name=user_name,
             email=email,
             avatar_url=avatar_url,
             group=group,
-            content=content
+            content=content,
+            user_ref=user,
         )
 
         files = request.FILES.getlist("attachments")
@@ -347,14 +362,33 @@ class CommentCreateView(generics.CreateAPIView):
             parent_comment = None
             depth = 0
 
+        from users.models import User
+        user_id = self.request.data.get('user_id')
+        user_name = self.request.data.get('user_name', getattr(self.request, 'user_name', f"User {user_id}"))
+        email = self.request.data.get('email', getattr(self.request, 'user_email', None))
+
+        user, created = User.objects.get_or_create(
+            user_id=user_id,
+            defaults={
+                'user_name': user_name,
+                'email': email
+            }
+        )
+
+        if not created and (user.user_name != user_name or user.email != email):
+            user.user_name = user_name
+            user.email = email
+            user.save()
+
         serializer.save(
-            user_id=self.request.data.get('user_id'),
-            user_name=self.request.data.get('user_name', getattr(self.request, 'user_name', f"User {self.request.data.get('user_id')}")),
-            email=self.request.data.get('email', getattr(self.request, 'user_email', None)),
+            user_id=user_id,
+            user_name=user_name,
+            email=email,
             avatar_url=self.request.data.get('user_avatar', getattr(self.request, 'avatar_url', None)),
             post=post,
             parent_comment=parent_comment,
-            depth=depth
+            depth=depth,
+            user_ref=user,
         )
 
     def get(self, request, post_id):
