@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
 from .models import Group, GroupImage
-from .serializers import GroupSerializer, GroupListSerializer, GroupDetailSerializer
+from .serializers import GroupSerializer, UnifiedGroupSerializer
 from django.db.models import Q
 from django.core.exceptions import ValidationError
 from .models import InviteLink
@@ -37,7 +37,7 @@ class GroupListView(APIView):
         all_groups = list(public_groups) + list(user_groups)
         unique_groups = list({group.id: group for group in all_groups}.values())
 
-        serializer = GroupListSerializer(unique_groups, many=True, context={'request': request})
+        serializer = UnifiedGroupSerializer(unique_groups, many=True, context={'request': request, 'user_id': user_id})
         return Response(serializer.data)
 
 
@@ -58,7 +58,7 @@ class GroupPostableView(APIView):
                 if group.can_post(user_id):
                     postable_groups.append(group)
 
-        serializer = GroupDetailSerializer(postable_groups, many=True, context={'request': request, 'user_id': user_id})
+        serializer = UnifiedGroupSerializer(postable_groups, many=True, context={'request': request, 'user_id': user_id})
         return Response(serializer.data)
 
 
@@ -112,7 +112,8 @@ class GroupCreateView(APIView):
                     file=banner_file
                 )
 
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            response_serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': user_id})
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -131,7 +132,7 @@ class GroupDetailView(APIView):
         if not group.can_view(request.user_id):
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        serializer = GroupSerializer(group, context={'request': request})
+        serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': request.user_id})
         return Response(serializer.data)
 
 
@@ -152,7 +153,7 @@ class GroupDetailWithUserView(APIView):
         if not group.can_view(user_id):
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        serializer = GroupDetailSerializer(group, context={'request': request, 'user_id': user_id})
+        serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': user_id})
         return Response(serializer.data)
 
     def put(self, request, group_id):
@@ -214,7 +215,7 @@ class GroupDetailWithUserView(APIView):
                     file=banner_file
                 )
 
-            response_serializer = GroupSerializer(group, context={'request': request})
+            response_serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': request.user_id})
             return Response(response_serializer.data)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -250,7 +251,7 @@ class GroupJoinView(APIView):
         except ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = GroupSerializer(group, context={'request': request})
+        serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': request.user_id})
         return Response({
             'message': 'Successfully joined the community',
             'group': serializer.data
@@ -329,7 +330,7 @@ class GroupModerationView(APIView):
             else:
                 return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
 
-            serializer = GroupSerializer(group, context={'request': request})
+            serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': request.user_id})
             return Response({
                 'message': message,
                 'group': serializer.data
@@ -367,7 +368,7 @@ class GroupAdminView(APIView):
             else:
                 return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
 
-            serializer = GroupSerializer(group, context={'request': request})
+            serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': request.user_id})
             return Response({
                 'message': message,
                 'group': serializer.data
@@ -407,7 +408,7 @@ class GroupSettingsView(APIView):
 
         group.save()
 
-        serializer = GroupSerializer(group, context={'request': request})
+        serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': request.user_id})
         return Response(serializer.data)
 
 
@@ -733,7 +734,7 @@ class InviteLinkJoinView(APIView):
 
             return Response({
                 'message': 'Successfully joined community using invite link',
-                'group': GroupSerializer(group, context={'request': request}).data
+                'group': UnifiedGroupSerializer(group, context={'request': request, 'user_id': request.user_id}).data
             }, status=status.HTTP_200_OK)
 
         except ValidationError as e:
