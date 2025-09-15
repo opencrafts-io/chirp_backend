@@ -174,8 +174,8 @@ class Group(models.Model):
 
     def can_moderate(self, user_id: str) -> bool:
         """Check if user can moderate this group"""
-        from users.models import User
         try:
+            from users.models import User
             user = User._default_manager.get(user_id=user_id)
             return self.memberships.filter(user=user, role__in=['moderator', 'creator']).exists()
         except:

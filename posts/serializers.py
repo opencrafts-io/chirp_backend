@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.conf import settings
-from .models import Attachment, Post, Comment, PostLike, CommentLike
+from .models import Attachment, Post, Comment
 
 
 class AttachmentSerializer(serializers.ModelSerializer):
@@ -72,7 +72,7 @@ class PostSerializer(serializers.ModelSerializer):
     attachments = AttachmentSerializer(many=True, read_only=True)
     content = serializers.CharField(max_length=280, required=False, allow_blank=True)
     group = GroupSerializer(read_only=True)
-    group_id = serializers.IntegerField(write_only=True, required=False, default=1)
+    group_id = serializers.IntegerField(write_only=True, required=False)
     comment_count = serializers.SerializerMethodField()
     user_id = serializers.SerializerMethodField()
     user_name = serializers.SerializerMethodField()

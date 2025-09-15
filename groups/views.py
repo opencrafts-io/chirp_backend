@@ -225,20 +225,12 @@ class GroupJoinView(APIView):
     """Join a community"""
 
     def post(self, request, group_id):
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
-
         user_name = request.data.get('user_name')
         user_id = request.data.get('user_id')
 
         if not user_name or not user_id:
             return Response({
                 'error': 'user_name and user_id are required in request body'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        if user_id != request.user_id:
-            return Response({
-                'error': 'user_id in request body must match authenticated user'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -251,7 +243,7 @@ class GroupJoinView(APIView):
         except ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': request.user_id})
+        serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': user_id})
         return Response({
             'message': 'Successfully joined the community',
             'group': serializer.data
@@ -262,28 +254,45 @@ class GroupLeaveView(APIView):
     """Leave a community"""
 
     def post(self, request, group_id):
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        user_id = request.data.get('user_id')
+        user_name = request.data.get('user_name')
+
+        if not user_id:
+            return Response({'error': 'user_id is required in request body'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             group = Group._default_manager.get(id=group_id)
         except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        user_id = request.user_id
-
         if user_id == group.creator_id:
             return Response({'error': 'Creator cannot leave the community'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Remove from moderators if present
         if user_id in group.moderators:
             current_moderators = list(group.moderators)
-            current_moderators.remove(user_id)
-            group.moderators = current_moderators
+            current_moderator_names = list(group.moderator_names)
+            try:
+                index = current_moderators.index(user_id)
+                current_moderators.remove(user_id)
+                current_moderator_names.pop(index)
+                group.moderators = current_moderators
+                group.moderator_names = current_moderator_names
+            except (ValueError, IndexError):
+                pass
 
+        # Remove from members if present
         if user_id in group.members:
             current_members = list(group.members)
-            current_members.remove(user_id)
-            group.members = current_members
+            current_member_names = list(group.member_names)
+            try:
+                index = current_members.index(user_id)
+                current_members.remove(user_id)
+                current_member_names.pop(index)
+                group.members = current_members
+                group.member_names = current_member_names
+            except (ValueError, IndexError):
+                pass
 
         group.save()
 
@@ -307,6 +316,9 @@ class GroupModerationView(APIView):
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
         user_id = request.user_id
+        print(f"🔍 Moderation Debug - user_id: {user_id}, group_id: {group_id}")
+        print(f"🔍 Group creator: {group.creator_id}, moderators: {group.moderators}")
+        print(f"🔍 Can moderate: {group.can_moderate(user_id)}")
 
         try:
             if action == 'add_member':
