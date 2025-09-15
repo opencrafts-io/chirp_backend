@@ -4,8 +4,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Attachment, Post, Comment, PostLike, CommentLike
 from .serializers import CommentSerializer, PostSerializer
-from django.db.models import Exists, F, OuterRef, Q
-from chirp.permissions import require_permission, CommunityPermission
+from django.db.models import F, Q
+from chirp.permissions import CommunityPermission
 from groups.models import Group
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from utils.recommendation_engine import get_recommended_posts

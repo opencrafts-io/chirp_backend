@@ -225,20 +225,12 @@ class GroupJoinView(APIView):
     """Join a community"""
 
     def post(self, request, group_id):
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
-
         user_name = request.data.get('user_name')
         user_id = request.data.get('user_id')
 
         if not user_name or not user_id:
             return Response({
                 'error': 'user_name and user_id are required in request body'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        if user_id != request.user_id:
-            return Response({
-                'error': 'user_id in request body must match authenticated user'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -251,7 +243,7 @@ class GroupJoinView(APIView):
         except ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': request.user_id})
+        serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': user_id})
         return Response({
             'message': 'Successfully joined the community',
             'group': serializer.data
@@ -262,28 +254,45 @@ class GroupLeaveView(APIView):
     """Leave a community"""
 
     def post(self, request, group_id):
-        if not hasattr(request, 'user_id') or not request.user_id:
-            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        user_id = request.data.get('user_id')
+        user_name = request.data.get('user_name')
+
+        if not user_id:
+            return Response({'error': 'user_id is required in request body'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             group = Group._default_manager.get(id=group_id)
         except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        user_id = request.user_id
-
         if user_id == group.creator_id:
             return Response({'error': 'Creator cannot leave the community'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Remove from moderators if present
         if user_id in group.moderators:
             current_moderators = list(group.moderators)
-            current_moderators.remove(user_id)
-            group.moderators = current_moderators
+            current_moderator_names = list(group.moderator_names)
+            try:
+                index = current_moderators.index(user_id)
+                current_moderators.remove(user_id)
+                current_moderator_names.pop(index)
+                group.moderators = current_moderators
+                group.moderator_names = current_moderator_names
+            except (ValueError, IndexError):
+                pass
 
+        # Remove from members if present
         if user_id in group.members:
             current_members = list(group.members)
-            current_members.remove(user_id)
-            group.members = current_members
+            current_member_names = list(group.member_names)
+            try:
+                index = current_members.index(user_id)
+                current_members.remove(user_id)
+                current_member_names.pop(index)
+                group.members = current_members
+                group.member_names = current_member_names
+            except (ValueError, IndexError):
+                pass
 
         group.save()
 
@@ -296,41 +305,53 @@ class GroupModerationView(APIView):
     def post(self, request, group_id):
         """Add/remove members, moderators, or ban users"""
         action = request.data.get('action')
-        target_user_id = request.data.get('user_id')
+        user_id = request.data.get('user_id')  # Moderator/creator performing the action
+        member_id = request.data.get('member_id')  # Target user being acted upon
+        member_name = request.data.get('member_name')  # Target user's name
 
-        if not action or not target_user_id:
-            return Response({'error': 'Action and user_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not action or not user_id:
+            return Response({'error': 'Action and user_id (moderator/creator) required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if action in ['add_member', 'remove_member', 'add_moderator', 'remove_moderator', 'ban', 'unban']:
+            if not member_id:
+                return Response({'error': 'member_id is required for this action'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             group = Group._default_manager.get(id=group_id)
         except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        user_id = request.user_id
+        # Check if the user performing the action is a moderator or creator
+        if not group.can_moderate(user_id):
+            return Response({'error': 'Only moderators and creators can perform moderation actions'}, status=status.HTTP_403_FORBIDDEN)
+
+        print(f"🔍 Moderation Debug - user_id: {user_id}, group_id: {group_id}")
+        print(f"🔍 Group creator: {group.creator_id}, moderators: {group.moderators}")
+        print(f"🔍 Can moderate: {group.can_moderate(user_id)}")
 
         try:
             if action == 'add_member':
-                group.add_member(target_user_id, target_user_id, user_id)
-                message = f'Added {target_user_id} as member'
+                group.add_member(member_id, member_name or member_id, user_id)
+                message = f'Added {member_id} as member'
             elif action == 'remove_member':
-                group.remove_member(target_user_id, user_id)
-                message = f'Removed {target_user_id} as member'
+                group.remove_member(member_id, user_id)
+                message = f'Removed {member_id} as member'
             elif action == 'add_moderator':
-                group.add_moderator(target_user_id, target_user_id, user_id)
-                message = f'Added {target_user_id} as moderator'
+                group.add_moderator(member_id, member_name or member_id, user_id)
+                message = f'Added {member_id} as moderator'
             elif action == 'remove_moderator':
-                group.remove_moderator(target_user_id, user_id)
-                message = f'Removed {target_user_id} as moderator'
+                group.remove_moderator(member_id, user_id)
+                message = f'Removed {member_id} as moderator'
             elif action == 'ban':
-                group.ban_user(target_user_id, target_user_id, user_id)
-                message = f'Banned {target_user_id}'
+                group.ban_user(member_id, member_name or member_id, user_id)
+                message = f'Banned {member_id}'
             elif action == 'unban':
-                group.unban_user(target_user_id, user_id)
-                message = f'Unbanned {target_user_id}'
+                group.unban_user(member_id, user_id)
+                message = f'Unbanned {member_id}'
             else:
                 return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
 
-            serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': request.user_id})
+            serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': user_id})
             return Response({
                 'message': message,
                 'group': serializer.data
@@ -346,29 +367,36 @@ class GroupAdminView(APIView):
     def post(self, request, group_id):
         """Add/remove moderators (only existing moderators can do this)"""
         action = request.data.get('action')
-        target_user_id = request.data.get('user_id')
+        user_id = request.data.get('user_id')  # Moderator/creator performing the action
+        member_id = request.data.get('member_id')  # Target user being acted upon
+        member_name = request.data.get('member_name')  # Target user's name
 
-        if not action or not target_user_id:
-            return Response({'error': 'Action and user_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not action or not user_id:
+            return Response({'error': 'Action and user_id (moderator/creator) required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not member_id:
+            return Response({'error': 'member_id is required for this action'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             group = Group._default_manager.get(id=group_id)
         except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        user_id = request.user_id
+        # Check if the user performing the action is a moderator or creator
+        if not group.can_moderate(user_id):
+            return Response({'error': 'Only moderators and creators can perform admin actions'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             if action == 'add_moderator':
-                group.add_moderator(target_user_id, target_user_id, user_id)
-                message = f'Added {target_user_id} as moderator'
+                group.add_moderator(member_id, member_name or member_id, user_id)
+                message = f'Added {member_id} as moderator'
             elif action == 'remove_moderator':
-                group.remove_moderator(target_user_id, user_id)
-                message = f'Removed {target_user_id} as moderator'
+                group.remove_moderator(member_id, user_id)
+                message = f'Removed {member_id} as moderator'
             else:
                 return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
 
-            serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': request.user_id})
+            serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': user_id})
             return Response({
                 'message': message,
                 'group': serializer.data
@@ -431,16 +459,25 @@ class GroupRulesView(APIView):
     def post(self, request, group_id):
         """Add a new rule to the community (only moderators can do this)"""
         rule = request.data.get('rule')
+        user_id = request.data.get('user_id')
+
         if not rule:
             return Response({'error': 'Rule content is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not user_id:
+            return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             group = Group._default_manager.get(id=group_id)
         except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Check if the user is a moderator or creator
+        if not group.can_moderate(user_id):
+            return Response({'error': 'Only moderators and creators can add rules'}, status=status.HTTP_403_FORBIDDEN)
+
         try:
-            group.add_rule(rule, request.user_id)
+            group.add_rule(rule, user_id)
             return Response({
                 'message': 'Rule added successfully',
                 'rules': group.get_rules()
@@ -451,16 +488,25 @@ class GroupRulesView(APIView):
     def put(self, request, group_id):
         """Update all community rules (only moderators can do this)"""
         rules = request.data.get('rules')
+        user_id = request.data.get('user_id')
+
         if not isinstance(rules, list):
             return Response({'error': 'Rules must be a list'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not user_id:
+            return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             group = Group._default_manager.get(id=group_id)
         except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Check if the user is a moderator or creator
+        if not group.can_moderate(user_id):
+            return Response({'error': 'Only moderators and creators can update rules'}, status=status.HTTP_403_FORBIDDEN)
+
         try:
-            group.update_rules(rules, request.user_id)
+            group.update_rules(rules, user_id)
             return Response({
                 'message': 'Rules updated successfully',
                 'rules': group.get_rules()
@@ -471,16 +517,25 @@ class GroupRulesView(APIView):
     def delete(self, request, group_id):
         """Remove a specific rule from the community (only moderators can do this)"""
         rule = request.data.get('rule')
+        user_id = request.data.get('user_id')
+
         if not rule:
             return Response({'error': 'Rule content is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not user_id:
+            return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             group = Group._default_manager.get(id=group_id)
         except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Check if the user is a moderator or creator
+        if not group.can_moderate(user_id):
+            return Response({'error': 'Only moderators and creators can remove rules'}, status=status.HTTP_403_FORBIDDEN)
+
         try:
-            group.remove_rule(rule, request.user_id)
+            group.remove_rule(rule, user_id)
             return Response({
                 'message': 'Rule removed successfully',
                 'rules': group.get_rules()

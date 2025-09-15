@@ -2,8 +2,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from conversations.models import Conversation, ConversationMessage
 from dmessages.models import MessageAttachment
-from typing import Dict, List, Optional
-import json
+from typing import Dict, List
 
 
 class ChatService:
@@ -17,22 +16,18 @@ class ChatService:
         Get paginated messages for a conversation
         """
         try:
-            # Verify user has access to conversation
             conversation = Conversation.objects.get(
                 conversation_id=conversation_id,
                 participants__contains=[user_id]
             )
 
-            # Get messages ordered by creation date (newest first)
             messages = ConversationMessage.objects.filter(
                 conversation=conversation
             ).order_by('-created_at')
 
-            # Paginate results
             paginator = Paginator(messages, page_size)
             page_obj = paginator.get_page(page)
 
-            # Serialize messages with attachments
             message_data = []
             for message in page_obj:
                 message_info = {
@@ -44,7 +39,6 @@ class ChatService:
                     'attachments': []
                 }
 
-                # Get attachments for this message
                 attachments = MessageAttachment.objects.filter(
                     conversation_message=message
                 )
@@ -83,13 +77,11 @@ class ChatService:
         Mark messages as read for a user
         """
         try:
-            # Verify user has access to conversation
             conversation = Conversation.objects.get(
                 conversation_id=conversation_id,
                 participants__contains=[user_id]
             )
 
-            # Mark specific messages or all unread messages
             if message_ids:
                 messages = ConversationMessage.objects.filter(
                     conversation=conversation,

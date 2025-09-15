@@ -42,7 +42,7 @@ class UnifiedGroupSerializer(serializers.ModelSerializer):
     updated_at = serializers.DateTimeField(read_only=True)
     logo_url = serializers.SerializerMethodField()
     banner_url = serializers.SerializerMethodField()
-    user_role = serializers.SerializerMethodField()
+    is_banned = serializers.SerializerMethodField()
     can_post = serializers.SerializerMethodField()
     can_moderate = serializers.SerializerMethodField()
     member_count = serializers.SerializerMethodField()
@@ -53,7 +53,7 @@ class UnifiedGroupSerializer(serializers.ModelSerializer):
             'id', 'name', 'description', 'creator_id', 'creator_name', 'moderators',
             'moderator_names', 'members', 'member_names', 'banned_users',
             'banned_user_names', 'is_private', 'rules', 'logo_url', 'banner_url',
-            'created_at', 'updated_at', 'user_role', 'can_post', 'can_moderate', 'member_count'
+            'created_at', 'updated_at', 'is_banned', 'can_post', 'can_moderate', 'member_count'
         ]
         read_only_fields = [
             'id', 'moderators', 'moderator_names', 'members', 'member_names',
@@ -84,20 +84,13 @@ class UnifiedGroupSerializer(serializers.ModelSerializer):
             return banner.get_file_url()
         return None
 
-    def get_user_role(self, obj):
+    def get_is_banned(self, obj):
         user_id = self.context.get('user_id')
         if not user_id:
-            return None
+            return False
 
-        if obj.creator_id == user_id:
-            return 'creator'
-        elif user_id in (obj.moderators if isinstance(obj.moderators, list) else []):
-            return 'moderator'
-        elif user_id in (obj.members if isinstance(obj.members, list) else []):
-            return 'member'
-        elif user_id in (obj.banned_users if isinstance(obj.banned_users, list) else []):
-            return 'banned'
-        return None
+        banned_users = obj.banned_users if isinstance(obj.banned_users, list) else []
+        return user_id in banned_users
 
     def get_can_post(self, obj):
         user_id = self.context.get('user_id')
@@ -152,7 +145,7 @@ class GroupSerializer(serializers.ModelSerializer):
     logo_url = serializers.SerializerMethodField()
     banner_url = serializers.SerializerMethodField()
 
-    user_role = serializers.SerializerMethodField()
+    is_banned = serializers.SerializerMethodField()
     can_post = serializers.SerializerMethodField()
     can_moderate = serializers.SerializerMethodField()
 
@@ -162,7 +155,7 @@ class GroupSerializer(serializers.ModelSerializer):
             'id', 'name', 'description', 'creator_id', 'creator_name', 'moderators',
             'moderator_names', 'members', 'member_names', 'banned_users',
             'banned_user_names', 'is_private', 'rules', 'logo_url', 'banner_url',
-            'created_at', 'updated_at', 'user_role', 'can_post', 'can_moderate'
+            'created_at', 'updated_at', 'is_banned', 'can_post', 'can_moderate'
         ]
         read_only_fields = [
             'id', 'banned_users', 'banned_user_names', 'rules', 'created_at', 'updated_at'
@@ -178,21 +171,14 @@ class GroupSerializer(serializers.ModelSerializer):
 
         return value
 
-    def get_user_role(self, obj):
-        """Get the user's role in this group"""
+    def get_is_banned(self, obj):
+        """Check if user is banned from this group"""
         request = self.context.get('request')
         if not request or not hasattr(request, 'user_id'):
-            return None
+            return False
 
-        if obj.creator_id == request.user_id:
-            return 'creator'
-        elif request.user_id in obj.moderators:
-            return 'moderator'
-        elif request.user_id in obj.members:
-            return 'member'
-        elif request.user_id in obj.banned_users:
-            return 'banned'
-        return None
+        banned_users = obj.banned_users if isinstance(obj.banned_users, list) else []
+        return request.user_id in banned_users
 
     def get_can_post(self, obj):
         """Check if user can post in this group"""

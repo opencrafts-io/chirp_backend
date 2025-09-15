@@ -24,47 +24,37 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         """Handle WebSocket connection with authentication and room joining"""
-        # Get user_id from scope (set by middleware)
         self.user_id = self.scope.get('user_id')
         if not self.user_id:
             await self.close(code=4001)
             return
 
-        # Accept the connection
         await self.accept()
 
-        # Start heartbeat
         self.heartbeat_task = asyncio.create_task(self.heartbeat_loop())
 
-        # Store connection in Redis for tracking
         await self.store_connection()
 
     async def disconnect(self, code):
         """Handle WebSocket disconnection and cleanup"""
-        # Cancel heartbeat
         if self.heartbeat_task:
             self.heartbeat_task.cancel()
 
-        # Leave current room if any
         if self.room_group_name:
             await self.leave_conversation_room()
 
-        # Remove connection from Redis
         await self.remove_connection()
 
     async def receive(self, text_data, bytes_data=None):
         """Handle incoming WebSocket messages"""
         try:
-            # Validate message size
             if len(text_data) > settings.WEBSOCKET_MAX_MESSAGE_SIZE:
                 await self.send_error("Message too large")
                 return
 
-            # Parse message
             data = json.loads(text_data)
             message_type = data.get('type')
 
-            # Handle different message types
             if message_type == 'join_conversation':
                 await self.handle_join_conversation(data)
             elif message_type == 'leave_conversation':
@@ -97,16 +87,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_error("Conversation ID required")
             return
 
-        # Verify user is part of the conversation
         if not await self.verify_conversation_access(conversation_id):
             await self.send_error("Access denied to conversation")
             return
 
-        # Leave current room if any
         if self.room_group_name:
             await self.leave_conversation_room()
 
-        # Join new room
         self.current_conversation = conversation_id
         self.room_group_name = f"conversation_{conversation_id}"
 
@@ -115,7 +102,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
 
-        # Send confirmation
         await self.send(text_data=json.dumps({
             'type': 'conversation_joined',
             'conversation_id': conversation_id
@@ -139,33 +125,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
         content = data.get('content', '').strip()
         file_upload_id = data.get('file_upload_id')  # For large files uploaded via HTTP
 
-        # Validate message content or file upload
         if not content and not file_upload_id:
             await self.send_error("Message content or file upload required")
             return
 
-        # For large files, content should reference the uploaded file
         if file_upload_id:
-            # Verify the file upload exists and belongs to this user
             file_info = await self.verify_file_upload(file_upload_id)
             if not file_info:
                 await self.send_error("Invalid file upload reference")
                 return
 
-            # Use file info as content reference
             content = f"[File: {file_info['filename']}]"
 
-        # Sanitize message content
         sanitized_content = self.sanitize_message(content)
 
-        # Save message to database
         message = await self.save_message(sanitized_content, file_upload_id)
 
         if not message:
             await self.send_error("Failed to save message")
             return
 
-        # Broadcast message to room
         await self.channel_layer.group_send(
             self.room_group_name,
             {
@@ -252,11 +231,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 content=content
             )
 
-            # Update conversation's last_message_at
             conversation.last_message_at = message.created_at
             conversation.save()
 
-            # If a file upload was associated, create a MessageAttachment
             if file_upload_id:
                 MessageAttachment.objects.create(
                     message=message,
@@ -269,8 +246,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     def sanitize_message(self, content):
         """Sanitize message content to prevent XSS"""
-        # Remove HTML tags and escape special characters
-        allowed_tags = []  # No HTML allowed
+        allowed_tags = []
         allowed_attributes = {}
 
         sanitized = bleach.clean(
@@ -319,18 +295,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_error("Message ID and content required")
             return
 
-        # Verify user is in conversation
         if not self.room_group_name:
             await self.send_error("Not in a conversation")
             return
 
-        # Edit message in database
         message = await self.edit_message(message_id, new_content)
         if not message:
             await self.send_error("Failed to edit message")
             return
 
-        # Broadcast edited message to room
         await self.channel_layer.group_send(
             self.room_group_name,
             {
@@ -354,18 +327,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_error("Message ID required")
             return
 
-        # Verify user is in conversation
         if not self.room_group_name:
             await self.send_error("Not in a conversation")
             return
 
-        # Delete message in database
         success = await self.delete_message(message_id)
         if not success:
             await self.send_error("Failed to delete message")
             return
 
-        # Broadcast deleted message to room
         await self.channel_layer.group_send(
             self.room_group_name,
             {
@@ -380,7 +350,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if not self.room_group_name:
             return
 
-        # Broadcast typing start to room
         await self.channel_layer.group_send(
             self.room_group_name,
             {
@@ -395,7 +364,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if not self.room_group_name:
             return
 
-        # Broadcast typing stop to room
         await self.channel_layer.group_send(
             self.room_group_name,
             {
@@ -415,14 +383,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 conversation__conversation_id=self.current_conversation
             )
 
-            # Check if message is too old (24 hours)
             from django.utils import timezone
             from datetime import timedelta
 
             if message.created_at < timezone.now() - timedelta(hours=24):
                 return None
 
-            # Update message
             message.content = new_content
             message.is_edited = True
             message.edited_at = timezone.now()
@@ -444,7 +410,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 conversation__conversation_id=self.current_conversation
             )
 
-            # Soft delete
             message.is_deleted = True
             message.deleted_at = timezone.now()
             message.save()

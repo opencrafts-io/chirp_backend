@@ -137,13 +137,13 @@ class Group(models.Model):
 
     def is_moderator(self, user_id: str) -> bool:
         """Check if user is a moderator of this group"""
-        try:
-            from users.models import User
-            user = User._default_manager.get(user_id=user_id)
-            return self.memberships.filter(user=user, role__in=['moderator', 'creator']).exists()
-        except:
-            moderators = self.moderators if isinstance(self.moderators, list) else []
-            return user_id in moderators or user_id == self.creator_id
+        # Check if user is the creator
+        if user_id == self.creator_id:
+            return True
+
+        # Check if user is in the moderators list
+        moderators = self.moderators if isinstance(self.moderators, list) else []
+        return user_id in moderators
 
     def is_member(self, user_id: str) -> bool:
         """Check if user is a member of this group"""
@@ -174,15 +174,13 @@ class Group(models.Model):
 
     def can_moderate(self, user_id: str) -> bool:
         """Check if user can moderate this group"""
-        from users.models import User
-        try:
-            user = User._default_manager.get(user_id=user_id)
-            return self.memberships.filter(user=user, role__in=['moderator', 'creator']).exists()
-        except:
-            if user_id == self.creator_id:
-                return True
-            moderators = self.moderators if isinstance(self.moderators, list) else []
-            return user_id in moderators
+        # Check if user is the creator
+        if user_id == self.creator_id:
+            return True
+
+        # Check if user is in the moderators list
+        moderators = self.moderators if isinstance(self.moderators, list) else []
+        return user_id in moderators
 
     def can_add_moderator(self) -> bool:
         """Check if more moderators can be added (under the 20 cap)"""
