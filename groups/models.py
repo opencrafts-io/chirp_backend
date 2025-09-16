@@ -153,7 +153,7 @@ class Group(models.Model):
             return self.memberships.filter(user=user, role__in=['member', 'moderator', 'creator']).exists()
         except:
             members = self.members if isinstance(self.members, list) else []
-            return user_id in members or self.is_moderator(user_id)
+            return user_id in members or self.is_moderator(user_id) or user_id == self.creator_id
 
     def can_view(self, user_id: str) -> bool:
         """Check if user can view this group"""
