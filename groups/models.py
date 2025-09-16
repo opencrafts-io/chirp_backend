@@ -206,6 +206,18 @@ class Group(models.Model):
             self.moderator_names = current_moderator_names
             self.save()
 
+            # Create GroupMembership record
+            try:
+                from users.models import User
+                user = User.objects.get(user_id=user_id)
+                GroupMembership.objects.get_or_create(
+                    group=self,
+                    user=user,
+                    defaults={'role': 'moderator'}
+                )
+            except:
+                pass
+
     def remove_moderator(self, user_id: str, removed_by: str):
         """Remove a moderator from the group (only creator can remove moderators)"""
         if removed_by != self.creator_id:
@@ -235,6 +247,18 @@ class Group(models.Model):
             self.member_names = current_member_names
             self.save()
 
+            # Create GroupMembership record
+            try:
+                from users.models import User
+                user = User.objects.get(user_id=user_id)
+                GroupMembership.objects.get_or_create(
+                    group=self,
+                    user=user,
+                    defaults={'role': 'member'}
+                )
+            except:
+                pass
+
     def self_join(self, user_id: str, user_name: str):
         """Allow a user to join a public group themselves"""
         if self.is_private:
@@ -256,6 +280,18 @@ class Group(models.Model):
         self.member_names = current_member_names
         self.save()
 
+        # Create GroupMembership record
+        try:
+            from users.models import User
+            user = User.objects.get(user_id=user_id)
+            GroupMembership.objects.get_or_create(
+                group=self,
+                user=user,
+                defaults={'role': 'member'}
+            )
+        except:
+            pass
+
     def remove_member(self, user_id: str, removed_by: str):
         """Remove a member from the group (only admins/moderators can do this)"""
         if not self.is_moderator(removed_by):
@@ -270,6 +306,14 @@ class Group(models.Model):
             self.members = current_members
             self.member_names = current_member_names
             self.save()
+
+            # Delete GroupMembership record
+            try:
+                from users.models import User
+                user = User.objects.get(user_id=user_id)
+                GroupMembership.objects.filter(group=self, user=user).delete()
+            except:
+                pass
 
     def ban_user(self, user_id: str, user_name: str, banned_by: str):
         """Ban a user from the group (only admins can do this)"""
@@ -302,6 +346,18 @@ class Group(models.Model):
                 self.moderator_names = current_moderator_names
             self.save()
 
+            # Create GroupMembership record with banned role
+            try:
+                from users.models import User
+                user = User.objects.get(user_id=user_id)
+                GroupMembership.objects.get_or_create(
+                    group=self,
+                    user=user,
+                    defaults={'role': 'banned'}
+                )
+            except:
+                pass
+
     def unban_user(self, user_id: str, unbanned_by: str):
         """Unban a user from the group (only admins can do this)"""
         if not self.is_moderator(unbanned_by):
@@ -316,6 +372,14 @@ class Group(models.Model):
             self.banned_users = current_banned
             self.banned_user_names = current_banned_names
             self.save()
+
+            # Delete GroupMembership record
+            try:
+                from users.models import User
+                user = User.objects.get(user_id=user_id)
+                GroupMembership.objects.filter(group=self, user=user).delete()
+            except:
+                pass
 
     def add_rule(self, rule: str, added_by: str):
         """Add a rule to the community (only admins can do this)"""
