@@ -45,10 +45,10 @@ class GroupPostableView(APIView):
     """Get all groups where the user can post (for post creation dropdown)"""
 
     def post(self, request):
-        user_id = request.data.get('user_id')
+        if not hasattr(request, 'user_id') or not request.user_id:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
-        if not user_id:
-            return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        user_id = request.user_id
 
         all_groups = Group._default_manager.all()
 
@@ -295,6 +295,15 @@ class GroupLeaveView(APIView):
                 pass
 
         group.save()
+
+        # Delete GroupMembership record
+        try:
+            from users.models import User
+            from groups.models import GroupMembership
+            user = User.objects.get(user_id=user_id)
+            GroupMembership.objects.filter(group=group, user=user).delete()
+        except:
+            pass
 
         return Response({'message': 'Successfully left the community'})
 
