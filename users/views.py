@@ -22,7 +22,7 @@ class LocalUserSearchView(APIView):
                 'limit': limit,
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        qs = User.objects.filter(
+        qs = User._default_manager.filter(
             Q(username__icontains=q) |
             Q(full_name__icontains=q) |
             Q(user_name__icontains=q)

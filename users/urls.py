@@ -3,7 +3,7 @@ from .views import LocalUserSearchView
 
 
 urlpatterns = [
-    path('search/', LocalUserSearchView.as_view(), name='local_user_search'),
+    path('local/search/', LocalUserSearchView.as_view(), name='local_user_search'),
 ]
 
 

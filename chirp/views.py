@@ -110,3 +110,6 @@ class AdminMaintenanceView(APIView):
             return Response({'status': 'ok', 'backfill': True})
         else:
             return Response({'error': 'Unknown action'}, status=400)
+
+    def get(self, request):
+        return self.post(request)
