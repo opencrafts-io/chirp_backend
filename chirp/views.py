@@ -3,6 +3,11 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from chirp.user_search import get_user_search_service
+from rest_framework.permissions import IsAdminUser
+from django.conf import settings
+from utils.sync_users import sync_users
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 
 class PingView(APIView):
     """Health check endpoint"""
@@ -78,3 +83,33 @@ class UserPermissionsView(APIView):
             'permissions': permissions,
             'total': len(permissions)
         })
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AdminMaintenanceView(APIView):
+    """Admin-only endpoint to trigger user sync and backfill on server.
+
+    Protect with a shared secret token in settings: MAINTENANCE_TOKEN
+    """
+
+    def post(self, request):
+        action = request.data.get('action') or request.GET.get('action')
+        limit = request.data.get('limit') or request.GET.get('limit')
+        try:
+            limit = int(limit) if limit is not None else 50
+        except Exception:
+            limit = 50
+
+        if action == 'sync_users':
+            total = sync_users(clear_first=False, limit=limit)
+            return Response({'status': 'ok', 'synced': total})
+        elif action == 'backfill':
+            from utils.management.commands.backfill_user_denorm import Command as BackfillCommand
+            cmd = BackfillCommand()
+            cmd.handle(dry_run=False)
+            return Response({'status': 'ok', 'backfill': True})
+        else:
+            return Response({'error': 'Unknown action'}, status=400)
+
+    def get(self, request):
+        return self.post(request)

@@ -141,7 +141,7 @@ class PostRecommendationEngine:
         ).order_by('-created_at')[:self.MAX_RECOMMENDATIONS])
 
         if len(recent_posts) >= self.MIN_POSTS_THRESHOLD:
-            return list(Post._default_manager.filter(id__in=[p['id'] for p in recent_posts]))
+            return recent_posts
 
         # Fallback to 7 days
         logger.info("Insufficient recent posts, expanding to 7 days")
@@ -149,7 +149,7 @@ class PostRecommendationEngine:
             created_at__gte=timezone.now() - timedelta(days=self.FALLBACK_DAYS_7)
         ).order_by('-created_at')[:self.MAX_RECOMMENDATIONS])
         if len(week_posts) >= self.MIN_POSTS_THRESHOLD:
-            return list(Post._default_manager.filter(id__in=[p['id'] for p in week_posts]))
+            return week_posts
 
         # Fallback to 30 days
         logger.info("Insufficient week posts, expanding to 30 days")
@@ -158,11 +158,11 @@ class PostRecommendationEngine:
         ).order_by('-created_at')[:self.MAX_RECOMMENDATIONS])
 
         if len(month_posts) >= self.MIN_POSTS_THRESHOLD:
-            return list(Post._default_manager.filter(id__in=[p['id'] for p in month_posts]))
+            return month_posts
 
         # Final fallback: all posts with evergreen scoring
         logger.info("Using evergreen scoring for all posts")
-        return list(Post._default_manager.filter(id__in=[p['id'] for p in queryset.order_by('-created_at')[:self.MAX_RECOMMENDATIONS]]))
+        return list(queryset.order_by('-created_at')[:self.MAX_RECOMMENDATIONS])
 
     def _calculate_popularity_scores(self, posts: List[Post]) -> List[Post]:
         """Calculate popularity scores for posts."""

@@ -33,6 +33,8 @@ base_urlpatterns = [
     path('users/<str:user_id>/', views.UserInfoView.as_view(), name='user_info'),
     path('users/<str:user_id>/roles/', views.UserRolesView.as_view(), name='user_roles'),
     path('users/<str:user_id>/permissions/', views.UserPermissionsView.as_view(), name='user_permissions'),
+    path('maintenance/', views.AdminMaintenanceView.as_view(), name='admin_maintenance'),
+    path('users/', include('users.urls')),
 ]
 
 # Add qa-chirp prefix for local testing
