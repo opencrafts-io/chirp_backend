@@ -101,13 +101,19 @@ class AdminMaintenanceView(APIView):
             limit = 50
 
         if action == 'sync_users':
-            total = sync_users(clear_first=False, limit=limit)
-            return Response({'status': 'ok', 'synced': total})
+            try:
+                total = sync_users(clear_first=False, limit=limit)
+                return Response({'status': 'ok', 'synced': total})
+            except Exception as e:
+                return Response({'status': 'error', 'message': str(e)}, status=500)
         elif action == 'backfill':
-            from utils.management.commands.backfill_user_denorm import Command as BackfillCommand
-            cmd = BackfillCommand()
-            cmd.handle(dry_run=False)
-            return Response({'status': 'ok', 'backfill': True})
+            try:
+                from utils.management.commands.backfill_user_denorm import Command as BackfillCommand
+                cmd = BackfillCommand()
+                cmd.handle(dry_run=False)
+                return Response({'status': 'ok', 'backfill': True})
+            except Exception as e:
+                return Response({'status': 'error', 'message': str(e)}, status=500)
         else:
             return Response({'error': 'Unknown action'}, status=400)
 

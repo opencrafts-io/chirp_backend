@@ -16,6 +16,9 @@ class VerisafeAuthMiddleware:
             '/media/',
             '/api/docs/',
             '/docs/',
+            '/maintenance/',
+            '/qa-chirp/maintenance/',
+            '/qa-chirp/users/',
         ]
 
     def __call__(self, request):
