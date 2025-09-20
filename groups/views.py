@@ -85,8 +85,13 @@ class GroupCreateView(APIView):
         clean_data['creator_name'] = user_name
 
         if 'is_public' in clean_data:
-            clean_data['is_private'] = not clean_data.pop('is_public')
+            is_public_value = not clean_data.pop('is_public')
+            if isinstance(is_public_value, bool):
+                is_private_value = not is_public_value
+            else:
+                is_private_value = not(str(is_public_value).lower() == 'true')
 
+            clean_data['is_private'] = is_private_value
         clean_data['moderators'] = [str(user_id)]
         clean_data['moderator_names'] = [str(user_name)]
         clean_data['members'] = [str(user_id)]
