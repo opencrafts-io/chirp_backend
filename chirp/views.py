@@ -95,15 +95,34 @@ class AdminMaintenanceView(APIView):
     def post(self, request):
         action = request.data.get('action') or request.GET.get('action')
         limit = request.data.get('limit') or request.GET.get('limit')
+        start_page = request.data.get('start_page') or request.GET.get('start_page')
+        max_pages = request.data.get('max_pages') or request.GET.get('max_pages')
+
         try:
             limit = int(limit) if limit is not None else 50
         except Exception:
             limit = 50
 
+        try:
+            start_page = int(start_page) if start_page is not None else 1
+        except Exception:
+            start_page = 1
+
+        try:
+            max_pages = int(max_pages) if max_pages is not None else None
+        except Exception:
+            max_pages = None
+
         if action == 'sync_users':
             try:
-                total = sync_users(clear_first=False, limit=limit)
-                return Response({'status': 'ok', 'synced': total})
+                total = sync_users(clear_first=False, limit=limit, start_page=start_page, max_pages=max_pages)
+                return Response({
+                    'status': 'ok',
+                    'synced': total,
+                    'start_page': start_page,
+                    'max_pages': max_pages,
+                    'next_page': start_page + (max_pages or 1)
+                })
             except Exception as e:
                 return Response({'status': 'error', 'message': str(e)}, status=500)
         elif action == 'backfill':

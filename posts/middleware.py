@@ -15,6 +15,8 @@ class VerisafeAuthMiddleware:
             '/static/',
             '/media/',
             '/qa-chirp/media/',
+            '/workspace/media/',
+            '/qa-chirp/workspace/media/',
             '/api/docs/',
             '/docs/',
             '/maintenance/',
