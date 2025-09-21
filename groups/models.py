@@ -163,12 +163,12 @@ class Group(models.Model):
 
     def can_post(self, user_id: str) -> bool:
         """Check if user can post in this group"""
+        if not user_id:
+            return False
+
         banned_users = self.banned_users if isinstance(self.banned_users, list) else []
         if user_id in banned_users:
             return False
-
-        if not self.is_private:
-            return True
 
         return self.is_member(user_id)
 
@@ -209,8 +209,8 @@ class Group(models.Model):
             # Create GroupMembership record
             try:
                 from users.models import User
-                user = User.objects.get(user_id=user_id)
-                GroupMembership.objects.get_or_create(
+                user = User._default_manager.get(user_id=user_id)
+                GroupMembership._default_manager.get_or_create(
                     group=self,
                     user=user,
                     defaults={'role': 'moderator'}
@@ -250,8 +250,8 @@ class Group(models.Model):
             # Create GroupMembership record
             try:
                 from users.models import User
-                user = User.objects.get(user_id=user_id)
-                GroupMembership.objects.get_or_create(
+                user = User._default_manager.get(user_id=user_id)
+                GroupMembership._default_manager.get_or_create(
                     group=self,
                     user=user,
                     defaults={'role': 'member'}
@@ -283,8 +283,8 @@ class Group(models.Model):
         # Create GroupMembership record
         try:
             from users.models import User
-            user = User.objects.get(user_id=user_id)
-            GroupMembership.objects.get_or_create(
+            user = User._default_manager.get(user_id=user_id)
+            GroupMembership._default_manager.get_or_create(
                 group=self,
                 user=user,
                 defaults={'role': 'member'}
@@ -310,8 +310,8 @@ class Group(models.Model):
             # Delete GroupMembership record
             try:
                 from users.models import User
-                user = User.objects.get(user_id=user_id)
-                GroupMembership.objects.filter(group=self, user=user).delete()
+                user = User._default_manager.get(user_id=user_id)
+                GroupMembership._default_manager.filter(group=self, user=user).delete()
             except:
                 pass
 
@@ -349,8 +349,8 @@ class Group(models.Model):
             # Create GroupMembership record with banned role
             try:
                 from users.models import User
-                user = User.objects.get(user_id=user_id)
-                GroupMembership.objects.get_or_create(
+                user = User._default_manager.get(user_id=user_id)
+                GroupMembership._default_manager.get_or_create(
                     group=self,
                     user=user,
                     defaults={'role': 'banned'}
@@ -376,8 +376,8 @@ class Group(models.Model):
             # Delete GroupMembership record
             try:
                 from users.models import User
-                user = User.objects.get(user_id=user_id)
-                GroupMembership.objects.filter(group=self, user=user).delete()
+                user = User._default_manager.get(user_id=user_id)
+                GroupMembership._default_manager.filter(group=self, user=user).delete()
             except:
                 pass
 

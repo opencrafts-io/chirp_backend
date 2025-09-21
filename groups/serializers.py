@@ -106,24 +106,19 @@ class UnifiedGroupSerializer(serializers.ModelSerializer):
 
     def get_member_count(self, obj):
         try:
-            membership_count = obj.memberships.count()
-            if membership_count > 0:
-                return membership_count
+            return obj.memberships.count()
         except:
-            pass
-
-        all_user_ids = set()
-        all_user_ids.add(obj.creator_id)
-        moderators = obj.moderators if isinstance(obj.moderators, list) else []
-        all_user_ids.update(moderators)
-        members = obj.members if isinstance(obj.members, list) else []
-        all_user_ids.update(members)
-        return len(all_user_ids)
+            all_user_ids = set()
+            all_user_ids.add(obj.creator_id)
+            moderators = obj.moderators if isinstance(obj.moderators, list) else []
+            all_user_ids.update(moderators)
+            members = obj.members if isinstance(obj.members, list) else []
+            all_user_ids.update(members)
+            return len(all_user_ids)
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
 
-        # Limit lists to 5 items for consistency
         for field in ['moderators', 'moderator_names', 'members', 'member_names', 'banned_users', 'banned_user_names']:
             if field in data and isinstance(data[field], list):
                 data[field] = data[field][:5]
