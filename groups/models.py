@@ -163,12 +163,12 @@ class Group(models.Model):
 
     def can_post(self, user_id: str) -> bool:
         """Check if user can post in this group"""
+        if not user_id:
+            return False
+
         banned_users = self.banned_users if isinstance(self.banned_users, list) else []
         if user_id in banned_users:
             return False
-
-        if not self.is_private:
-            return True
 
         return self.is_member(user_id)
 
