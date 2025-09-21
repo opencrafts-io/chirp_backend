@@ -654,7 +654,7 @@ class GroupMembersPagination(PageNumberPagination):
 
 
 class GroupMembersView(APIView):
-    """List all members in a community with pagination"""
+    """List all members in a community with pagination (excludes moderators and creator)"""
 
     def get(self, request, group_id):
         """Get paginated list of members in the community"""
@@ -669,18 +669,33 @@ class GroupMembersView(APIView):
         if not group.can_view(request.user_id):
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Get members data
-        members = group.members if isinstance(group.members, list) else []
-        member_names = group.member_names if isinstance(group.member_names, list) else []
+        # Get only regular members (exclude creator and moderators)
+        try:
+            # Use database query for better performance and accuracy
+            memberships = group.memberships.filter(role='member').select_related('user')
+            member_list = []
+            for membership in memberships:
+                member_list.append({
+                    'user_id': membership.user.user_id,
+                    'user_name': membership.user.user_name,
+                    'role': 'member'
+                })
+        except:
+            # Fallback to JSON fields if GroupMembership doesn't exist
+            members = group.members if isinstance(group.members, list) else []
+            member_names = group.member_names if isinstance(group.member_names, list) else []
+            moderators = group.moderators if isinstance(group.moderators, list) else []
+            creator_id = group.creator_id
 
-        # Create member objects
-        member_list = []
-        for user_id, user_name in zip(members, member_names):
-            member_list.append({
-                'user_id': user_id,
-                'user_name': user_name,
-                'role': 'member'
-            })
+            # Filter out moderators and creator from members
+            member_list = []
+            for user_id, user_name in zip(members, member_names):
+                if user_id != creator_id and user_id not in moderators:
+                    member_list.append({
+                        'user_id': user_id,
+                        'user_name': user_name,
+                        'role': 'member'
+                    })
 
         # Paginate the results
         paginator = GroupMembersPagination()
@@ -693,10 +708,10 @@ class GroupMembersView(APIView):
 
 
 class GroupModeratorsView(APIView):
-    """List all moderators in a community with pagination"""
+    """List all moderators and creator in a community with pagination"""
 
     def get(self, request, group_id):
-        """Get paginated list of moderators in the community"""
+        """Get paginated list of moderators and creator in the community"""
         if not hasattr(request, 'user_id') or not request.user_id:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -708,18 +723,42 @@ class GroupModeratorsView(APIView):
         if not group.can_view(request.user_id):
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Get moderators data
-        moderators = group.moderators if isinstance(group.moderators, list) else []
-        moderator_names = group.moderator_names if isinstance(group.moderator_names, list) else []
+        # Get moderators and creator (all admin roles)
+        try:
+            # Use database query for better performance and accuracy
+            memberships = group.memberships.filter(role__in=['creator', 'moderator']).select_related('user')
+            moderator_list = []
+            for membership in memberships:
+                moderator_list.append({
+                    'user_id': membership.user.user_id,
+                    'user_name': membership.user.user_name,
+                    'role': membership.role
+                })
+        except:
+            # Fallback to JSON fields if GroupMembership doesn't exist
+            moderators = group.moderators if isinstance(group.moderators, list) else []
+            moderator_names = group.moderator_names if isinstance(group.moderator_names, list) else []
+            creator_id = group.creator_id
+            creator_name = group.creator_name
 
-        # Create moderator objects
-        moderator_list = []
-        for user_id, user_name in zip(moderators, moderator_names):
+            # Create moderator objects (including creator)
+            moderator_list = []
+
+            # Add creator first
             moderator_list.append({
-                'user_id': user_id,
-                'user_name': user_name,
-                'role': 'moderator'
+                'user_id': creator_id,
+                'user_name': creator_name,
+                'role': 'creator'
             })
+
+            # Add moderators
+            for user_id, user_name in zip(moderators, moderator_names):
+                if user_id != creator_id:  # Avoid duplicate if creator is also in moderators list
+                    moderator_list.append({
+                        'user_id': user_id,
+                        'user_name': user_name,
+                        'role': 'moderator'
+                    })
 
         # Paginate the results
         paginator = GroupMembersPagination()
