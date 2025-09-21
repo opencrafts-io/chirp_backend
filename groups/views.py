@@ -305,8 +305,8 @@ class GroupLeaveView(APIView):
         try:
             from users.models import User
             from groups.models import GroupMembership
-            user = User.objects.get(user_id=user_id)
-            GroupMembership.objects.filter(group=group, user=user).delete()
+            user = User._default_manager.get(user_id=user_id)
+            GroupMembership._default_manager.filter(group=group, user=user).delete()
         except:
             pass
 
@@ -458,28 +458,33 @@ class GroupRulesView(APIView):
     """Manage community rules/guidelines"""
 
     def get(self, request, group_id):
-        """Get all community rules"""
+        """Get all community rules with full group object"""
         try:
             group = Group._default_manager.get(id=group_id)
         except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        return Response({
-            'group_id': group_id,
-            'group_name': group.name,
-            'rules': group.get_rules()
-        })
+        user_id = getattr(request, 'user_id', None)
+        if user_id and not group.can_view(user_id):
+            return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': user_id})
+        return Response(serializer.data)
 
     def post(self, request, group_id):
-        """Add a new rule to the community (only moderators can do this)"""
-        rule = request.data.get('rule')
+        """Add rule(s) to the community (only moderators can do this)"""
         user_id = request.data.get('user_id')
-
-        if not rule:
-            return Response({'error': 'Rule content is required'}, status=status.HTTP_400_BAD_REQUEST)
+        rule = request.data.get('rule')
+        rules = request.data.get('rules')
 
         if not user_id:
             return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if rule and rules:
+            return Response({'error': 'Provide either "rule" or "rules", not both'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not rule and not rules:
+            return Response({'error': 'Either "rule" or "rules" is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             group = Group._default_manager.get(id=group_id)
@@ -491,10 +496,25 @@ class GroupRulesView(APIView):
             return Response({'error': 'Only moderators and creators can add rules'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
-            group.add_rule(rule, user_id)
+            if rule:
+                group.add_rule(rule, user_id)
+                message = 'Rule added successfully'
+            else:
+                if not isinstance(rules, list):
+                    return Response({'error': 'Rules must be a list'}, status=status.HTTP_400_BAD_REQUEST)
+
+                added_count = 0
+                for rule_item in rules:
+                    if rule_item and str(rule_item).strip():
+                        group.add_rule(str(rule_item).strip(), user_id)
+                        added_count += 1
+
+                message = f'{added_count} rules added successfully'
+
+            serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': user_id})
             return Response({
-                'message': 'Rule added successfully',
-                'rules': group.get_rules()
+                'message': message,
+                'group': serializer.data
             })
         except ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -521,23 +541,29 @@ class GroupRulesView(APIView):
 
         try:
             group.update_rules(rules, user_id)
+
+            serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': user_id})
             return Response({
                 'message': 'Rules updated successfully',
-                'rules': group.get_rules()
+                'group': serializer.data
             })
         except ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, group_id):
-        """Remove a specific rule from the community (only moderators can do this)"""
-        rule = request.data.get('rule')
+        """Remove specific rule(s) from the community (only moderators can do this)"""
         user_id = request.data.get('user_id')
-
-        if not rule:
-            return Response({'error': 'Rule content is required'}, status=status.HTTP_400_BAD_REQUEST)
+        rule = request.data.get('rule')
+        rules = request.data.get('rules')
 
         if not user_id:
             return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if rule and rules:
+            return Response({'error': 'Provide either "rule" or "rules", not both'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not rule and not rules:
+            return Response({'error': 'Either "rule" or "rules" is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             group = Group._default_manager.get(id=group_id)
@@ -549,11 +575,74 @@ class GroupRulesView(APIView):
             return Response({'error': 'Only moderators and creators can remove rules'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
-            group.remove_rule(rule, user_id)
+            if rule:
+                group.remove_rule(rule, user_id)
+                message = 'Rule removed successfully'
+            else:
+                if not isinstance(rules, list):
+                    return Response({'error': 'Rules must be a list'}, status=status.HTTP_400_BAD_REQUEST)
+
+                removed_count = 0
+                for rule_item in rules:
+                    if rule_item and str(rule_item).strip():
+                        try:
+                            group.remove_rule(str(rule_item).strip(), user_id)
+                            removed_count += 1
+                        except ValidationError:
+                            # Rule not found, continue with others
+                            pass
+
+                message = f'{removed_count} rules removed successfully'
+
+            serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': user_id})
             return Response({
-                'message': 'Rule removed successfully',
-                'rules': group.get_rules()
+                'message': message,
+                'group': serializer.data
             })
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GroupRuleEditView(APIView):
+    """Edit a specific rule by index (only moderators can do this)"""
+
+    def patch(self, request, group_id, rule_index):
+        """Edit a specific rule by its index"""
+        user_id = request.data.get('user_id')
+        new_rule = request.data.get('rule')
+
+        if not user_id:
+            return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not new_rule:
+            return Response({'error': 'Rule content is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            group = Group._default_manager.get(id=group_id)
+        except Group.DoesNotExist:  # type: ignore
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not group.can_moderate(user_id):
+            return Response({'error': 'Only moderators and creators can edit rules'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            rule_index = int(rule_index)
+            current_rules = group.get_rules()
+
+            if rule_index < 0 or rule_index >= len(current_rules):
+                return Response({'error': 'Invalid rule index'}, status=status.HTTP_400_BAD_REQUEST)
+
+            current_rules[rule_index] = str(new_rule).strip()
+            group.rules = current_rules
+            group.save()
+
+            serializer = UnifiedGroupSerializer(group, context={'request': request, 'user_id': user_id})
+            return Response({
+                'message': 'Rule updated successfully',
+                'group': serializer.data
+            })
+        except (ValueError, TypeError):
+            return Response({'error': 'Invalid rule index'}, status=status.HTTP_400_BAD_REQUEST)
         except ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -725,7 +814,7 @@ class InviteLinkCreateView(APIView):
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            group = Group.objects.get(id=group_id)  # type: ignore
+            group = Group._default_manager.get(id=group_id)  # type: ignore
         except Group.DoesNotExist:  # type: ignore
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
