@@ -209,8 +209,8 @@ class Group(models.Model):
             # Create GroupMembership record
             try:
                 from users.models import User
-                user = User.objects.get(user_id=user_id)
-                GroupMembership.objects.get_or_create(
+                user = User._default_manager.get(user_id=user_id)
+                GroupMembership._default_manager.get_or_create(
                     group=self,
                     user=user,
                     defaults={'role': 'moderator'}
@@ -250,8 +250,8 @@ class Group(models.Model):
             # Create GroupMembership record
             try:
                 from users.models import User
-                user = User.objects.get(user_id=user_id)
-                GroupMembership.objects.get_or_create(
+                user = User._default_manager.get(user_id=user_id)
+                GroupMembership._default_manager.get_or_create(
                     group=self,
                     user=user,
                     defaults={'role': 'member'}
@@ -283,8 +283,8 @@ class Group(models.Model):
         # Create GroupMembership record
         try:
             from users.models import User
-            user = User.objects.get(user_id=user_id)
-            GroupMembership.objects.get_or_create(
+            user = User._default_manager.get(user_id=user_id)
+            GroupMembership._default_manager.get_or_create(
                 group=self,
                 user=user,
                 defaults={'role': 'member'}
@@ -310,8 +310,8 @@ class Group(models.Model):
             # Delete GroupMembership record
             try:
                 from users.models import User
-                user = User.objects.get(user_id=user_id)
-                GroupMembership.objects.filter(group=self, user=user).delete()
+                user = User._default_manager.get(user_id=user_id)
+                GroupMembership._default_manager.filter(group=self, user=user).delete()
             except:
                 pass
 
@@ -349,8 +349,8 @@ class Group(models.Model):
             # Create GroupMembership record with banned role
             try:
                 from users.models import User
-                user = User.objects.get(user_id=user_id)
-                GroupMembership.objects.get_or_create(
+                user = User._default_manager.get(user_id=user_id)
+                GroupMembership._default_manager.get_or_create(
                     group=self,
                     user=user,
                     defaults={'role': 'banned'}
@@ -376,8 +376,8 @@ class Group(models.Model):
             # Delete GroupMembership record
             try:
                 from users.models import User
-                user = User.objects.get(user_id=user_id)
-                GroupMembership.objects.filter(group=self, user=user).delete()
+                user = User._default_manager.get(user_id=user_id)
+                GroupMembership._default_manager.filter(group=self, user=user).delete()
             except:
                 pass
 
