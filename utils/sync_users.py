@@ -33,19 +33,28 @@ def fetch_page(page: int) -> List[Dict]:
     return []
 
 
-def iter_all_accounts(limit: Optional[int] = None) -> Iterable[Dict]:
-    page = 1
+def iter_all_accounts(limit: Optional[int] = None, start_page: int = 1, max_pages: Optional[int] = None) -> Iterable[Dict]:
+    page = start_page
     yielded = 0
+    pages_processed = 0
+
     while True:
         items = fetch_page(page)
         if not items:
             break
+
         for item in items:
             yield item
             yielded += 1
             if limit is not None and yielded >= limit:
                 return
+
         page += 1
+        pages_processed += 1
+
+        if max_pages is not None and pages_processed >= max_pages:
+            break
+
         time.sleep(0.05)
 
 
@@ -77,12 +86,12 @@ def upsert_user(item: Dict):
     )
 
 
-def sync_users(clear_first: bool = True, limit: Optional[int] = None) -> int:
+def sync_users(clear_first: bool = True, limit: Optional[int] = None, start_page: int = 1, max_pages: Optional[int] = None) -> int:
     if clear_first:
         clear_users_table()
 
     count = 0
-    for item in iter_all_accounts(limit=limit):
+    for item in iter_all_accounts(limit=limit, start_page=start_page, max_pages=max_pages):
         try:
             upsert_user(item)
             count += 1

@@ -65,7 +65,6 @@ class WebSocketAuthMiddleware(BaseMiddleware):
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"JWT validation failed: {str(e)}")
-            print(f"🔍 JWT Validation Error: {str(e)}")
             return None
 
     async def check_rate_limit(self, user_id):

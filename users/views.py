@@ -83,5 +83,15 @@ class UserListView(APIView):
                 'has_previous': page_obj.has_previous(),
                 'next_page': page_obj.next_page_number() if page_obj.has_next() else None,
                 'previous_page': page_obj.previous_page_number() if page_obj.has_previous() else None,
-            }
+               }
+           })
+
+class UserCountView(APIView):
+    """Get total count of users in the database"""
+
+    def get(self, request):
+        total_count = User._default_manager.count()
+        return Response({
+            'total_users': total_count,
+            'message': f'Total users in database: {total_count}'
         })

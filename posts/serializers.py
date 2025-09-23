@@ -19,6 +19,10 @@ class AttachmentSerializer(serializers.ModelSerializer):
                 url = request.build_absolute_uri(obj.file.url)
                 if getattr(settings, 'USE_TLS', False):
                     url = url.replace('http://', 'https://')
+
+                if 'qachirp.opencrafts.io' in url and '/qa-chirp/' not in url:
+                    url = url.replace('/media/', '/qa-chirp/media/')
+
                 return url
             return obj.file.url
         return None

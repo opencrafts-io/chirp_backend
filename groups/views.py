@@ -339,10 +339,6 @@ class GroupModerationView(APIView):
         if not group.can_moderate(user_id):
             return Response({'error': 'Only moderators and creators can perform moderation actions'}, status=status.HTTP_403_FORBIDDEN)
 
-        print(f"🔍 Moderation Debug - user_id: {user_id}, group_id: {group_id}")
-        print(f"🔍 Group creator: {group.creator_id}, moderators: {group.moderators}")
-        print(f"🔍 Can moderate: {group.can_moderate(user_id)}")
-
         try:
             if action == 'add_member':
                 group.add_member(member_id, member_name or member_id, user_id)
@@ -482,7 +478,6 @@ class GroupRulesView(APIView):
         if not rule:
             return Response({'error': 'rule is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Ensure rule is always treated as a list
         if not isinstance(rule, list):
             rule = [rule]
 
