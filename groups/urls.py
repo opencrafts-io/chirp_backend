@@ -3,7 +3,8 @@ from .views import (
     GroupListView, GroupPostableView, GroupCreateView, GroupDetailView, GroupDetailWithUserView, GroupJoinView, GroupLeaveView,
     GroupModerationView, GroupAdminView, GroupSettingsView, GroupRulesView, GroupRuleEditView,
     GroupMembersView, GroupModeratorsView, GroupBannedUsersView,
-    GroupDeleteView, InviteLinkCreateView, InviteLinkJoinView, InviteLinkListView
+    GroupDeleteView, InviteLinkCreateView, InviteLinkJoinView, InviteLinkListView,
+    GroupSearchView,
 )
 from posts.views import GroupPostListView, PostCreateView
 
@@ -40,4 +41,7 @@ urlpatterns = [
     # Group posts
     path('<int:group_id>/posts/', GroupPostListView.as_view(), name='group-posts'),
     path('<int:group_id>/posts/create/', PostCreateView.as_view(), name='group-post-create'),
+
+    # Search
+    path('search/', GroupSearchView.as_view(), name='group-search'),
 ]

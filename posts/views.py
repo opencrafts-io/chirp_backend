@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from .models import Attachment, Post, Comment, PostLike, CommentLike
 from .serializers import CommentSerializer, PostSerializer
 from django.db.models import F, Q
+from django.db.models.functions import Lower
 from chirp.permissions import CommunityPermission
 from groups.models import Group
 from rest_framework.exceptions import ValidationError, PermissionDenied
@@ -119,6 +120,38 @@ class PostCreateView(generics.CreateAPIView):
             response_serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
 
+
+class PostSearchView(APIView):
+    """Fast search endpoint for posts by content and author name."""
+
+    def get(self, request):
+        q = (request.GET.get('q') or '').strip()
+        page = int(request.GET.get('page', 1))
+        page_size = min(int(request.GET.get('page_size', 20)), 100)
+
+        if len(q) < 2:
+            return Response({
+                'error': 'Query must be at least 2 characters',
+                'results': [],
+                'count': 0,
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Search in content and canonical user_name via user_ref
+        queryset = Post._default_manager.select_related('group', 'user_ref').prefetch_related('attachments')\
+            .filter(Q(content__icontains=q) | Q(user_ref__user_name__icontains=q))\
+            .order_by('-created_at')
+
+        # Optional group filter
+        group_id = request.GET.get('group_id')
+        if group_id:
+            queryset = queryset.filter(group_id=group_id)
+
+        from chirp.pagination import StandardResultsSetPagination
+        paginator = StandardResultsSetPagination()
+        paginator.page_size = page_size
+        paginated = paginator.paginate_queryset(queryset, request)
+        serializer = PostSerializer(paginated, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)
 
 class GroupPostListView(APIView):
     """View for listing posts within a specific group"""

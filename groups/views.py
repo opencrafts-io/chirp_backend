@@ -690,6 +690,34 @@ class GroupMembersView(APIView):
         })
 
 
+class GroupSearchView(APIView):
+    """Search communities by name or description."""
+
+    def get(self, request):
+        q = (request.GET.get('q') or '').strip()
+        page_size = min(int(request.GET.get('page_size', 20)), 100)
+
+        if len(q) < 2:
+            return Response({'error': 'Query must be at least 2 characters', 'results': [], 'count': 0}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Only return groups the user can view if authenticated
+        user_id = getattr(request, 'user_id', None)
+        base_qs = Group._default_manager.all()
+        if user_id:
+            base_qs = base_qs.filter(Q(is_private=False) | Q(members__contains=[user_id]) | Q(moderators__contains=[user_id]) | Q(creator_id=user_id))
+        else:
+            base_qs = base_qs.filter(is_private=False)
+
+        qs = base_qs.filter(Q(name__icontains=q) | Q(description__icontains=q)).order_by('-created_at')
+
+        from chirp.pagination import StandardResultsSetPagination
+        paginator = StandardResultsSetPagination()
+        paginator.page_size = page_size
+        page = paginator.paginate_queryset(qs, request)
+        serializer = UnifiedGroupSerializer(page, many=True, context={'request': request, 'user_id': user_id})
+        return paginator.get_paginated_response(serializer.data)
+
+
 class GroupModeratorsView(APIView):
     """List all moderators in a community with pagination"""
 
