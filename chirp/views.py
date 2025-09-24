@@ -133,6 +133,37 @@ class AdminMaintenanceView(APIView):
                 return Response({'status': 'ok', 'backfill': True})
             except Exception as e:
                 return Response({'status': 'error', 'message': str(e)}, status=500)
+        elif action == 'backfill_userrefs':
+            try:
+                from posts.models import Post
+                from users.models import User
+                updated = 0
+                missing_user = 0
+                qs = Post._default_manager.all().select_related('user_ref')
+                for p in qs:
+                    if p.user_ref:
+                        u = p.user_ref
+                    else:
+                        u = User._default_manager.filter(user_id=p.user_id).only('user_name', 'email').first()
+                        if not u:
+                            missing_user += 1
+                            continue
+                    changed_fields = []
+                    if p.user_ref_id != u.pk:
+                        p.user_ref = u
+                        changed_fields.append('user_ref')
+                    if p.user_name != u.user_name:
+                        p.user_name = u.user_name
+                        changed_fields.append('user_name')
+                    if (p.email or '') != (u.email or ''):
+                        p.email = u.email
+                        changed_fields.append('email')
+                    if changed_fields:
+                        p.save(update_fields=list(set(changed_fields)))
+                        updated += 1
+                return Response({'status': 'ok', 'updated_posts': updated, 'missing_user_refs': missing_user})
+            except Exception as e:
+                return Response({'status': 'error', 'message': str(e)}, status=500)
         else:
             return Response({'error': 'Unknown action'}, status=400)
 
