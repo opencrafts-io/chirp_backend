@@ -68,15 +68,27 @@ class PostCreateView(generics.CreateAPIView):
             }
         )
 
-        if not created and (user.user_name != user_name or user.email != email):
-            user.user_name = user_name
-            user.email = email
-            user.save()
+        def _is_placeholder(name: str, uid: str) -> bool:
+            try:
+                return (not name) or name.strip() == f"User {uid}"
+            except Exception:
+                return True
+
+        if not created:
+            should_update = False
+            if user_name and not _is_placeholder(user_name, self.request.user_id) and user.user_name != user_name:
+                user.user_name = user_name
+                should_update = True
+            if email and not user.email:
+                user.email = email
+                should_update = True
+            if should_update:
+                user.save()
 
         post = serializer.save(
             user_id=self.request.user_id,
-            user_name=user_name,
-            email=email,
+            user_name=user.user_name,
+            email=user.email,
             avatar_url=avatar_url,
             group=group,
             content=content,
@@ -125,7 +137,7 @@ class GroupPostListView(APIView):
         if not group.can_view(request.user_id):
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        posts = Post._default_manager.filter(group=group).select_related('group').prefetch_related(
+        posts = Post._default_manager.filter(group=group).select_related('group', 'user_ref').prefetch_related(
             'attachments', 'comments__replies__replies__replies'
         ).order_by('-created_at')
 

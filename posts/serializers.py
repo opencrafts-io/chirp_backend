@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.conf import settings
 from .models import Attachment, Post, Comment
+from users.models import User
 
 
 class AttachmentSerializer(serializers.ModelSerializer):
@@ -59,7 +60,10 @@ class CommentSerializer(serializers.ModelSerializer):
         return obj.user_ref.user_id if obj.user_ref else obj.user_id
 
     def get_user_name(self, obj):
-        return obj.user_ref.user_name if obj.user_ref else obj.user_name
+        if obj.user_ref:
+            return obj.user_ref.user_name
+        user = User._default_manager.filter(user_id=obj.user_id).only('user_name').first()
+        return user.user_name if user and user.user_name else obj.user_name
 
     def get_user_avatar(self, obj):
         return obj.avatar_url
