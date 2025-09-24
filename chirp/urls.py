@@ -35,6 +35,7 @@ base_urlpatterns = [
     path('users/<str:user_id>/permissions/', views.UserPermissionsView.as_view(), name='user_permissions'),
     path('maintenance/', views.AdminMaintenanceView.as_view(), name='admin_maintenance'),
     path('users/', include('users.urls')),
+    path('search/', views.UnifiedSearchView.as_view(), name='unified-search'),
 ]
 
 # Add qa-chirp prefix for local testing
@@ -46,3 +47,4 @@ urlpatterns = [
 urlpatterns += base_urlpatterns
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns += static('/qa-chirp' + settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

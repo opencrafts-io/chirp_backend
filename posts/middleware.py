@@ -25,7 +25,6 @@ class VerisafeAuthMiddleware:
         ]
 
     def __call__(self, request):
-        # Check if the request path is exempt from authentication
         if self._is_exempt_url(request.path):
             response = self.get_response(request)
             return response
@@ -33,13 +32,10 @@ class VerisafeAuthMiddleware:
         auth_header = request.META.get('HTTP_AUTHORIZATION', '')
         is_test = self._is_test_environment()
 
-        # In test environments, handle authentication differently
         if is_test:
             if auth_header.startswith('Bearer '):
-                # For test environments with Bearer token, validate it locally
                 token = auth_header.split(' ')[1]
                 try:
-                    # Use the proper Verisafe JWT verification
                     payload = verify_verisafe_jwt(token)
                     request.user_id = payload.get('sub')
                     request.user_email = payload.get('email', f"{payload.get('sub')}@example.com")
@@ -67,17 +63,14 @@ class VerisafeAuthMiddleware:
             response = self.get_response(request)
             return response
 
-        # Production/development logic
         if auth_header.startswith('Bearer '):
             token = auth_header.split(' ')[1]
             try:
-                # Use the proper Verisafe JWT verification
                 payload = verify_verisafe_jwt(token)
                 request.user_id = payload.get('sub')
                 request.user_email = payload.get('email', f"{payload.get('sub')}@example.com")
                 request.user_name = payload.get('name', f"User {payload.get('sub')}")
                 request.user_roles = payload.get('roles', [])
-                # Provide default permissions if not present in JWT
                 request.user_permissions = payload.get('permissions', [
                     'read:post:any',
                     'create:post:own',
@@ -92,7 +85,6 @@ class VerisafeAuthMiddleware:
                 return JsonResponse({'error': str(e)}, status=401)
 
         else:
-            # Provide default authentication for DEBUG mode
             if settings.DEBUG:
                 request.user_id = "default_user_123"
                 request.user_email = "default@example.com"
@@ -115,7 +107,6 @@ class VerisafeAuthMiddleware:
 
     def _is_test_environment(self):
         """Check if we're running in a test environment"""
-        # More precise test environment detection
         is_test = (
             'test' in sys.argv or
             'pytest' in sys.argv[0] or

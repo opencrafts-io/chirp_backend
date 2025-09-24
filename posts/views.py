@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from .models import Attachment, Post, Comment, PostLike, CommentLike
 from .serializers import CommentSerializer, PostSerializer
 from django.db.models import F, Q
+from django.db.models.functions import Lower
 from chirp.permissions import CommunityPermission
 from groups.models import Group
 from rest_framework.exceptions import ValidationError, PermissionDenied
@@ -68,15 +69,27 @@ class PostCreateView(generics.CreateAPIView):
             }
         )
 
-        if not created and (user.user_name != user_name or user.email != email):
-            user.user_name = user_name
-            user.email = email
-            user.save()
+        def _is_placeholder(name: str, uid: str) -> bool:
+            try:
+                return (not name) or name.strip() == f"User {uid}"
+            except Exception:
+                return True
+
+        if not created:
+            should_update = False
+            if user_name and not _is_placeholder(user_name, self.request.user_id) and user.user_name != user_name:
+                user.user_name = user_name
+                should_update = True
+            if email and not user.email:
+                user.email = email
+                should_update = True
+            if should_update:
+                user.save()
 
         post = serializer.save(
             user_id=self.request.user_id,
-            user_name=user_name,
-            email=email,
+            user_name=user.user_name,
+            email=user.email,
             avatar_url=avatar_url,
             group=group,
             content=content,
@@ -108,6 +121,38 @@ class PostCreateView(generics.CreateAPIView):
         )
 
 
+class PostSearchView(APIView):
+    """Fast search endpoint for posts by content and author name."""
+
+    def get(self, request):
+        q = (request.GET.get('q') or '').strip()
+        page = int(request.GET.get('page', 1))
+        page_size = min(int(request.GET.get('page_size', 20)), 100)
+
+        if len(q) < 2:
+            return Response({
+                'error': 'Query must be at least 2 characters',
+                'results': [],
+                'count': 0,
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Search in content and canonical user_name via user_ref
+        queryset = Post._default_manager.select_related('group', 'user_ref').prefetch_related('attachments')\
+            .filter(Q(content__icontains=q) | Q(user_ref__user_name__icontains=q))\
+            .order_by('-created_at')
+
+        # Optional group filter
+        group_id = request.GET.get('group_id')
+        if group_id:
+            queryset = queryset.filter(group_id=group_id)
+
+        from chirp.pagination import StandardResultsSetPagination
+        paginator = StandardResultsSetPagination()
+        paginator.page_size = page_size
+        paginated = paginator.paginate_queryset(queryset, request)
+        serializer = PostSerializer(paginated, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)
+
 class GroupPostListView(APIView):
     """View for listing posts within a specific group"""
 
@@ -125,7 +170,7 @@ class GroupPostListView(APIView):
         if not group.can_view(request.user_id):
             return Response({'error': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        posts = Post._default_manager.filter(group=group).select_related('group').prefetch_related(
+        posts = Post._default_manager.filter(group=group).select_related('group', 'user_ref').prefetch_related(
             'attachments', 'comments__replies__replies__replies'
         ).order_by('-created_at')
 

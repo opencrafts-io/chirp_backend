@@ -133,8 +133,132 @@ class AdminMaintenanceView(APIView):
                 return Response({'status': 'ok', 'backfill': True})
             except Exception as e:
                 return Response({'status': 'error', 'message': str(e)}, status=500)
+        elif action == 'backfill_userrefs':
+            try:
+                from posts.models import Post
+                from users.models import User
+                updated = 0
+                missing_user = 0
+                qs = Post._default_manager.all().select_related('user_ref')
+                for p in qs:
+                    if p.user_ref:
+                        u = p.user_ref
+                    else:
+                        u = User._default_manager.filter(user_id=p.user_id).only('user_name', 'email').first()
+                        if not u:
+                            missing_user += 1
+                            continue
+                    changed_fields = []
+                    if p.user_ref_id != u.pk:
+                        p.user_ref = u
+                        changed_fields.append('user_ref')
+                    if p.user_name != u.user_name:
+                        p.user_name = u.user_name
+                        changed_fields.append('user_name')
+                    if (p.email or '') != (u.email or ''):
+                        p.email = u.email
+                        changed_fields.append('email')
+                    if changed_fields:
+                        p.save(update_fields=list(set(changed_fields)))
+                        updated += 1
+                return Response({'status': 'ok', 'updated_posts': updated, 'missing_user_refs': missing_user})
+            except Exception as e:
+                return Response({'status': 'error', 'message': str(e)}, status=500)
         else:
             return Response({'error': 'Unknown action'}, status=400)
 
     def get(self, request):
         return self.post(request)
+
+
+class UnifiedSearchView(APIView):
+
+    def get(self, request):
+        query = request.GET.get('q', '').strip()
+
+        if not query or len(query) < 3:
+            return Response({'error': 'Query must be at least 3 characters'}, status=400)
+
+        if query.startswith('c/'):
+            search_term = query[2:].strip()
+            if len(search_term) < 2:
+                return Response({'error': 'Search term must be at least 2 characters'}, status=400)
+            return self._search_communities(request, search_term)
+        elif query.startswith('u/'):
+            search_term = query[2:].strip()
+            if len(search_term) < 2:
+                return Response({'error': 'Search term must be at least 2 characters'}, status=400)
+            return self._search_users(request, search_term)
+        elif query.startswith('p/'):
+            search_term = query[2:].strip()
+            if len(search_term) < 2:
+                return Response({'error': 'Search term must be at least 2 characters'}, status=400)
+            return self._search_posts(request, search_term)
+        else:
+            return Response({'error': 'Invalid search prefix. Use c/ for communities, u/ for users, p/ for posts'}, status=400)
+
+    def _search_communities(self, request, search_term):
+        from groups.views import GroupSearchView
+        from rest_framework.request import Request
+        from django.http import QueryDict
+
+        new_request = request._request if hasattr(request, '_request') else request
+
+        query_dict = QueryDict(mutable=True)
+        query_dict['q'] = search_term
+        if request.GET.get('page_size'):
+            query_dict['page_size'] = request.GET.get('page_size')
+        if request.GET.get('page'):
+            query_dict['page'] = request.GET.get('page')
+
+        new_request.GET = query_dict
+
+        drf_request = Request(new_request)
+        setattr(drf_request, 'user_id', getattr(request, 'user_id', None))
+
+        view = GroupSearchView()
+        return view.get(drf_request)
+
+    def _search_users(self, request, search_term):
+        from users.views import LocalUserSearchView
+        from rest_framework.request import Request
+        from django.http import QueryDict
+
+        new_request = request._request if hasattr(request, '_request') else request
+
+        query_dict = QueryDict(mutable=True)
+        query_dict['q'] = search_term
+        if request.GET.get('page_size'):
+            query_dict['page_size'] = request.GET.get('page_size')
+        if request.GET.get('page'):
+            query_dict['page'] = request.GET.get('page')
+
+        new_request.GET = query_dict
+
+        drf_request = Request(new_request)
+        setattr(drf_request, 'user_id', getattr(request, 'user_id', None))
+
+        view = LocalUserSearchView()
+        return view.get(drf_request)
+
+    def _search_posts(self, request, search_term):
+        from posts.views import PostSearchView
+        from rest_framework.request import Request
+        from django.http import QueryDict
+
+        new_request = request._request if hasattr(request, '_request') else request
+
+        query_dict = QueryDict(mutable=True)
+        query_dict['q'] = search_term
+        if request.GET.get('page_size'):
+            query_dict['page_size'] = request.GET.get('page_size')
+        if request.GET.get('page'):
+            query_dict['page'] = request.GET.get('page')
+
+        new_request.GET = query_dict
+
+        drf_request = Request(new_request)
+        setattr(drf_request, 'user_id', getattr(request, 'user_id', None))
+
+        view = PostSearchView()
+        return view.get(drf_request)

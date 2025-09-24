@@ -19,6 +19,10 @@ class GroupImageSerializer(serializers.ModelSerializer):
                 url = request.build_absolute_uri(obj.file.url)
                 if getattr(settings, 'USE_TLS', False):
                     url = url.replace('http://', 'https://')
+
+                if 'qachirp.opencrafts.io' in url and '/qa-chirp/' not in url:
+                    url = url.replace('/media/', '/qa-chirp/media/')
+
                 return url
             return obj.file.url
         return None
@@ -68,6 +72,10 @@ class UnifiedGroupSerializer(serializers.ModelSerializer):
                 url = request.build_absolute_uri(logo.get_file_url())
                 if getattr(settings, 'USE_TLS', False):
                     url = url.replace('http://', 'https://')
+
+                if 'qachirp.opencrafts.io' in url and '/qa-chirp/' not in url:
+                    url = url.replace('/media/', '/qa-chirp/media/')
+
                 return url
             return logo.get_file_url()
         return None
@@ -80,6 +88,10 @@ class UnifiedGroupSerializer(serializers.ModelSerializer):
                 url = request.build_absolute_uri(banner.get_file_url())
                 if getattr(settings, 'USE_TLS', False):
                     url = url.replace('http://', 'https://')
+
+                if 'qachirp.opencrafts.io' in url and '/qa-chirp/' not in url:
+                    url = url.replace('/media/', '/qa-chirp/media/')
+
                 return url
             return banner.get_file_url()
         return None
@@ -202,6 +214,10 @@ class GroupSerializer(serializers.ModelSerializer):
                 url = request.build_absolute_uri(logo.get_file_url())
                 if getattr(settings, 'USE_TLS', False):
                     url = url.replace('http://', 'https://')
+
+                if 'qachirp.opencrafts.io' in url and '/qa-chirp/' not in url:
+                    url = url.replace('/media/', '/qa-chirp/media/')
+
                 return url
             return logo.get_file_url()
         return None
@@ -215,6 +231,10 @@ class GroupSerializer(serializers.ModelSerializer):
                 url = request.build_absolute_uri(banner.get_file_url())
                 if getattr(settings, 'USE_TLS', False):
                     url = url.replace('http://', 'https://')
+
+                if 'qachirp.opencrafts.io' in url and '/qa-chirp/' not in url:
+                    url = url.replace('/media/', '/qa-chirp/media/')
+
                 return url
             return banner.get_file_url()
         return None
