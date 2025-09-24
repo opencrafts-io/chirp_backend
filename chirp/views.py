@@ -169,3 +169,96 @@ class AdminMaintenanceView(APIView):
 
     def get(self, request):
         return self.post(request)
+
+
+class UnifiedSearchView(APIView):
+
+    def get(self, request):
+        query = request.GET.get('q', '').strip()
+
+        if not query or len(query) < 3:
+            return Response({'error': 'Query must be at least 3 characters'}, status=400)
+
+        if query.startswith('c/'):
+            search_term = query[2:].strip()
+            if len(search_term) < 2:
+                return Response({'error': 'Search term must be at least 2 characters'}, status=400)
+            return self._search_communities(request, search_term)
+        elif query.startswith('u/'):
+            search_term = query[2:].strip()
+            if len(search_term) < 2:
+                return Response({'error': 'Search term must be at least 2 characters'}, status=400)
+            return self._search_users(request, search_term)
+        elif query.startswith('p/'):
+            search_term = query[2:].strip()
+            if len(search_term) < 2:
+                return Response({'error': 'Search term must be at least 2 characters'}, status=400)
+            return self._search_posts(request, search_term)
+        else:
+            return Response({'error': 'Invalid search prefix. Use c/ for communities, u/ for users, p/ for posts'}, status=400)
+
+    def _search_communities(self, request, search_term):
+        from groups.views import GroupSearchView
+        from rest_framework.request import Request
+        from django.http import QueryDict
+
+        new_request = request._request if hasattr(request, '_request') else request
+
+        query_dict = QueryDict(mutable=True)
+        query_dict['q'] = search_term
+        if request.GET.get('page_size'):
+            query_dict['page_size'] = request.GET.get('page_size')
+        if request.GET.get('page'):
+            query_dict['page'] = request.GET.get('page')
+
+        new_request.GET = query_dict
+
+        drf_request = Request(new_request)
+        setattr(drf_request, 'user_id', getattr(request, 'user_id', None))
+
+        view = GroupSearchView()
+        return view.get(drf_request)
+
+    def _search_users(self, request, search_term):
+        from users.views import LocalUserSearchView
+        from rest_framework.request import Request
+        from django.http import QueryDict
+
+        new_request = request._request if hasattr(request, '_request') else request
+
+        query_dict = QueryDict(mutable=True)
+        query_dict['q'] = search_term
+        if request.GET.get('page_size'):
+            query_dict['page_size'] = request.GET.get('page_size')
+        if request.GET.get('page'):
+            query_dict['page'] = request.GET.get('page')
+
+        new_request.GET = query_dict
+
+        drf_request = Request(new_request)
+        setattr(drf_request, 'user_id', getattr(request, 'user_id', None))
+
+        view = LocalUserSearchView()
+        return view.get(drf_request)
+
+    def _search_posts(self, request, search_term):
+        from posts.views import PostSearchView
+        from rest_framework.request import Request
+        from django.http import QueryDict
+
+        new_request = request._request if hasattr(request, '_request') else request
+
+        query_dict = QueryDict(mutable=True)
+        query_dict['q'] = search_term
+        if request.GET.get('page_size'):
+            query_dict['page_size'] = request.GET.get('page_size')
+        if request.GET.get('page'):
+            query_dict['page'] = request.GET.get('page')
+
+        new_request.GET = query_dict
+
+        drf_request = Request(new_request)
+        setattr(drf_request, 'user_id', getattr(request, 'user_id', None))
+
+        view = PostSearchView()
+        return view.get(drf_request)
