@@ -33,7 +33,7 @@ class LocalUserSearchView(APIView):
         users = [{
             'id': u.user_id,
             'email': u.email,
-            'name': u.full_name or u.user_name,
+            'name': u.name,
             'username': u.username,
             'avatar_url': u.avatar_url,
             'vibe_points': u.vibe_points or 0,
