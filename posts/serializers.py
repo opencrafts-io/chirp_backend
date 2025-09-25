@@ -39,6 +39,45 @@ class GroupSerializer(serializers.Serializer):
     description = serializers.CharField()
 
 
+class UserSerializer(serializers.Serializer):
+    id = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+    avatar_url = serializers.SerializerMethodField()
+    username = serializers.SerializerMethodField()
+    vibe_points = serializers.SerializerMethodField()
+
+    def get_id(self, obj):
+        if hasattr(obj, 'user_ref') and obj.user_ref:
+            return obj.user_ref.user_id
+        return getattr(obj, 'user_id', 'unknown')
+
+    def get_name(self, obj):
+        if hasattr(obj, 'user_ref') and obj.user_ref:
+            return obj.user_ref.user_name
+        return getattr(obj, 'user_name', 'Unknown User')
+
+    def get_email(self, obj):
+        if hasattr(obj, 'user_ref') and obj.user_ref:
+            return obj.user_ref.email
+        return getattr(obj, 'email', None)
+
+    def get_avatar_url(self, obj):
+        if hasattr(obj, 'user_ref') and obj.user_ref:
+            return obj.user_ref.avatar_url
+        return getattr(obj, 'avatar_url', None)
+
+    def get_username(self, obj):
+        if hasattr(obj, 'user_ref') and obj.user_ref:
+            return obj.user_ref.username
+        return None
+
+    def get_vibe_points(self, obj):
+        if hasattr(obj, 'user_ref') and obj.user_ref:
+            return obj.user_ref.vibe_points or 0
+        return 0
+
+
 class CommentSerializer(serializers.ModelSerializer):
     replies = serializers.SerializerMethodField()
     user_avatar = serializers.SerializerMethodField()
@@ -82,8 +121,7 @@ class PostSerializer(serializers.ModelSerializer):
     group = GroupSerializer(read_only=True)
     group_id = serializers.IntegerField(write_only=True, required=False)
     comment_count = serializers.SerializerMethodField()
-    user_id = serializers.SerializerMethodField()
-    user_name = serializers.SerializerMethodField()
+    user = UserSerializer(read_only=True)
 
     class Meta:
         model = Post
@@ -91,10 +129,7 @@ class PostSerializer(serializers.ModelSerializer):
             "id",
             "group",
             "group_id",
-            "user_id",
-            "user_name",
-            "email",
-            "avatar_url",
+            "user",
             "content",
             "created_at",
             "updated_at",
@@ -105,11 +140,11 @@ class PostSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["like_count"]
 
-    def get_user_id(self, obj):
-        return obj.user_ref.user_id if obj.user_ref else obj.user_id
-
-    def get_user_name(self, obj):
-        return obj.user_ref.user_name if obj.user_ref else obj.user_name
-
     def get_comment_count(self, obj):
         return obj.comments.count()
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if 'user' not in data:
+            data['user'] = UserSerializer(instance).data
+        return data
