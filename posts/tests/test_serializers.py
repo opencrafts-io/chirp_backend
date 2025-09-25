@@ -84,12 +84,13 @@ class PostSerializerTest(TestCase):
         post = Post.objects.create(**self.valid_post_data)
         serializer = PostSerializer(post)
 
-        expected_fields = ['id', 'user_id', 'content', 'created_at', 'updated_at']
+        expected_fields = ['id', 'user', 'content', 'created_at', 'updated_at']
         for field in expected_fields:
             self.assertIn(field, serializer.data)
 
         self.assertEqual(serializer.data['content'], 'This is a test post!')
-        self.assertEqual(serializer.data['user_id'], 'user123')
+        self.assertIn('user', serializer.data)
+        self.assertEqual(serializer.data['user']['id'], 'user123')
 
     def test_serializer_many_posts(self):
         """Test serializer with many=True for multiple posts."""
