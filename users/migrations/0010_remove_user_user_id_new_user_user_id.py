@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
             model_name="user",
             name="user_id",
             field=models.UUIDField(
-                default=uuid.UUID("34253ec2-d180-4573-a969-fe99c2d90573"),
+                default=uuid.uuid4(),
                 primary_key=True,
                 serialize=False,
                 unique=True,
