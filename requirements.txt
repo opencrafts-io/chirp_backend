@@ -11,8 +11,11 @@ charset-normalizer==3.4.2
 constantly==23.10.4
 cryptography==45.0.5
 daphne==4.2.1
-Django>=5.2.6
+Django==5.2.6
+django-stubs==5.2.5
+django-stubs-ext==5.2.5
 djangorestframework==3.16.0
+dotenv==0.9.9
 hyperlink==21.0.0
 idna==3.10
 incremental==24.7.2
@@ -26,6 +29,7 @@ pycparser==2.22
 PyJWT==2.10.1
 pyOpenSSL==25.1.0
 python-decouple==3.8
+python-dotenv==1.1.1
 redis==6.4.0
 requests==2.32.4
 rsa==4.9.1
@@ -35,6 +39,7 @@ six==1.17.0
 sqlparse==0.5.3
 Twisted==25.5.0
 txaio==25.6.1
+types-PyYAML==6.0.12.20250915
 typing_extensions==4.15.0
 urllib3==2.5.0
 webencodings==0.5.1

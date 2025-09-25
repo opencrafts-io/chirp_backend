@@ -12,22 +12,27 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-_27eto_6&*cz6cx26valns6lqv*v4am224r3j9y5@hoz*58=_-'
+SECRET_KEY = "django-insecure-_27eto_6&*cz6cx26valns6lqv*v4am224r3j9y5@hoz*58=_-"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS_STR = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1")
-ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_STR.split(',')]
+ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_STR.split(",")]
 VERISAFE_API_SECRET = os.getenv("VERISAFE_API_SECRET", "")
 
 VERISAFE_SERVICE_TOKEN = os.getenv("VERISAFE_SERVICE_TOKEN", "")
@@ -36,32 +41,32 @@ VERISAFE_SERVICE_TOKEN = os.getenv("VERISAFE_SERVICE_TOKEN", "")
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'rest_framework',
-    'channels',
-    'users',
-    'posts',
-    'groups',
-    'dmessages',
-    'utils',
-    'conversations',
-    'websocket_chat',
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "rest_framework",
+    "channels",
+    "users",
+    "posts",
+    "groups",
+    "dmessages",
+    "utils",
+    "conversations",
+    "websocket_chat",
 ]
 
 # Django Channels Configuration
-ASGI_APPLICATION = 'chirp.asgi.application'
+ASGI_APPLICATION = "chirp.asgi.application"
 
 # Channel Layers for Redis
 CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/1')],
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/1")],
         },
     },
 }
@@ -73,24 +78,30 @@ WEBSOCKET_CONNECTION_TIMEOUT = 300
 WEBSOCKET_MAX_MESSAGE_SIZE = 1024 * 1024
 
 REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': [],
-    'DEFAULT_AUTHENTICATION_CLASSES': [],
-    'DEFAULT_PAGINATION_CLASS': 'chirp.pagination.StandardResultsSetPagination',
-    'PAGE_SIZE': 50,
+    "DEFAULT_PERMISSION_CLASSES": [],
+    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_PAGINATION_CLASS": "chirp.pagination.StandardResultsSetPagination",
+    "PAGE_SIZE": 50,
 }
 
 # JWT Configuration
 try:
     from decouple import config
-    SECRET_KEY = config('SECRET_KEY', default='django-insecure-_27eto_6&*cz6cx26valns6lqv*v4am224r3j9y5@hoz*58=_-')
-    JWT_PUBLIC_KEY = config('JWT_PUBLIC_KEY', default='test_jwt_secret_key_for_chirp_testing')
+
+    SECRET_KEY = config(
+        "SECRET_KEY",
+        default="django-insecure-_27eto_6&*cz6cx26valns6lqv*v4am224r3j9y5@hoz*58=_-",
+    )
+    JWT_PUBLIC_KEY = config(
+        "JWT_PUBLIC_KEY", default="test_jwt_secret_key_for_chirp_testing"
+    )
 except ImportError:
     # Fallback for tests or when decouple is not available
-    JWT_PUBLIC_KEY = 'test_jwt_secret_key_for_chirp_testing'
+    JWT_PUBLIC_KEY = "test_jwt_secret_key_for_chirp_testing"
 
 # JWT Testing Configuration
-JWT_TEST_SECRET = 'test_jwt_secret_key_for_chirp_testing'
-JWT_ALGORITHM = 'HS256'
+JWT_TEST_SECRET = "test_jwt_secret_key_for_chirp_testing"
+JWT_ALGORITHM = "HS256"
 
 # For production, you would configure these for your external JWT provider:
 # JWT_PUBLIC_KEY = 'your_production_rsa_public_key'
@@ -99,51 +110,51 @@ JWT_ALGORITHM = 'HS256'
 # For RS256 (asymmetric), use private key for signing, public key for verification
 
 # Verisafe Integration
-VERISAFE_BASE_URL = os.environ.get('VERISAFE_BASE_URL', 'https://qaverisafe.opencrafts.io')
-VERISAFE_SERVICE_TOKEN = os.environ.get('VERISAFE_SERVICE_TOKEN', '')
+VERISAFE_BASE_URL = os.getenv("VERISAFE_BASE_URL", "https://qaverisafe.opencrafts.io")
+VERISAFE_SERVICE_TOKEN = os.getenv("VERISAFE_SERVICE_TOKEN", "")
 
 # Verisafe JWT Configuration
-VERISAFE_API_SECRET = os.environ.get('VERISAFE_API_SECRET', 'super-secret-token')
-VERISAFE_ISSUER = os.environ.get('VERISAFE_ISSUER', 'https://verisafe.opencrafts.io/')
-VERISAFE_AUDIENCE = os.environ.get('VERISAFE_AUDIENCE', 'https://academia.opencrafts.io/')
+VERISAFE_API_SECRET = os.getenv("VERISAFE_API_SECRET", "super-secret-token")
+VERISAFE_ISSUER = os.getenv("VERISAFE_ISSUER", "https://verisafe.opencrafts.io/")
+VERISAFE_AUDIENCE = os.getenv("VERISAFE_AUDIENCE", "https://academia.opencrafts.io/")
 
 # Cache configuration for user data
 CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/1"),
     }
 }
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'posts.middleware.VerisafeAuthMiddleware',
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "posts.middleware.VerisafeAuthMiddleware",
 ]
 
-ROOT_URLCONF = 'chirp.urls'
+ROOT_URLCONF = "chirp.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'chirp.wsgi.application'
+WSGI_APPLICATION = "chirp.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -151,11 +162,11 @@ WSGI_APPLICATION = 'chirp.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DB_NAME", "chirp_db"),
-        "USER": os.environ.get("DB_USER", "chirp_user"),
-        "PASSWORD": os.environ.get("DB_PASSWORD", "chirp_password"),
-        "HOST": os.environ.get("DB_HOST", "localhost"),
-        "PORT": os.environ.get("DB_PORT", "5432"),
+        "NAME": os.getenv("DB_NAME", "chirp_db"),
+        "USER": os.getenv("DB_USER", "chirp_user"),
+        "PASSWORD": os.getenv("DB_PASSWORD", "chirp_password"),
+        "HOST": os.getenv("DB_HOST", "localhost"),
+        "PORT": os.getenv("DB_PORT", "5432"),
     }
 }
 
@@ -165,16 +176,16 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -182,9 +193,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "UTC"
 
 USE_I18N = True
 
@@ -194,12 +205,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "static/"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -210,5 +221,5 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
 
 # HTTPS Configuration
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-USE_TLS = os.environ.get('USE_TLS', 'False').lower() == 'true'
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_TLS = os.environ.get("USE_TLS", "False").lower() == "true"
