@@ -3,10 +3,10 @@ import uuid
 
 
 class User(models.Model):
-    user_id = models.CharField(max_length=100, unique=True, primary_key=True)
-    user_id_new = models.UUIDField(
+    user_id = models.UUIDField(
         default=uuid.uuid4(),
         unique=True,
+        primary_key=True,
     )
     user_name = models.CharField(max_length=100)
     full_name = models.CharField(max_length=255, null=True, blank=True)
