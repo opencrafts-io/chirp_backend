@@ -1,22 +1,67 @@
 from django.urls import path
+
+from posts.views import (
+    DestroyPostView,
+    ListPostView,
+    PostCreateView,
+    PostSearchView,
+    RetrievePostByAuthorView,
+    RetrievePostByCommunityView,
+    RetrievePostByIDView,
+)
+
 # from .views import (
-    # PostListView,
-    # PostCreateView,
-    # PostDetailView,
-    # CommentCreateView,
-    # CommentDetailView,
-    # PostLikeToggleView,
-    # CommentLikeToggleView,
-    # GroupPostListView,
-    # RecommendationMetricsView,
-    # PostSearchView,
+# PostListView,
+# PostCreateView,
+# PostDetailView,
+# CommentCreateView,
+# CommentDetailView,
+# PostLikeToggleView,
+# CommentLikeToggleView,
+# GroupPostListView,
+# RecommendationMetricsView,
+# PostSearchView,
 # )
 
 urlpatterns = [
     # path("groups/<int:group_id>/posts/", GroupPostListView.as_view(), name="group-post-list"),
     # path("groups/<int:group_id>/posts/create/", PostCreateView.as_view(), name="group-post-create"),
     #
-    # path("", PostListView.as_view(), name="post-list"),
+    path(
+        "create",
+        PostCreateView.as_view(),
+        name="post-create",
+    ),
+    path(
+        "all",
+        ListPostView.as_view(),
+        name="post-list",
+    ),
+    path(
+        "<int:id>/details",
+        RetrievePostByIDView.as_view(),
+        name="get-post-by-id",
+    ),
+    path(
+        "by/<uuid:author>",
+        RetrievePostByAuthorView.as_view(),
+        name="get-post-by-author",
+    ),
+    path(
+        "from/<int:group>",
+        RetrievePostByCommunityView.as_view(),
+        name="get-post-by-author",
+    ),
+    path(
+        "search",
+        PostSearchView.as_view(),
+        name="search-for-post",
+    ),
+    path(
+        "<int:id>/delete",
+        DestroyPostView.as_view(),
+        name="delete-post",
+    ),
     # path("create/", PostCreateView.as_view(), name="post-create"),
     # path("recommendations/metrics/", RecommendationMetricsView.as_view(), name="recommendation-metrics"),
     # path("search/", PostSearchView.as_view(), name="post-search"),
