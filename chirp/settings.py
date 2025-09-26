@@ -79,7 +79,9 @@ WEBSOCKET_MAX_MESSAGE_SIZE = 1024 * 1024
 
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [],
-    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "chirp.verisafe_authentication.VerisafeAuthentication",
+    ],
     "DEFAULT_PAGINATION_CLASS": "chirp.pagination.StandardResultsSetPagination",
     "PAGE_SIZE": 50,
 }
@@ -134,7 +136,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "posts.middleware.VerisafeAuthMiddleware",
 ]
 
 ROOT_URLCONF = "chirp.urls"
