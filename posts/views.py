@@ -5,11 +5,12 @@ from rest_framework.generics import (
     CreateAPIView,
     DestroyAPIView,
     ListAPIView,
+    ListCreateAPIView,
     RetrieveAPIView,
 )
 
-from posts.models import Post, PostView
-from posts.serializers import PostSerializer, PostViewSerializer
+from posts.models import Comment, Post, PostView
+from posts.serializers import CommentSerializer, PostSerializer, PostViewSerializer
 from users.models import User
 
 
@@ -83,7 +84,7 @@ class RecordPostViewerView(CreateAPIView):
 
         try:
             post = Post.objects.get(id=post_id)
-            user_id = self.request.user_id  or None
+            user_id = self.request.user_id or None
 
             if user_id is None or user_id == "":
                 raise ValidationError(
@@ -100,3 +101,29 @@ class RecordPostViewerView(CreateAPIView):
             raise ValidationError(f"User with id {user_id} does not exist yet")
         except Exception as e:
             raise e
+
+
+class CommentListCreateView(ListCreateAPIView):
+    serializer_class = CommentSerializer
+
+    def get_queryset(self):
+        post_id = self.kwargs["post_id"]
+        return Comment.objects.filter(post_id=post_id, parent=None).prefetch_related(
+            "replies", "author"
+        )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["current_depth"] = 0  # start depth counting
+        return context
+
+
+class CommentRetrieveView(RetrieveAPIView):
+    serializer_class = CommentSerializer
+    queryset = Comment.objects.all()
+    lookup_field = "id"
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["current_depth"] = 0
+        return context

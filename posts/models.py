@@ -165,11 +165,45 @@ class Comment(models.Model):
         """Returns True if this comment is a top-level comment"""
         return self.parent is None
 
-    def get_all_replies(self):
-        """Recursively fetch all nested replies"""
-        replies = []
-        for reply in self.replies.all():
-            replies.append(reply)
-            replies.extend(reply.get_all_replies())
-        return replies
+    @property
+    def depth(self):
+        depth = 0
+        parent = self.parent
+        while parent:
+            depth += 1
+            parent = parent.parent
+        return depth
 
+    def get_all_replies(self, max_depth: int = 3, _current_depth: int = 0):
+        """Recursively fetch all nested replies up to max_depth"""
+        if _current_depth >= max_depth:
+            return []
+
+        all_replies = []
+        for reply in self.replies.all():
+            all_replies.append(reply)
+            all_replies.extend(
+                reply.get_all_replies(
+                    max_depth=max_depth, _current_depth=_current_depth + 1
+                )
+            )
+        return all_replies
+
+
+class CommentVote(models.Model):
+    comment = models.ForeignKey(
+        Comment,
+        on_delete=models.CASCADE,
+        related_name="votes",
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+    )
+    is_upvote = models.BooleanField(null=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    class Meta:
+        unique_together = ("comment", "user")

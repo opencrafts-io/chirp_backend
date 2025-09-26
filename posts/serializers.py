@@ -51,53 +51,37 @@ class GroupSerializer(serializers.Serializer):
 
 class CommentSerializer(serializers.ModelSerializer):
     replies = serializers.SerializerMethodField()
-    user_avatar = serializers.SerializerMethodField()
-    is_liked = serializers.SerializerMethodField()
-    user_id = serializers.SerializerMethodField()
-    user_name = serializers.SerializerMethodField()
+    author = UserSerializer(read_only=True)
+    author_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="author"
+    )
 
     class Meta:
         model = Comment
         fields = [
             "id",
+            "post",
+            "author_id",
+            "author",
             "content",
-            "user_id",
-            "user_name",
-            "user_avatar",
             "created_at",
             "updated_at",
-            "depth",
-            "like_count",
-            "is_liked",
+            "upvotes",
+            "downvotes",
             "replies",
+            "parent",
         ]
 
     def get_replies(self, obj):
-        if obj.replies.exists():
-            return CommentSerializer(
-                obj.replies.all(), many=True, context=self.context
-            ).data
-        return []
+        max_depth = 3  # set your sane limit
+        current_depth = self.context.get("current_depth", 0)
+        if current_depth >= max_depth:
+            return []
 
-    def get_user_id(self, obj):
-        return obj.user_ref.user_id if obj.user_ref else obj.user_id
-
-    def get_user_name(self, obj):
-        if obj.user_ref:
-            return obj.user_ref.user_name
-        user = (
-            User._default_manager.filter(user_id=obj.user_id).only("user_name").first()
+        serializer = CommentSerializer(
+            obj.replies.all(), many=True, context={"current_depth": current_depth + 1}
         )
-        return user.user_name if user and user.user_name else obj.user_name
-
-    def get_user_avatar(self, obj):
-        return obj.avatar_url
-
-    def get_is_liked(self, obj):
-        request = self.context.get("request")
-        if request and hasattr(request, "user_id") and request.user_id:
-            return obj.likes.filter(user_id=request.user_id).exists()
-        return False
+        return serializer.data
 
 
 class PostSerializer(serializers.ModelSerializer):
