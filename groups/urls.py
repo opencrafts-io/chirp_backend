@@ -6,7 +6,7 @@ from .views import (
     GroupDeleteView, InviteLinkCreateView, InviteLinkJoinView, InviteLinkListView,
     GroupSearchView,
 )
-from posts.views import GroupPostListView, PostCreateView
+# from posts.views import  PostCreateView
 
 urlpatterns = [
     # Community management
@@ -39,8 +39,8 @@ urlpatterns = [
     path('<int:group_id>/banned/', GroupBannedUsersView.as_view(), name='group-banned'),
 
     # Group posts
-    path('<int:group_id>/posts/', GroupPostListView.as_view(), name='group-posts'),
-    path('<int:group_id>/posts/create/', PostCreateView.as_view(), name='group-post-create'),
+    # path('<int:group_id>/posts/', GroupPostListView.as_view(), name='group-posts'),
+    # path('<int:group_id>/posts/create/', PostCreateView.as_view(), name='group-post-create'),
 
     # Search
     path('search/', GroupSearchView.as_view(), name='group-search'),
