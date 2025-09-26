@@ -3,7 +3,7 @@ from django.conf import settings
 
 from groups.models import Group
 from users.serializers import UserSerializer
-from .models import Attachment, Post, Comment
+from .models import Attachment, Post, Comment, PostView
 from users.models import User
 
 
@@ -141,3 +141,18 @@ class PostSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
+
+class PostViewSerializer(serializers.ModelSerializer):
+    post = PostSerializer(read_only=True)
+    viewer = UserSerializer(read_only=True, allow_null=True, source="user")
+    viewer_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="user"
+    )
+    post_id = serializers.PrimaryKeyRelatedField(
+        queryset=Post.objects.all(), source="post"
+    )
+
+    class Meta:
+        model = PostView
+        fields = ["id", "post", "post_id", "viewer", "viewer_id", "viewed_at"]
+        read_only_fields = ["id", "viewed_at"]

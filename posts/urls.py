@@ -5,6 +5,7 @@ from posts.views import (
     ListPostView,
     PostCreateView,
     PostSearchView,
+    RecordPostViewerView,
     RetrievePostByAuthorView,
     RetrievePostByCommunityView,
     RetrievePostByIDView,
@@ -61,6 +62,12 @@ urlpatterns = [
         "<int:id>/delete",
         DestroyPostView.as_view(),
         name="delete-post",
+    ),
+    # Post view metrics
+    path(
+        "<int:id>/viewed",
+        RecordPostViewerView.as_view(),
+        name="record-post-as-viewed",
     ),
     # path("create/", PostCreateView.as_view(), name="post-create"),
     # path("recommendations/metrics/", RecommendationMetricsView.as_view(), name="recommendation-metrics"),
