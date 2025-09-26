@@ -83,6 +83,7 @@ class Post(models.Model):
     content = models.TextField()
     upvotes = models.IntegerField(default=0)
     downvotes = models.IntegerField(default=0)
+    views_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
