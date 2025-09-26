@@ -21,7 +21,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 # Base URL patterns without prefix
-base_urlpatterns = [
+urlpatterns = [
     path('admin/', admin.site.urls),
     path('ping/', views.PingView.as_view(), name='ping'),
     path('statuses/', include('posts.urls')),
@@ -39,12 +39,11 @@ base_urlpatterns = [
 ]
 
 # Add qa-chirp prefix for local testing
-urlpatterns = [
-    path('qa-chirp/', include(base_urlpatterns)),
-]
+# urlpatterns = [
+#     path('qa-chirp/', include(base_urlpatterns)),
+# ]
 
 # Also include base patterns for backward compatibility
-urlpatterns += base_urlpatterns
-
+# urlpatterns += base_urlpatterns
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-urlpatterns += static('/qa-chirp' + settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# urlpatterns += static('/qa-chirp' + settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
