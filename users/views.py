@@ -31,8 +31,8 @@ class LocalUserSearchView(ListAPIView):
 
         return User._default_manager.filter(
             Q(username__icontains=q)
-            | Q(full_name__icontains=q)
-            | Q(user_name__icontains=q)
+            | Q(name__icontains=q)
+            | Q(email__icontains=q)
         ).order_by("name")
 
 
