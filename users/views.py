@@ -1,4 +1,4 @@
-from rest_framework.generics import ListAPIView, QuerySet
+from rest_framework.generics import CreateAPIView, ListAPIView, QuerySet
 from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q
 
@@ -11,6 +11,10 @@ class UserPagination(PageNumberPagination):
     page_size = 30
     page_size_query_param = "page_size"
     max_page_size = 100
+
+
+class CreateUserView(CreateAPIView):
+    serializer_class = UserSerializer
 
 
 class LocalUserSearchView(ListAPIView):
@@ -26,9 +30,7 @@ class LocalUserSearchView(ListAPIView):
             return User.objects.none()
 
         return User._default_manager.filter(
-            Q(username__icontains=q)
-            | Q(name__icontains=q)
-            | Q(email__icontains=q)
+            Q(username__icontains=q) | Q(name__icontains=q) | Q(email__icontains=q)
         ).order_by("name")
 
 
@@ -38,4 +40,3 @@ class UserListView(ListAPIView):
 
     def get_queryset(self) -> QuerySet[User]:
         return User.objects.all()
-

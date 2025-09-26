@@ -10,6 +10,7 @@ class VerisafeAuthMiddleware:
         self.verisafe_client = get_verisafe_client()
         # URLs that don't require authentication
         self.exempt_urls = [
+            '/users/'
             '/ping/',
             '/admin/',
             '/static/',
