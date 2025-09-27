@@ -16,19 +16,6 @@ from posts.views import (
     RetrievePostByIDView,
 )
 
-# from .views import (
-# PostListView,
-# PostCreateView,
-# PostDetailView,
-# CommentCreateView,
-# CommentDetailView,
-# PostLikeToggleView,
-# CommentLikeToggleView,
-# GroupPostListView,
-# RecommendationMetricsView,
-# PostSearchView,
-# )
-
 urlpatterns = [
     path(
         "create",

@@ -1,10 +1,21 @@
 from django.contrib import admin
-# from .models import Attachment, Post, PostLike, Comment, CommentLike
-#
-#
-# @admin.register(Post)
-# class PostAdmin(admin.ModelAdmin):
-#     list_display = ('id', 'user_name', 'user_id', 'group', 'content_preview', 'like_count', 'created_at')
+
+from posts.models import Post
+
+@admin.register(Post)
+class PostAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "author",
+        "title",
+        "comment_count",
+        "views_count",
+        "upvotes",
+        "downvotes",
+        "created_at",
+    )
+
+
 #     list_filter = ('group', 'created_at', 'user_name')
 #     search_fields = ('content', 'user_name', 'user_id', 'group__name')
 #     readonly_fields = ('like_count', 'created_at', 'updated_at')
