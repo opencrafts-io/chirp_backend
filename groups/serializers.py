@@ -52,7 +52,7 @@ class UnifiedGroupSerializer(serializers.ModelSerializer):
     member_names = serializers.SerializerMethodField()
     banned_users = serializers.SerializerMethodField()
     banned_user_names = serializers.SerializerMethodField()
-    rules = serializers.ListField(child=serializers.CharField(), read_only=True)
+    rules = serializers.SerializerMethodField()
     updated_at = serializers.DateTimeField(read_only=True)
     logo_url = serializers.SerializerMethodField()
     banner_url = serializers.SerializerMethodField()
@@ -139,7 +139,7 @@ class UnifiedGroupSerializer(serializers.ModelSerializer):
         try:
             from users.models import User
             user = User.objects.get(user_id=user_id)
-            return obj.memberships.filter(user=user, banned=True).exists()
+            return obj.group_memberships.filter(user=user, banned=True).exists()
         except:
             return False
 
@@ -166,43 +166,46 @@ class UnifiedGroupSerializer(serializers.ModelSerializer):
 
     def get_moderators(self, obj):
         try:
-            return [str(m.user.user_id) for m in obj.memberships.filter(role__in=["moderator", "creator"])]
+            return [str(m.user.user_id) for m in obj.group_memberships.filter(role__in=["moderator", "creator"])]
         except:
             return []
 
     def get_moderator_names(self, obj):
         try:
-            return [m.user.name for m in obj.memberships.filter(role__in=["moderator", "creator"])]
+            return [m.user.name for m in obj.group_memberships.filter(role__in=["moderator", "creator"])]
         except:
             return []
 
     def get_members(self, obj):
         try:
-            return [str(m.user.user_id) for m in obj.memberships.filter(role="member")]
+            return [str(m.user.user_id) for m in obj.group_memberships.filter(role="member")]
         except:
             return []
 
     def get_member_names(self, obj):
         try:
-            return [m.user.name for m in obj.memberships.filter(role="member")]
+            return [m.user.name for m in obj.group_memberships.filter(role="member")]
         except:
             return []
 
     def get_banned_users(self, obj):
         try:
-            return [str(m.user.user_id) for m in obj.memberships.filter(banned=True)]
+            return [str(m.user.user_id) for m in obj.group_memberships.filter(banned=True)]
         except:
             return []
 
     def get_banned_user_names(self, obj):
         try:
-            return [m.user.name for m in obj.memberships.filter(banned=True)]
+            return [m.user.name for m in obj.group_memberships.filter(banned=True)]
         except:
             return []
 
+    def get_rules(self, obj):
+        return obj.guidelines if isinstance(obj.guidelines, list) else []
+
     def get_member_count(self, obj):
         try:
-            return obj.memberships.count()
+            return obj.group_memberships.count()
         except:
             return 0
 

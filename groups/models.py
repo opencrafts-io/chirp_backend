@@ -143,7 +143,7 @@ class Group(models.Model):
         try:
             from users.models import User
             user = User.objects.get(user_id=user_id)
-            return self.memberships.filter(user=user, role__in=["moderator", "creator"]).exists()
+            return self.group_memberships.filter(user=user, role__in=["moderator", "creator"]).exists()
         except:
             return False
 
@@ -153,7 +153,7 @@ class Group(models.Model):
 
         try:
             user = User._default_manager.get(user_id=user_id)
-            return self.memberships.filter(
+            return self.group_memberships.filter(
                 user=user, role__in=["member", "moderator", "creator"]
             ).exists()
         except:
@@ -173,7 +173,7 @@ class Group(models.Model):
         try:
             from users.models import User
             user = User.objects.get(user_id=user_id)
-            if self.memberships.filter(user=user, banned=True).exists():
+            if self.group_memberships.filter(user=user, banned=True).exists():
                 return False
         except:
             pass
@@ -186,7 +186,7 @@ class Group(models.Model):
 
     def can_add_moderator(self) -> bool:
         """Check if more moderators can be added (under the 20 cap)"""
-        moderator_count = self.memberships.filter(role__in=["moderator", "creator"]).count()
+        moderator_count = self.group_memberships.filter(role__in=["moderator", "creator"]).count()
         if moderator_count >= 20:
             return False
         return True
@@ -204,7 +204,7 @@ class Group(models.Model):
         try:
             from users.models import User
             user = User.objects.get(user_id=user_id)
-            if not self.memberships.filter(user=user, role="moderator").exists() and user_id != str(self.creator.user_id) if self.creator else True:
+            if not self.group_memberships.filter(user=user, role="moderator").exists() and user_id != str(self.creator.user_id) if self.creator else True:
                 GroupMembership._default_manager.get_or_create(
                     group=self, user=user, defaults={"role": "moderator"}
                 )
@@ -220,7 +220,7 @@ class Group(models.Model):
             from users.models import User
             user = User.objects.get(user_id=user_id)
             if user_id != str(self.creator.user_id) if self.creator else True:
-                membership = self.memberships.filter(user=user, role="moderator").first()
+                membership = self.group_memberships.filter(user=user, role="moderator").first()
                 if membership:
                     membership.delete()
         except:
@@ -234,7 +234,7 @@ class Group(models.Model):
         try:
             from users.models import User
             user = User.objects.get(user_id=user_id)
-            if not self.memberships.filter(user=user).exists() and not self.is_moderator(user_id):
+            if not self.group_memberships.filter(user=user).exists() and not self.is_moderator(user_id):
                 GroupMembership._default_manager.get_or_create(
                     group=self, user=user, defaults={"role": "member"}
                 )
@@ -252,7 +252,7 @@ class Group(models.Model):
         try:
             from users.models import User
             user = User.objects.get(user_id=user_id)
-            if self.memberships.filter(user=user, banned=True).exists():
+            if self.group_memberships.filter(user=user, banned=True).exists():
                 raise ValidationError("You are banned from this group")
 
             GroupMembership._default_manager.get_or_create(
@@ -269,7 +269,7 @@ class Group(models.Model):
         try:
             from users.models import User
             user = User.objects.get(user_id=user_id)
-            membership = self.memberships.filter(user=user, role="member").first()
+            membership = self.group_memberships.filter(user=user, role="member").first()
             if membership:
                 membership.delete()
         except:
@@ -283,7 +283,7 @@ class Group(models.Model):
         try:
             from users.models import User
             user = User.objects.get(user_id=user_id)
-            membership = self.memberships.filter(user=user).first()
+            membership = self.group_memberships.filter(user=user).first()
             if membership:
                 membership.banned = True
                 membership.save()
@@ -302,7 +302,7 @@ class Group(models.Model):
         try:
             from users.models import User
             user = User.objects.get(user_id=user_id)
-            membership = self.memberships.filter(user=user, banned=True).first()
+            membership = self.group_memberships.filter(user=user, banned=True).first()
             if membership:
                 membership.banned = False
                 membership.save()
@@ -317,10 +317,10 @@ class Group(models.Model):
         if not rule or not rule.strip():
             raise ValidationError("Rule cannot be empty")
 
-        current_rules = self.rules if isinstance(self.rules, list) else []
+        current_rules = self.guidelines if isinstance(self.guidelines, list) else []
         if rule.strip() not in current_rules:
             current_rules.append(rule.strip())
-            self.rules = current_rules
+            self.guidelines = current_rules
             self.save()
 
     def remove_rule(self, rule: str, removed_by: str):
@@ -328,10 +328,10 @@ class Group(models.Model):
         if not self.is_moderator(removed_by):
             raise ValidationError("Only moderators can remove community rules")
 
-        current_rules = self.rules if isinstance(self.rules, list) else []
+        current_rules = self.guidelines if isinstance(self.guidelines, list) else []
         if rule in current_rules:
             current_rules.remove(rule)
-            self.rules = current_rules
+            self.guidelines = current_rules
             self.save()
 
     def update_rules(self, rules: list, updated_by: str):
@@ -344,16 +344,16 @@ class Group(models.Model):
 
         valid_rules = [rule.strip() for rule in rules if rule and rule.strip()]
 
-        self.rules = valid_rules
+        self.guidelines = valid_rules
         self.save()
 
     def get_rules(self) -> list:
         """Get all community rules"""
-        return self.rules if isinstance(self.rules, list) else []
+        return self.guidelines if isinstance(self.guidelines, list) else []
 
     def get_user_list(self) -> dict:
         """Get a complete list of all users in the group with their names and roles"""
-        memberships = self.memberships.all()
+        memberships = self.group_memberships.all()
 
         moderators = []
         members = []
@@ -397,7 +397,7 @@ class Group(models.Model):
 
     def sync_json_fields(self):
         """Sync JSON fields with GroupMembership records for backward compatibility"""
-        memberships = self.memberships.all()
+        memberships = self.group_memberships.all()
 
         pass
 

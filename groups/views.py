@@ -373,7 +373,7 @@ class GroupLeaveView(APIView):
 
         # Remove from moderators if present
         try:
-            membership = group.memberships.get(user__user_id=user_id)
+            membership = group.group_memberships.get(user__user_id=user_id)
             membership.delete()
         except:
             pass
@@ -555,7 +555,7 @@ class GroupSettingsView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        allowed_fields = ["name", "description", "is_private"]
+        allowed_fields = ["name", "description", "private"]
         for field in allowed_fields:
             if field in request.data:
                 setattr(group, field, request.data[field])
@@ -787,7 +787,7 @@ class GroupRuleEditView(APIView):
                 )
 
             current_rules[rule_index] = str(new_rule).strip()
-            group.rules = current_rules
+            group.guidelines = current_rules
             group.save()
 
             serializer = UnifiedGroupSerializer(
@@ -834,7 +834,7 @@ class GroupMembersView(APIView):
             )
 
         try:
-            memberships = group.memberships.filter(role="member").select_related("user")
+            memberships = group.group_memberships.filter(role="member").select_related("user")
             member_list = []
             for membership in memberships:
                 member_list.append(
@@ -878,13 +878,12 @@ class GroupSearchView(APIView):
         base_qs = Group._default_manager.all()
         if user_id:
             base_qs = base_qs.filter(
-                Q(is_private=False)
-                | Q(members__contains=[user_id])
-                | Q(moderators__contains=[user_id])
-                | Q(creator_id=user_id)
+                Q(private=False)
+                | Q(group_memberships__user__user_id=user_id)
+                | Q(creator__user_id=user_id)
             )
         else:
-            base_qs = base_qs.filter(is_private=False)
+            base_qs = base_qs.filter(private=False)
 
         qs = base_qs.filter(
             Q(name__icontains=q) | Q(description__icontains=q)
@@ -925,7 +924,7 @@ class GroupModeratorsView(APIView):
             )
 
         try:
-            memberships = group.memberships.filter(
+            memberships = group.group_memberships.filter(
                 role__in=["creator", "moderator"]
             ).select_related("user")
             moderator_list = []
