@@ -25,7 +25,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('ping/', views.PingView.as_view(), name='ping'),
     path('posts/', include('posts.urls')),
-    path('groups/', include('groups.urls')),
+    path('community/', include('groups.urls')),
     path('conversations/', include('conversations.urls')),
     path('messages/', include('dmessages.urls')),
     path('chat/', include('websocket_chat.urls')),
