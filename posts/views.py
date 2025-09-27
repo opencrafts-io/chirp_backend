@@ -127,3 +127,9 @@ class CommentRetrieveView(RetrieveAPIView):
         context = super().get_serializer_context()
         context["current_depth"] = 0
         return context
+
+
+class CommentDestroyView(DestroyAPIView):
+    serializer_class = CommentSerializer
+    queryset = Comment.objects.all()
+    lookup_field = "id"

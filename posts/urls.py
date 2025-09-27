@@ -1,6 +1,7 @@
 from django.urls import path
 
 from posts.views import (
+    CommentDestroyView,
     CommentListCreateView,
     CommentRetrieveView,
     DestroyPostView,
@@ -82,5 +83,9 @@ urlpatterns = [
         CommentRetrieveView.as_view(),
         name="comment-detail",
     ),
-
+    path(
+        "comments/<int:id>/delete",
+        CommentDestroyView.as_view(),
+        name="delete-comment-by-id",
+    ),
 ]

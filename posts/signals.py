@@ -13,11 +13,8 @@ def increment_post_views_count(sender, instance: PostView, created: bool, **kwar
 
 
 @receiver(pre_delete, sender=PostView)
-def decrement_post_views_count(sender, instance: PostView, created: bool, **kwargs):
-    if created:
-        Post.objects.filter(id=instance.post.id).update(
-            views_count=F("views_count") - 1
-        )
+def decrement_post_views_count(sender, instance: PostView, **kwargs):
+    Post.objects.filter(id=instance.post.id).update(views_count=F("views_count") - 1)
 
 
 @receiver(post_save, sender=Comment)
@@ -29,8 +26,7 @@ def increment_post_comment_count(sender, instance: Comment, created: bool, **kwa
 
 
 @receiver(pre_delete, sender=Comment)
-def decrement_post_comment_count(sender, instance: Comment, created: bool, **kwargs):
-    if created:
-        Post.objects.filter(id=instance.post.id).update(
-            comment_count=F("comment_count") - 1
-        )
+def decrement_post_comment_count(sender, instance: Comment, **kwargs):
+    Post.objects.filter(id=instance.post.id).update(
+        comment_count=F("comment_count") - 1
+    )
