@@ -80,9 +80,10 @@ class Post(models.Model):
         related_name="posts_users",
     )
     title = models.TextField(blank=True, null=True)
-    content = models.TextField()
+    content = models.TextField(blank=True, null=True)
     upvotes = models.IntegerField(default=0)
     downvotes = models.IntegerField(default=0)
+    comment_count = models.PositiveIntegerField(default=0)
     views_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

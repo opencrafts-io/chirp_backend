@@ -113,6 +113,7 @@ class PostSerializer(serializers.ModelSerializer):
             "downvotes",
             "attachments",
             "views_count",
+            "comment_count",
             "comments",
             "created_at",
             "updated_at",
