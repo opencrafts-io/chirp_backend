@@ -1,9 +1,10 @@
+from django.forms import fields
 from rest_framework import serializers
 from django.conf import settings
 
 from groups.models import Group
 from users.serializers import UserSerializer
-from .models import Attachment, Post, Comment, PostView
+from .models import Attachment, Post, Comment, PostView, PostVotes
 from users.models import User
 
 
@@ -142,3 +143,19 @@ class PostViewSerializer(serializers.ModelSerializer):
         model = PostView
         fields = ["id", "post", "post_id", "viewer", "viewer_id", "viewed_at"]
         read_only_fields = ["id", "viewed_at"]
+
+
+class PostVoteSerializer(serializers.ModelSerializer):
+    post = PostSerializer(read_only=True)
+    voter = UserSerializer(read_only=True, allow_null=True, source="user")
+    voter_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="user"
+    )
+    post_id = serializers.PrimaryKeyRelatedField(
+        queryset=Post.objects.all(), source="post"
+    )
+
+    class Meta:
+        model = PostVotes
+        fields = ["id", "voter", "voter_id", "post", "post_id", "value", "created_at"]
+        read_only_fields = ["voter", "post", "created_at"]

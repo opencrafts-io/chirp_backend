@@ -124,7 +124,7 @@ class PostVotes(models.Model):
 
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="votes")
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    value = models.SmallIntegerField(choices=VOTE_CHOICES)
+    value = models.SmallIntegerField(choices=VOTE_CHOICES, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

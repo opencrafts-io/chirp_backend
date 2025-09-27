@@ -1,5 +1,5 @@
+from django.contrib.admindocs.views import user_has_model_view_permission
 from django.db.models import Q, QuerySet
-from django.shortcuts import get_object_or_404
 from rest_framework.fields import ValidationError
 from rest_framework.generics import (
     CreateAPIView,
@@ -9,8 +9,13 @@ from rest_framework.generics import (
     RetrieveAPIView,
 )
 
-from posts.models import Comment, Post, PostView
-from posts.serializers import CommentSerializer, PostSerializer, PostViewSerializer
+from posts.models import Comment, Post, PostView, PostVotes
+from posts.serializers import (
+    CommentSerializer,
+    PostSerializer,
+    PostViewSerializer,
+    PostVoteSerializer,
+)
 from users.models import User
 
 
@@ -101,6 +106,50 @@ class RecordPostViewerView(CreateAPIView):
             raise ValidationError(f"User with id {user_id} does not exist yet")
         except Exception as e:
             raise e
+
+
+class PostVoteView(CreateAPIView):
+    """
+    Upvote or downvote a post.
+    If a vote exists, update it; otherwise, create a new vote.
+    """
+
+    serializer_class = PostVoteSerializer
+
+    def perform_create(self, serializer):
+        post = serializer.validated_data["post"]
+        user = serializer.validated_data["user"]
+        value = serializer.validated_data["value"]
+
+        if value not in [PostVotes.UPVOTE, PostVotes.DOWNVOTE]:
+            raise ValidationError("Invalid vote value. Must be 1 or -1.")
+
+        obj, created = PostVotes.objects.update_or_create(
+            post=post,
+            user=user,
+            defaults={"value": value},
+        )
+        serializer.instance = obj
+
+
+class PostVoteDeleteView(DestroyAPIView):
+    """
+    Redact a vote by deleting the user's vote for a post.
+    """
+
+    lookup_field = "post_id"
+
+    def get_object(self):
+        post_id = self.kwargs["post_id"]
+
+        try:
+            user_id = self.request.user_id or ""
+            user = User.objects.get(user_id=user_id)
+            return PostVotes.objects.get(post_id=post_id, user=user)
+        except PostVotes.DoesNotExist:
+            raise ValidationError("No vote exists to delete.")
+        except User.DoesNotExist:
+            raise ValidationError(f"User with id {user_id} does not exist!")
 
 
 class CommentListCreateView(ListCreateAPIView):

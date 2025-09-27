@@ -8,6 +8,8 @@ from posts.views import (
     ListPostView,
     PostCreateView,
     PostSearchView,
+    PostVoteDeleteView,
+    PostVoteView,
     RecordPostViewerView,
     RetrievePostByAuthorView,
     RetrievePostByCommunityView,
@@ -28,9 +30,6 @@ from posts.views import (
 # )
 
 urlpatterns = [
-    # path("groups/<int:group_id>/posts/", GroupPostListView.as_view(), name="group-post-list"),
-    # path("groups/<int:group_id>/posts/create/", PostCreateView.as_view(), name="group-post-create"),
-    #
     path(
         "create",
         PostCreateView.as_view(),
@@ -71,6 +70,17 @@ urlpatterns = [
         "<int:id>/viewed",
         RecordPostViewerView.as_view(),
         name="record-post-as-viewed",
+    ),
+    # Post votes
+    path(
+        "<int:post_id>/vote/",
+        PostVoteView.as_view(),
+        name="post-vote",
+    ),
+    path(
+        "<int:post_id>/vote/redact/",
+        PostVoteDeleteView.as_view(),
+        name="post-vote-redact",
     ),
     # Comments
     path(
