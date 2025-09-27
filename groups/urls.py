@@ -30,19 +30,19 @@ from .views import (
 urlpatterns = [
     # Community management
     path("create/", GroupCreateView.as_view(), name="group-create"),
-    path("all", GroupListView.as_view(), name="group-list"),
+    path("all/", GroupListView.as_view(), name="group-list"),
     path(
-        "<int:id>/details",
+        "<int:id>/details/",
         GroupRetrieveView.as_view(),
         name="group-detail-view",
     ),
     path(
-        "<int:id>/update",
+        "<int:id>/update/",
         GroupUpdateView.as_view(),
         name="group-detail-view",
     ),
     path(
-        "<int:id>/delete",
+        "<int:id>/delete/",
         GroupDestroyView.as_view(),
         name="group-delete-view",
     ),

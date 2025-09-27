@@ -43,19 +43,15 @@ class GroupImageSerializer(serializers.ModelSerializer):
 
 
 class UnifiedGroupSerializer(serializers.ModelSerializer):
-    creator_id = serializers.CharField(max_length=100)
-    creator_name = serializers.CharField(max_length=100)
-    is_private = serializers.BooleanField(default=False)
-    moderators = serializers.ListField(child=serializers.CharField(), read_only=True)
-    moderator_names = serializers.ListField(
-        child=serializers.CharField(), read_only=True
-    )
-    members = serializers.ListField(child=serializers.CharField(), read_only=True)
-    member_names = serializers.ListField(child=serializers.CharField(), read_only=True)
-    banned_users = serializers.ListField(child=serializers.CharField(), read_only=True)
-    banned_user_names = serializers.ListField(
-        child=serializers.CharField(), read_only=True
-    )
+    creator_id = serializers.SerializerMethodField()
+    creator_name = serializers.SerializerMethodField()
+    is_private = serializers.SerializerMethodField()
+    moderators = serializers.SerializerMethodField()
+    moderator_names = serializers.SerializerMethodField()
+    members = serializers.SerializerMethodField()
+    member_names = serializers.SerializerMethodField()
+    banned_users = serializers.SerializerMethodField()
+    banned_user_names = serializers.SerializerMethodField()
     rules = serializers.ListField(child=serializers.CharField(), read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)
     logo_url = serializers.SerializerMethodField()
@@ -140,8 +136,12 @@ class UnifiedGroupSerializer(serializers.ModelSerializer):
         if not user_id:
             return False
 
-        banned_users = obj.banned_users if isinstance(obj.banned_users, list) else []
-        return user_id in banned_users
+        try:
+            from users.models import User
+            user = User.objects.get(user_id=user_id)
+            return obj.memberships.filter(user=user, banned=True).exists()
+        except:
+            return False
 
     def get_can_post(self, obj):
         user_id = self.context.get("user_id")
@@ -155,17 +155,56 @@ class UnifiedGroupSerializer(serializers.ModelSerializer):
             return None
         return obj.can_moderate(user_id)
 
+    def get_creator_id(self, obj):
+        return str(obj.creator.user_id) if obj.creator else None
+
+    def get_creator_name(self, obj):
+        return obj.creator.name if obj.creator else None
+
+    def get_is_private(self, obj):
+        return obj.private
+
+    def get_moderators(self, obj):
+        try:
+            return [str(m.user.user_id) for m in obj.memberships.filter(role__in=["moderator", "creator"])]
+        except:
+            return []
+
+    def get_moderator_names(self, obj):
+        try:
+            return [m.user.name for m in obj.memberships.filter(role__in=["moderator", "creator"])]
+        except:
+            return []
+
+    def get_members(self, obj):
+        try:
+            return [str(m.user.user_id) for m in obj.memberships.filter(role="member")]
+        except:
+            return []
+
+    def get_member_names(self, obj):
+        try:
+            return [m.user.name for m in obj.memberships.filter(role="member")]
+        except:
+            return []
+
+    def get_banned_users(self, obj):
+        try:
+            return [str(m.user.user_id) for m in obj.memberships.filter(banned=True)]
+        except:
+            return []
+
+    def get_banned_user_names(self, obj):
+        try:
+            return [m.user.name for m in obj.memberships.filter(banned=True)]
+        except:
+            return []
+
     def get_member_count(self, obj):
         try:
             return obj.memberships.count()
         except:
-            all_user_ids = set()
-            all_user_ids.add(obj.creator_id)
-            moderators = obj.moderators if isinstance(obj.moderators, list) else []
-            all_user_ids.update(moderators)
-            members = obj.members if isinstance(obj.members, list) else []
-            all_user_ids.update(members)
-            return len(all_user_ids)
+            return 0
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

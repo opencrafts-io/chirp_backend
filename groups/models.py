@@ -131,18 +131,21 @@ class Group(models.Model):
         if not self.name:
             raise ValidationError("Name is required.")
 
-        if not self.creator_id:
-            raise ValidationError("Creator ID is required.")
+        if not self.creator:
+            raise ValidationError("Creator is required.")
 
     def is_moderator(self, user_id: str) -> bool:
         """Check if user is a moderator of this group"""
         # Check if user is the creator
-        if user_id == self.creator_id:
+        if user_id == str(self.creator.user_id) if self.creator else False:
             return True
 
-        # Check if user is in the moderators list
-        moderators = self.moderators if isinstance(self.moderators, list) else []
-        return user_id in moderators
+        try:
+            from users.models import User
+            user = User.objects.get(user_id=user_id)
+            return self.memberships.filter(user=user, role__in=["moderator", "creator"]).exists()
+        except:
+            return False
 
     def is_member(self, user_id: str) -> bool:
         """Check if user is a member of this group"""
@@ -154,16 +157,11 @@ class Group(models.Model):
                 user=user, role__in=["member", "moderator", "creator"]
             ).exists()
         except:
-            members = self.members if isinstance(self.members, list) else []
-            return (
-                user_id in members
-                or self.is_moderator(user_id)
-                or user_id == self.creator_id
-            )
+            return self.is_moderator(user_id)
 
     def can_view(self, user_id: str) -> bool:
         """Check if user can view this group"""
-        if not self.is_private:
+        if not self.private:
             return True
         return self.is_member(user_id)
 
@@ -172,26 +170,24 @@ class Group(models.Model):
         if not user_id:
             return False
 
-        banned_users = self.banned_users if isinstance(self.banned_users, list) else []
-        if user_id in banned_users:
-            return False
+        try:
+            from users.models import User
+            user = User.objects.get(user_id=user_id)
+            if self.memberships.filter(user=user, banned=True).exists():
+                return False
+        except:
+            pass
 
         return self.is_member(user_id)
 
     def can_moderate(self, user_id: str) -> bool:
         """Check if user can moderate this group"""
-        # Check if user is the creator
-        if user_id == self.creator_id:
-            return True
-
-        # Check if user is in the moderators list
-        moderators = self.moderators if isinstance(self.moderators, list) else []
-        return user_id in moderators
+        return self.is_moderator(user_id)
 
     def can_add_moderator(self) -> bool:
         """Check if more moderators can be added (under the 20 cap)"""
-        moderators = self.moderators if isinstance(self.moderators, list) else []
-        if len(moderators) >= 20:
+        moderator_count = self.memberships.filter(role__in=["moderator", "creator"]).count()
+        if moderator_count >= 20:
             return False
         return True
 
@@ -205,106 +201,60 @@ class Group(models.Model):
                 "Maximum number of moderators (20) reached for this group"
             )
 
-        current_moderators = (
-            self.moderators if isinstance(self.moderators, list) else []
-        )
-        if user_id not in current_moderators and user_id != self.creator_id:
-            current_moderator_names = (
-                self.moderator_names if isinstance(self.moderator_names, list) else []
-            )
-            current_moderators.append(user_id)
-            current_moderator_names.append(user_name)
-            self.moderators = current_moderators
-            self.moderator_names = current_moderator_names
-            self.save()
-
-            # Create GroupMembership record
-            try:
-                from users.models import User
-
-                user = User._default_manager.get(user_id=user_id)
+        try:
+            from users.models import User
+            user = User.objects.get(user_id=user_id)
+            if not self.memberships.filter(user=user, role="moderator").exists() and user_id != str(self.creator.user_id) if self.creator else True:
                 GroupMembership._default_manager.get_or_create(
                     group=self, user=user, defaults={"role": "moderator"}
                 )
-            except:
-                pass
+        except:
+            pass
 
     def remove_moderator(self, user_id: str, removed_by: str):
         """Remove a moderator from the group (only creator can remove moderators)"""
-        if removed_by != self.creator_id:
+        if removed_by != str(self.creator.user_id) if self.creator else True:
             raise ValidationError("Only the creator can remove moderators")
 
-        current_moderators = (
-            self.moderators if isinstance(self.moderators, list) else []
-        )
-        if user_id in current_moderators and user_id != self.creator_id:
-            current_moderator_names = (
-                self.moderator_names if isinstance(self.moderator_names, list) else []
-            )
-            index = current_moderators.index(user_id)
-            current_moderators.remove(user_id)
-            current_moderator_names.pop(index)
-            self.moderators = current_moderators
-            self.moderator_names = current_moderator_names
-            self.save()
+        try:
+            from users.models import User
+            user = User.objects.get(user_id=user_id)
+            if user_id != str(self.creator.user_id) if self.creator else True:
+                membership = self.memberships.filter(user=user, role="moderator").first()
+                if membership:
+                    membership.delete()
+        except:
+            pass
 
     def add_member(self, user_id: str, user_name: str, added_by: str):
         """Add a member to the group (only admins/moderators can do this)"""
         if not self.is_moderator(added_by):
             raise ValidationError("Only moderators can add members")
 
-        current_members = self.members if isinstance(self.members, list) else []
-        if user_id not in current_members and not self.is_moderator(user_id):
-            current_member_names = (
-                self.member_names if isinstance(self.member_names, list) else []
-            )
-            current_members.append(user_id)
-            current_member_names.append(user_name)
-            self.members = current_members
-            self.member_names = current_member_names
-            self.save()
-
-            # Create GroupMembership record
-            try:
-                from users.models import User
-
-                user = User._default_manager.get(user_id=user_id)
+        try:
+            from users.models import User
+            user = User.objects.get(user_id=user_id)
+            if not self.memberships.filter(user=user).exists() and not self.is_moderator(user_id):
                 GroupMembership._default_manager.get_or_create(
                     group=self, user=user, defaults={"role": "member"}
                 )
-            except:
-                pass
+        except:
+            pass
 
     def self_join(self, user_id: str, user_name: str):
         """Allow a user to join a public group themselves"""
-        if self.is_private:
+        if self.private:
             raise ValidationError("Cannot self-join private groups")
 
         if self.is_member(user_id):
             raise ValidationError("Already a member of this group")
 
-        current_banned = (
-            self.banned_users if isinstance(self.banned_users, list) else []
-        )
-        if user_id in current_banned:
-            raise ValidationError("You are banned from this group")
-
-        current_members = self.members if isinstance(self.members, list) else []
-        current_member_names = (
-            self.member_names if isinstance(self.member_names, list) else []
-        )
-
-        current_members.append(user_id)
-        current_member_names.append(user_name)
-        self.members = current_members
-        self.member_names = current_member_names
-        self.save()
-
-        # Create GroupMembership record
         try:
             from users.models import User
+            user = User.objects.get(user_id=user_id)
+            if self.memberships.filter(user=user, banned=True).exists():
+                raise ValidationError("You are banned from this group")
 
-            user = User._default_manager.get(user_id=user_id)
             GroupMembership._default_manager.get_or_create(
                 group=self, user=user, defaults={"role": "member"}
             )
@@ -316,110 +266,48 @@ class Group(models.Model):
         if not self.is_moderator(removed_by):
             raise ValidationError("Only moderators can remove members")
 
-        current_members = self.members if isinstance(self.members, list) else []
-        if user_id in current_members:
-            current_member_names = (
-                self.member_names if isinstance(self.member_names, list) else []
-            )
-            index = current_members.index(user_id)
-            current_members.remove(user_id)
-            current_member_names.pop(index)
-            self.members = current_members
-            self.member_names = current_member_names
-            self.save()
-
-            # Delete GroupMembership record
-            try:
-                from users.models import User
-
-                user = User._default_manager.get(user_id=user_id)
-                GroupMembership._default_manager.filter(group=self, user=user).delete()
-            except:
-                pass
+        try:
+            from users.models import User
+            user = User.objects.get(user_id=user_id)
+            membership = self.memberships.filter(user=user, role="member").first()
+            if membership:
+                membership.delete()
+        except:
+            pass
 
     def ban_user(self, user_id: str, user_name: str, banned_by: str):
         """Ban a user from the group (only admins can do this)"""
         if not self.is_moderator(banned_by):
             raise ValidationError("Only moderators can ban users")
 
-        current_banned = (
-            self.banned_users if isinstance(self.banned_users, list) else []
-        )
-        if user_id not in current_banned:
-            current_banned_names = (
-                self.banned_user_names
-                if isinstance(self.banned_user_names, list)
-                else []
-            )
-            current_banned.append(user_id)
-            current_banned_names.append(user_name)
-            self.banned_users = current_banned
-            self.banned_user_names = current_banned_names
-            current_members = self.members if isinstance(self.members, list) else []
-            if user_id in current_members:
-                current_member_names = (
-                    self.member_names if isinstance(self.member_names, list) else []
+        try:
+            from users.models import User
+            user = User.objects.get(user_id=user_id)
+            membership = self.memberships.filter(user=user).first()
+            if membership:
+                membership.banned = True
+                membership.save()
+            else:
+                GroupMembership._default_manager.create(
+                    group=self, user=user, role="member", banned=True
                 )
-                index = current_members.index(user_id)
-                current_members.remove(user_id)
-                current_member_names.pop(index)
-                self.members = current_members
-                self.member_names = current_member_names
-
-            current_moderators = (
-                self.moderators if isinstance(self.moderators, list) else []
-            )
-            if user_id in current_moderators:
-                current_moderator_names = (
-                    self.moderator_names
-                    if isinstance(self.moderator_names, list)
-                    else []
-                )
-                index = current_moderators.index(user_id)
-                current_moderators.remove(user_id)
-                current_moderator_names.pop(index)
-                self.moderators = current_moderators
-                self.moderator_names = current_moderator_names
-            self.save()
-
-            # Create GroupMembership record with banned role
-            try:
-                from users.models import User
-
-                user = User._default_manager.get(user_id=user_id)
-                GroupMembership._default_manager.get_or_create(
-                    group=self, user=user, defaults={"role": "banned"}
-                )
-            except:
-                pass
+        except:
+            pass
 
     def unban_user(self, user_id: str, unbanned_by: str):
         """Unban a user from the group (only admins can do this)"""
         if not self.is_moderator(unbanned_by):
             raise ValidationError("Only moderators can unban users")
 
-        current_banned = (
-            self.banned_users if isinstance(self.banned_users, list) else []
-        )
-        current_banned_names = (
-            self.banned_user_names if isinstance(self.banned_user_names, list) else []
-        )
-        if user_id in current_banned:
-            index = current_banned.index(user_id)
-            current_banned.remove(user_id)
-            current_banned_names.pop(index)
-            self.banned_users = current_banned
-            self.banned_user_names = current_banned_names
-            self.save()
-
-            # Delete GroupMembership record
-            try:
-                from users.models import User
-
-                user = User._default_manager.get(user_id=user_id)
-                GroupMembership._default_manager.filter(group=self, user=user).delete()
-            except:
-                pass
+        try:
+            from users.models import User
+            user = User.objects.get(user_id=user_id)
+            membership = self.memberships.filter(user=user, banned=True).first()
+            if membership:
+                membership.banned = False
+                membership.save()
+        except:
+            pass
 
     def add_rule(self, rule: str, added_by: str):
         """Add a rule to the community (only admins can do this)"""
@@ -465,40 +353,34 @@ class Group(models.Model):
 
     def get_user_list(self) -> dict:
         """Get a complete list of all users in the group with their names and roles"""
-        current_moderators = (
-            self.moderators if isinstance(self.moderators, list) else []
-        )
-        current_moderator_names = (
-            self.moderator_names if isinstance(self.moderator_names, list) else []
-        )
-        current_members = self.members if isinstance(self.members, list) else []
-        current_member_names = (
-            self.member_names if isinstance(self.member_names, list) else []
-        )
-        current_banned = (
-            self.banned_users if isinstance(self.banned_users, list) else []
-        )
-        current_banned_names = (
-            self.banned_user_names if isinstance(self.banned_user_names, list) else []
-        )
+        memberships = self.memberships.all()
+
+        moderators = []
+        members = []
+        banned = []
+
+        for membership in memberships:
+            user_data = {
+                "user_id": str(membership.user.user_id),
+                "name": membership.user.name,
+                "role": membership.role
+            }
+
+            if membership.banned:
+                banned.append(user_data)
+            elif membership.role in ["moderator", "creator"]:
+                moderators.append(user_data)
+            else:
+                members.append(user_data)
         return {
             "creator": {
-                "user_id": self.creator_id,
-                "user_name": self.creator_name,
+                "user_id": str(self.creator.user_id) if self.creator else None,
+                "name": self.creator.name if self.creator else None,
                 "role": "creator",
             },
-            "moderators": [
-                {"user_id": user_id, "user_name": name, "role": "moderator"}
-                for user_id, name in zip(current_moderators, current_moderator_names)
-            ],
-            "members": [
-                {"user_id": user_id, "user_name": name, "role": "member"}
-                for user_id, name in zip(current_members, current_member_names)
-            ],
-            "banned": [
-                {"user_id": user_id, "user_name": name, "role": "banned"}
-                for user_id, name in zip(current_banned, current_banned_names)
-            ],
+            "moderators": moderators,
+            "members": members,
+            "banned": banned,
         }
 
     def get_logo_url(self):
@@ -517,18 +399,7 @@ class Group(models.Model):
         """Sync JSON fields with GroupMembership records for backward compatibility"""
         memberships = self.memberships.all()
 
-        self.moderators = [m.user.user_id for m in memberships.filter(role="moderator")]
-        self.moderator_names = [
-            m.user.user_name for m in memberships.filter(role="moderator")
-        ]
-        self.members = [m.user.user_id for m in memberships.filter(role="member")]
-        self.member_names = [
-            m.user.user_name for m in memberships.filter(role="member")
-        ]
-        self.banned_users = [m.user.user_id for m in memberships.filter(role="banned")]
-        self.banned_user_names = [
-            m.user.user_name for m in memberships.filter(role="banned")
-        ]
+        pass
 
         self.save()
 

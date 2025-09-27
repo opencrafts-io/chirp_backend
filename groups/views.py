@@ -252,8 +252,8 @@ class GroupDetailWithUserView(APIView):
 
         user_id = request.user_id
         can_mod = group.can_moderate(user_id)
-        is_creator = user_id == group.creator_id
-        is_in_moderators = user_id in group.moderators
+        is_creator = user_id == str(group.creator.user_id) if group.creator else False
+        is_in_moderators = group.is_moderator(user_id)
 
         if not can_mod:
             return Response(
@@ -261,9 +261,8 @@ class GroupDetailWithUserView(APIView):
                     "error": "Access denied",
                     "debug": {
                         "user_id": user_id,
-                        "group_creator": group.creator_id,
+                        "group_creator": str(group.creator.user_id) if group.creator else None,
                         "is_creator": is_creator,
-                        "moderators": group.moderators,
                         "is_in_moderators": is_in_moderators,
                         "can_moderate": can_mod,
                     },
@@ -366,37 +365,18 @@ class GroupLeaveView(APIView):
                 {"error": "Group not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        if user_id == group.creator_id:
+        if user_id == str(group.creator.user_id) if group.creator else False:
             return Response(
                 {"error": "Creator cannot leave the community"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Remove from moderators if present
-        if user_id in group.moderators:
-            current_moderators = list(group.moderators)
-            current_moderator_names = list(group.moderator_names)
-            try:
-                index = current_moderators.index(user_id)
-                current_moderators.remove(user_id)
-                current_moderator_names.pop(index)
-                group.moderators = current_moderators
-                group.moderator_names = current_moderator_names
-            except (ValueError, IndexError):
-                pass
-
-        # Remove from members if present
-        if user_id in group.members:
-            current_members = list(group.members)
-            current_member_names = list(group.member_names)
-            try:
-                index = current_members.index(user_id)
-                current_members.remove(user_id)
-                current_member_names.pop(index)
-                group.members = current_members
-                group.member_names = current_member_names
-            except (ValueError, IndexError):
-                pass
+        try:
+            membership = group.memberships.get(user__user_id=user_id)
+            membership.delete()
+        except:
+            pass
 
         group.save()
 
@@ -569,7 +549,7 @@ class GroupSettingsView(APIView):
 
         user_id = request.user_id
 
-        if user_id not in group.moderators and user_id != group.creator_id:
+        if not group.is_moderator(user_id) and user_id != str(group.creator.user_id) if group.creator else True:
             return Response(
                 {"error": "Only moderators can update group settings"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -865,19 +845,7 @@ class GroupMembersView(APIView):
                     }
                 )
         except:
-            members = group.members if isinstance(group.members, list) else []
-            member_names = (
-                group.member_names if isinstance(group.member_names, list) else []
-            )
-            moderators = group.moderators if isinstance(group.moderators, list) else []
-            creator_id = group.creator_id
-
             member_list = []
-            for user_id, user_name in zip(members, member_names):
-                if user_id != creator_id and user_id not in moderators:
-                    member_list.append(
-                        {"user_id": user_id, "user_name": user_name, "role": "member"}
-                    )
 
         # Paginate the results
         paginator = GroupMembersPagination()
@@ -970,28 +938,11 @@ class GroupModeratorsView(APIView):
                     }
                 )
         except:
-            moderators = group.moderators if isinstance(group.moderators, list) else []
-            moderator_names = (
-                group.moderator_names if isinstance(group.moderator_names, list) else []
-            )
-            creator_id = group.creator_id
-            creator_name = group.creator_name
-
             moderator_list = []
-
-            moderator_list.append(
-                {"user_id": creator_id, "user_name": creator_name, "role": "creator"}
-            )
-
-            for user_id, user_name in zip(moderators, moderator_names):
-                if user_id != creator_id:
-                    moderator_list.append(
-                        {
-                            "user_id": user_id,
-                            "user_name": user_name,
-                            "role": "moderator",
-                        }
-                    )
+            if group.creator:
+                moderator_list.append(
+                    {"user_id": str(group.creator.user_id), "user_name": group.creator.name, "role": "creator"}
+                )
 
         # Paginate the results
         paginator = GroupMembersPagination()
@@ -1026,19 +977,7 @@ class GroupBannedUsersView(APIView):
             )
 
         # Get banned users data
-        banned_users = (
-            group.banned_users if isinstance(group.banned_users, list) else []
-        )
-        banned_user_names = (
-            group.banned_user_names if isinstance(group.banned_user_names, list) else []
-        )
-
-        # Create banned user objects
         banned_list = []
-        for user_id, user_name in zip(banned_users, banned_user_names):
-            banned_list.append(
-                {"user_id": user_id, "user_name": user_name, "role": "banned"}
-            )
 
         # Paginate the results
         paginator = GroupMembersPagination()
@@ -1072,7 +1011,7 @@ class GroupDeleteView(APIView):
                 {"error": "Group not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        if user_id != group.creator_id:
+        if user_id != str(group.creator.user_id) if group.creator else True:
             return Response(
                 {"error": "Only the group creator can delete this group"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -1112,7 +1051,7 @@ class InviteLinkCreateView(APIView):
 
         user_id = request.user_id
 
-        if user_id not in group.moderators and user_id != group.creator_id:
+        if not group.is_moderator(user_id) and user_id != str(group.creator.user_id) if group.creator else True:
             return Response(
                 {"error": "Only moderators can create invite links"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -1257,7 +1196,7 @@ class InviteLinkListView(APIView):
 
         user_id = request.user_id
 
-        if user_id not in group.moderators and user_id != group.creator_id:
+        if not group.is_moderator(user_id) and user_id != str(group.creator.user_id) if group.creator else True:
             return Response(
                 {"error": "Only moderators can view invite links"},
                 status=status.HTTP_403_FORBIDDEN,

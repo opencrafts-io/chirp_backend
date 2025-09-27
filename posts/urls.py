@@ -18,43 +18,43 @@ from posts.views import (
 
 urlpatterns = [
     path(
-        "create",
+        "create/",
         PostCreateView.as_view(),
         name="post-create",
     ),
     path(
-        "all",
+        "all/",
         ListPostView.as_view(),
         name="post-list",
     ),
     path(
-        "<int:id>/details",
+        "<int:id>/details/",
         RetrievePostByIDView.as_view(),
         name="get-post-by-id",
     ),
     path(
-        "by/<uuid:author>",
+        "by/<uuid:author>/",
         RetrievePostByAuthorView.as_view(),
         name="get-post-by-author",
     ),
     path(
-        "from/<int:group>",
+        "from/<int:group>/",
         RetrievePostByCommunityView.as_view(),
         name="get-post-by-author",
     ),
     path(
-        "search",
+        "search/",
         PostSearchView.as_view(),
         name="search-for-post",
     ),
     path(
-        "<int:id>/delete",
+        "<int:id>/delete/",
         DestroyPostView.as_view(),
         name="delete-post",
     ),
     # Post view metrics
     path(
-        "<int:id>/viewed",
+        "<int:id>/viewed/",
         RecordPostViewerView.as_view(),
         name="record-post-as-viewed",
     ),
@@ -71,7 +71,7 @@ urlpatterns = [
     ),
     # Comments
     path(
-        "<int:post_id>/comments",
+        "<int:post_id>/comments/",
         CommentListCreateView.as_view(),
         name="comments-list-create",
     ),
@@ -81,7 +81,7 @@ urlpatterns = [
         name="comment-detail",
     ),
     path(
-        "comments/<int:id>/delete",
+        "comments/<int:id>/delete/",
         CommentDestroyView.as_view(),
         name="delete-comment-by-id",
     ),
