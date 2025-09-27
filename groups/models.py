@@ -7,34 +7,6 @@ import os
 from users.models import User
 
 
-class GroupMembership(models.Model):
-    ROLE_CHOICES = [
-        ("creator", "Creator"),
-        ("moderator", "Moderator"),
-        ("member", "Member"),
-        ("banned", "Banned"),
-    ]
-
-    group = models.ForeignKey(
-        "Group", on_delete=models.CASCADE, related_name="memberships"
-    )
-    user = models.ForeignKey(
-        "users.User", on_delete=models.CASCADE, related_name="group_memberships"
-    )
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
-    joined_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        unique_together = ("group", "user")
-        indexes = [
-            models.Index(fields=["group", "role"]),
-            models.Index(fields=["user", "role"]),
-        ]
-
-    def __str__(self):
-        return f"{self.user} - {self.role} in {self.group.name}"
-
-
 class GroupImage(models.Model):
     IMAGE_TYPE_CHOICES = [
         ("logo", "Logo"),
@@ -559,6 +531,49 @@ class Group(models.Model):
         ]
 
         self.save()
+
+
+class GroupMembership(models.Model):
+    ROLE_CHOICES = [
+        ("moderator", "Moderator"),
+        ("member", "Member"),
+    ]
+
+    group = models.ForeignKey(
+        Group, on_delete=models.CASCADE, related_name="group_memberships"
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="group_members"
+    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    banned = models.BooleanField(
+        default=False,
+    )
+    banned_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="banned_memberships",
+        null=True,
+    )
+    banning_reason = models.TextField(
+        null=True,
+        blank=True,
+    )
+    banned_at = models.DateTimeField(
+        null=True,
+    )
+
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("group", "user")
+        indexes = [
+            models.Index(fields=["group", "role"]),
+            models.Index(fields=["user", "role"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user} - {self.role} in {self.group.name}"
 
 
 class GroupPost(models.Model):
