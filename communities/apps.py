@@ -6,3 +6,6 @@ class CommunitiesConfig(AppConfig):
     name = 'communities'
 
     label = 'groups'
+
+    def ready(self) -> None:
+        import communities.signals

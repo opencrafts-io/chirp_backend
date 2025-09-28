@@ -55,6 +55,7 @@ class Community(models.Model):
 
 class CommunityMembership(models.Model):
     ROLE_CHOICES = [
+        ("super-mod", "Super Moderator"),
         ("moderator", "Moderator"),
         ("member", "Member"),
     ]
