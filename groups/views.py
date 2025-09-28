@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
 
 from users.models import User
-from .models import Group, GroupImage
+from .models import Group
 from .serializers import GroupSerializer, UnifiedGroupSerializer
 from django.db.models import Q
 from django.core.exceptions import ValidationError

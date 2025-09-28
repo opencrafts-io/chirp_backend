@@ -3,43 +3,7 @@ from django.conf import settings
 
 from users.models import User
 from users.serializers import UserSerializer
-from .models import Group, GroupInvite, InviteLink, GroupImage
-
-
-class GroupImageSerializer(serializers.ModelSerializer):
-    file_url = serializers.SerializerMethodField()
-    file_size_mb = serializers.SerializerMethodField()
-
-    class Meta:
-        model = GroupImage
-        fields = [
-            "id",
-            "image_type",
-            "file_url",
-            "file_size_mb",
-            "original_filename",
-            "created_at",
-        ]
-
-    def get_file_url(self, obj):
-        """Generate the full URL for the file"""
-        if obj.file:
-            request = self.context.get("request")
-            if request:
-                url = request.build_absolute_uri(obj.file.url)
-                if getattr(settings, "USE_TLS", False):
-                    url = url.replace("http://", "https://")
-
-                if "qachirp.opencrafts.io" in url and "/qa-chirp/" not in url:
-                    url = url.replace("/media/", "/qa-chirp/media/")
-
-                return url
-            return obj.file.url
-        return None
-
-    def get_file_size_mb(self, obj):
-        """Get file size in MB"""
-        return obj.get_file_size_mb()
+from .models import Group, GroupInvite, InviteLink
 
 
 class UnifiedGroupSerializer(serializers.ModelSerializer):
