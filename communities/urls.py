@@ -23,6 +23,7 @@ from .views import (
     InviteLinkJoinView,
     InviteLinkListView,
     CommunitySearchView,
+    CommunityMembershipApiView,
 )
 
 # from posts.views import  PostCreateView
@@ -45,6 +46,12 @@ urlpatterns = [
         "<int:id>/delete",
         CommunityDestroyView.as_view(),
         name="community-delete-view",
+    ),
+    # Community memberships
+    path(
+        "<int:community_id>/memberships",
+        CommunityMembershipApiView.as_view(),
+        name="get-community-memberhips",
     ),
     # Older versions
     path("postable/", CommunityPostableView.as_view(), name="community-postable"),

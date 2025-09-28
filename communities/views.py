@@ -3,6 +3,7 @@ from rest_framework.generics import (
     CreateAPIView,
     DestroyAPIView,
     ListAPIView,
+    QuerySet,
     RetrieveAPIView,
     UpdateAPIView,
 )
@@ -11,8 +12,12 @@ from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
 
 from users.models import User
-from .models import Community
-from .serializers import CommunitySerializer, UnifiedCommunitySerializer
+from .models import Community, CommunityMembership
+from .serializers import (
+    CommunityMembershipSerializer,
+    CommunitySerializer,
+    UnifiedCommunitySerializer,
+)
 from django.db.models import Q
 from django.core.exceptions import ValidationError
 from .models import InviteLink
@@ -62,6 +67,38 @@ class CommunityDestroyView(DestroyAPIView):
     serializer_class = CommunitySerializer
     queryset = Community.objects.all()
     lookup_field = "id"
+
+
+# Community memberships
+class CommunityMembershipApiView(ListAPIView):
+    """
+    Returns a list of all memberships belonging to a certain
+    community specified by the role query param to specify the role
+
+    The community is to be passed as a path parameter
+    """
+
+    serializer_class = CommunityMembershipSerializer
+
+    def get_queryset(self) -> QuerySet[CommunityMembership]:
+        role = self.request.GET.get("role", "").strip()
+
+        def sanitize_role(role: str) -> str:
+            match role.lower():
+                case "superman":
+                    return "super-mod"
+                case "mods":
+                    return "moderator"
+            return "member"
+
+        community_id = self.kwargs.get("community_id")
+        return CommunityMembership.objects.filter(
+            community_id=community_id, role=sanitize_role(role)
+        ).select_related(
+            "community",
+            "user",
+            "banned_by",
+        )
 
     # def get(self, request):
     #     if not hasattr(request, 'user_id') or not request.user_id:
@@ -991,7 +1028,11 @@ class CommunityModeratorsView(APIView):
             moderator_list = []
             if group.creator:
                 moderator_list.append(
-                    {"user_id": str(group.creator.user_id), "user_name": group.creator.name, "role": "creator"}
+                    {
+                        "user_id": str(group.creator.user_id),
+                        "user_name": group.creator.name,
+                        "role": "creator",
+                    }
                 )
 
         # Paginate the results

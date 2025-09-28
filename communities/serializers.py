@@ -3,7 +3,7 @@ from django.conf import settings
 
 from users.models import User
 from users.serializers import UserSerializer
-from .models import Community, CommunityInvite, InviteLink
+from .models import Community, CommunityInvite, CommunityMembership, InviteLink
 
 
 class UnifiedCommunitySerializer(serializers.ModelSerializer):
@@ -106,6 +106,7 @@ class UnifiedCommunitySerializer(serializers.ModelSerializer):
 
         try:
             from users.models import User
+
             user = User.objects.get(user_id=user_id)
             return obj.group_memberships.filter(user=user, banned=True).exists()
         except:
@@ -134,19 +135,27 @@ class UnifiedCommunitySerializer(serializers.ModelSerializer):
 
     def get_moderators(self, obj):
         try:
-            return [str(m.user.user_id) for m in obj.group_memberships.filter(role__in=["moderator", "creator"])]
+            return [
+                str(m.user.user_id)
+                for m in obj.group_memberships.filter(role__in=["moderator", "creator"])
+            ]
         except:
             return []
 
     def get_moderator_names(self, obj):
         try:
-            return [m.user.name for m in obj.group_memberships.filter(role__in=["moderator", "creator"])]
+            return [
+                m.user.name
+                for m in obj.group_memberships.filter(role__in=["moderator", "creator"])
+            ]
         except:
             return []
 
     def get_members(self, obj):
         try:
-            return [str(m.user.user_id) for m in obj.group_memberships.filter(role="member")]
+            return [
+                str(m.user.user_id) for m in obj.group_memberships.filter(role="member")
+            ]
         except:
             return []
 
@@ -158,7 +167,9 @@ class UnifiedCommunitySerializer(serializers.ModelSerializer):
 
     def get_banned_users(self, obj):
         try:
-            return [str(m.user.user_id) for m in obj.group_memberships.filter(banned=True)]
+            return [
+                str(m.user.user_id) for m in obj.group_memberships.filter(banned=True)
+            ]
         except:
             return []
 
@@ -340,3 +351,43 @@ class InviteLinkSerializer(serializers.ModelSerializer):
 
         validated_data["token"] = token
         return super().create(validated_data)
+
+
+class CommunityMembershipSerializer(serializers.ModelSerializer):
+    community = CommunitySerializer(read_only=True)
+    community_id = serializers.PrimaryKeyRelatedField(
+        queryset=Community.objects.all(),
+        source="community",
+    )
+    user_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        source="user",
+    )
+    user = UserSerializer(read_only=True)
+    banned_by_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="banned_by"
+    )
+    banned_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = CommunityMembership
+        fields = [
+            "id",
+            "community",
+            "community_id",
+            "user",
+            "user_id",
+            "role",
+            "banned",
+            "banned_by_id",
+            "banned_by",
+            "banning_reason",
+            "banned_at",
+            "joined_at",
+        ]
+        read_only_fields = [
+            "id",
+            "joined_at",
+            "banned_at",
+            "banned_by",
+        ]
