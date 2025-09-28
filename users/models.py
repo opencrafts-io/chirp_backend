@@ -4,7 +4,7 @@ import uuid
 
 class User(models.Model):
     user_id = models.UUIDField(
-        default=uuid.uuid4(),
+        default=uuid.uuid4,
         unique=True,
         primary_key=True,
     )

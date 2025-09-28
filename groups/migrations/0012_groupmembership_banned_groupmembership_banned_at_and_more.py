@@ -8,7 +8,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("groups", "0011_rename_rules_group_guidelines_and_more"),
-        ("users", "0017_alter_user_user_id"),
     ]
 
     operations = [
