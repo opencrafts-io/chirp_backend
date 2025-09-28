@@ -447,27 +447,6 @@ class GroupMembership(models.Model):
         return f"{self.user} - {self.role} in {self.group.name}"
 
 
-class GroupPost(models.Model):
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="posts")
-    user_id = models.CharField(max_length=100)
-    content = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def clean(self):
-        """Custom validation for GroupPost model"""
-        super().clean()
-
-        if not self.content or not str(self.content).strip():
-            raise ValidationError("Content cannot be empty")
-
-        if not self.user_id or not str(self.user_id).strip():
-            raise ValidationError("User ID cannot be empty")
-
-    def __str__(self) -> str:
-        return f"{self.user_id} in {self.group.name}: {self.content}..."
-
-
 class GroupInvite(models.Model):
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="invites")
     invitee_id = models.CharField(max_length=100)
