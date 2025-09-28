@@ -2,7 +2,7 @@ from django.forms import fields
 from rest_framework import serializers
 from django.conf import settings
 
-from groups.models import Group
+from communities.models import Community
 from users.serializers import UserSerializer
 from .models import Attachment, Post, Comment, PostView, PostVotes
 from users.models import User
@@ -44,7 +44,7 @@ class AttachmentSerializer(serializers.ModelSerializer):
         return obj.get_file_size_mb()
 
 
-class GroupSerializer(serializers.Serializer):
+class communitieserializer(serializers.Serializer):
     id = serializers.IntegerField()
     name = serializers.CharField()
     description = serializers.CharField()
@@ -88,7 +88,7 @@ class CommentSerializer(serializers.ModelSerializer):
 class PostSerializer(serializers.ModelSerializer):
     # Nested for reading
     author = UserSerializer(read_only=True)
-    group = GroupSerializer(read_only=True)
+    community = communitieserializer(read_only=True)
     attachments = AttachmentSerializer(many=True, read_only=True)
     comments = CommentSerializer(many=True, read_only=True)
 
@@ -96,16 +96,16 @@ class PostSerializer(serializers.ModelSerializer):
     author_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), source="author"
     )
-    group_id = serializers.PrimaryKeyRelatedField(
-        queryset=Group.objects.all(), source="group"
+    community_id = serializers.PrimaryKeyRelatedField(
+        queryset=Community.objects.all(), source="community"
     )
 
     class Meta:
         model = Post
         fields = [
             "id",
-            "group",
-            "group_id",
+            "community",
+            "community_id",
             "author",
             "author_id",
             "title",

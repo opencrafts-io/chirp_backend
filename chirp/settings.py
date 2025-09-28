@@ -51,7 +51,7 @@ INSTALLED_APPS = [
     "channels",
     "users",
     "posts",
-    "groups",
+    "communities",
     "dmessages",
     "utils",
     "conversations",

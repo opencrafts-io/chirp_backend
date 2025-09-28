@@ -5,7 +5,7 @@ def populate_users_from_existing_data(apps, schema_editor):
     User = apps.get_model('users', 'User')
     Post = apps.get_model('posts', 'Post')
     Comment = apps.get_model('posts', 'Comment')
-    Group = apps.get_model('groups', 'Group')
+    Community = apps.get_model('communities', 'Community')
     Message = apps.get_model('dmessages', 'Message')
     ConversationMessage = apps.get_model('conversations', 'ConversationMessage')
 
@@ -20,9 +20,9 @@ def populate_users_from_existing_data(apps, schema_editor):
     for comment in Comment.objects.all():
         users_data.add((comment.user_id, comment.user_name, comment.email))
 
-    # From groups (creator)
-    for group in Group.objects.all():
-        users_data.add((group.creator_id, group.creator_name, None))
+    # From communities (creator)
+    for community in Community.objects.all():
+        users_data.add((community.creator_id, community.creator_name, None))
 
     # From messages
     for message in Message.objects.all():
@@ -54,7 +54,6 @@ class Migration(migrations.Migration):
     dependencies = [
         ('users', '0001_initial'),
         ('posts', '0013_comment_user_ref_post_user_ref'),
-        ('groups', '0009_groupmembership'),
         ('dmessages', '0006_message_recipient_ref_message_sender_ref'),
         ('conversations', '0003_conversationmessage_sender_ref'),
     ]

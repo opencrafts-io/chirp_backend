@@ -3,20 +3,24 @@ from django.conf import settings
 
 from users.models import User
 from users.serializers import UserSerializer
-from .models import Group, GroupInvite, InviteLink
+from .models import Community, CommunityInvite, InviteLink
 
 
-class UnifiedGroupSerializer(serializers.ModelSerializer):
-    creator_id = serializers.SerializerMethodField()
-    creator_name = serializers.SerializerMethodField()
-    is_private = serializers.SerializerMethodField()
-    moderators = serializers.SerializerMethodField()
-    moderator_names = serializers.SerializerMethodField()
-    members = serializers.SerializerMethodField()
-    member_names = serializers.SerializerMethodField()
-    banned_users = serializers.SerializerMethodField()
-    banned_user_names = serializers.SerializerMethodField()
-    rules = serializers.SerializerMethodField()
+class UnifiedCommunitySerializer(serializers.ModelSerializer):
+    creator_id = serializers.CharField(max_length=100)
+    creator_name = serializers.CharField(max_length=100)
+    is_private = serializers.BooleanField(default=False)
+    moderators = serializers.ListField(child=serializers.CharField(), read_only=True)
+    moderator_names = serializers.ListField(
+        child=serializers.CharField(), read_only=True
+    )
+    members = serializers.ListField(child=serializers.CharField(), read_only=True)
+    member_names = serializers.ListField(child=serializers.CharField(), read_only=True)
+    banned_users = serializers.ListField(child=serializers.CharField(), read_only=True)
+    banned_user_names = serializers.ListField(
+        child=serializers.CharField(), read_only=True
+    )
+    rules = serializers.ListField(child=serializers.CharField(), read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)
     logo_url = serializers.SerializerMethodField()
     banner_url = serializers.SerializerMethodField()
@@ -26,7 +30,7 @@ class UnifiedGroupSerializer(serializers.ModelSerializer):
     member_count = serializers.SerializerMethodField()
 
     class Meta:
-        model = Group
+        model = Community
         fields = [
             "id",
             "name",
@@ -190,7 +194,7 @@ class UnifiedGroupSerializer(serializers.ModelSerializer):
         return data
 
 
-class GroupSerializer(serializers.ModelSerializer):
+class CommunitySerializer(serializers.ModelSerializer):
     creator_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), required=False, allow_null=True
     )
@@ -199,7 +203,7 @@ class GroupSerializer(serializers.ModelSerializer):
     profile_picture_url = serializers.SerializerMethodField()
 
     class Meta:
-        model = Group
+        model = Community
         fields = [
             "id",
             "creator_id",
@@ -259,12 +263,12 @@ class GroupSerializer(serializers.ModelSerializer):
         return None
 
 
-class GroupInviteSerializer(serializers.ModelSerializer):
+class CommunityInviteSerializer(serializers.ModelSerializer):
     inviter_id = serializers.CharField(read_only=True, max_length=100)
 
     class Meta:
-        model = GroupInvite
-        fields = ["id", "group", "inviter_id", "invitee_id", "created_at"]
+        model = CommunityInvite
+        fields = ["id", "community", "inviter_id", "invitee_id", "created_at"]
         read_only_fields = ["id", "inviter_id", "created_at"]
 
     def validate_invitee_id(self, value):
@@ -283,7 +287,7 @@ class GroupInviteSerializer(serializers.ModelSerializer):
 class InviteLinkSerializer(serializers.ModelSerializer):
     """Serializer for community invite links"""
 
-    group_name = serializers.CharField(source="group.name", read_only=True)
+    community_name = serializers.CharField(source="community.name", read_only=True)
     created_by_name = serializers.CharField(read_only=True)
     expires_at = serializers.DateTimeField(read_only=True)
     is_expired = serializers.BooleanField(read_only=True)
@@ -293,8 +297,8 @@ class InviteLinkSerializer(serializers.ModelSerializer):
         model = InviteLink
         fields = [
             "id",
-            "group",
-            "group_name",
+            "community",
+            "community_name",
             "created_by",
             "created_by_name",
             "token",
@@ -310,7 +314,7 @@ class InviteLinkSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
-            "group_name",
+            "community_name",
             "created_by",
             "created_by_name",
             "token",

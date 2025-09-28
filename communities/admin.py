@@ -1,12 +1,26 @@
 from django.contrib import admin
-# from .models import Group, GroupPost, GroupInvite
+from .models import Community
+
+
 #
 #
-# @admin.register(Group)
-# class GroupAdmin(admin.ModelAdmin):
-#     list_display = ('name', 'creator_name', 'is_private', 'member_count', 'moderator_count', 'created_at')
+@admin.register(Community)
+class CommunityAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "visibility",
+        "nsfw",
+        "creator",
+        "verified",
+        "member_count",
+        "moderator_count",
+        "banned_users_count",
+        "created_at",
+        "updated_at",
+    )
+
+
 #     list_filter = ('is_private', 'created_at')
-#     search_fields = ('name', 'description', 'creator_id', 'creator_name')
 #     readonly_fields = ('created_at', 'updated_at')
 #     actions = ['delete_selected']
 #
@@ -41,8 +55,8 @@ from django.contrib import admin
 #         return len(obj.moderators) if obj.moderators else 0
 #
 #
-# @admin.register(GroupPost)
-# class GroupPostAdmin(admin.ModelAdmin):
+# @admin.register(CommunityPost)
+# class CommunityPostAdmin(admin.ModelAdmin):
 #     list_display = ('id', 'group', 'user_id', 'content_preview', 'created_at')
 #     list_filter = ('created_at', 'group')
 #     search_fields = ('content', 'user_id', 'group__name')
@@ -51,8 +65,8 @@ from django.contrib import admin
 #         return obj.content[:50] + '...' if len(obj.content) > 50 else obj.content
 #
 #
-# @admin.register(GroupInvite)
-# class GroupInviteAdmin(admin.ModelAdmin):
+# @admin.register(CommunityInvite)
+# class CommunityInviteAdmin(admin.ModelAdmin):
 #     list_display = ('id', 'group', 'inviter_id', 'invitee_id', 'created_at')
 #     list_filter = ('created_at', 'group')
 #     search_fields = ('inviter_id', 'invitee_id', 'group__name')

@@ -4,19 +4,19 @@ from django.utils import timezone
 from users.models import User
 
 
-class Group(models.Model):
-    GROUP_VISIBILITY_CHOICES = [
+class Community(models.Model):
+    COMMUNITY_VISIBILITY_CHOICES = [
         ("public", "Public"),
         ("private", "Private"),
     ]
     name = models.CharField(max_length=255, unique=True)
     description = models.TextField(blank=True)
     creator = models.ForeignKey(
-        User, on_delete=models.SET_NULL, related_name="group_creators", null=True
+        User, on_delete=models.SET_NULL, related_name="community_creators", null=True
     )
     visibility = models.CharField(
         max_length=20,
-        choices=GROUP_VISIBILITY_CHOICES,
+        choices=COMMUNITY_VISIBILITY_CHOICES,
     )
     private = models.BooleanField(default=False)
     nsfw = models.BooleanField(default=False)
@@ -28,7 +28,7 @@ class Group(models.Model):
     monthly_visitor_count = models.PositiveIntegerField(default=0)
     weekly_visitor_count = models.PositiveIntegerField(default=0)
     banner = models.ImageField(
-        upload_to="groups/banners/",
+        upload_to="community/banners/",
         null=True,
         width_field="banner_width",
         height_field="banner_height",
@@ -36,7 +36,7 @@ class Group(models.Model):
     banner_width = models.PositiveIntegerField(default=0)
     banner_height = models.PositiveIntegerField(default=0)
     profile_picture = models.ImageField(
-        upload_to="groups/profile_pictures/",
+        upload_to="community/profile_pictures/",
         height_field="profile_picture_height",
         width_field="profile_picture_width",
         null=True,
@@ -53,17 +53,17 @@ class Group(models.Model):
         return f"{self.name} created by ${self.creator}"
 
 
-class GroupMembership(models.Model):
+class CommunityMembership(models.Model):
     ROLE_CHOICES = [
         ("moderator", "Moderator"),
         ("member", "Member"),
     ]
 
-    group = models.ForeignKey(
-        Group, on_delete=models.CASCADE, related_name="group_memberships"
+    community = models.ForeignKey(
+        Community, on_delete=models.CASCADE, related_name="community_memberships"
     )
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="group_members"
+        User, on_delete=models.CASCADE, related_name="community_members"
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     banned = models.BooleanField(
@@ -86,24 +86,26 @@ class GroupMembership(models.Model):
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ("group", "user")
+        unique_together = ("community", "user")
         indexes = [
-            models.Index(fields=["group", "role"]),
+            models.Index(fields=["community", "role"]),
             models.Index(fields=["user", "role"]),
         ]
 
     def __str__(self):
-        return f"{self.user} - {self.role} in {self.group.name}"
+        return f"{self.user} - {self.role} in {self.community.name}"
 
 
-class GroupInvite(models.Model):
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="invites")
+class CommunityInvite(models.Model):
+    community = models.ForeignKey(
+        Community, on_delete=models.CASCADE, related_name="invites"
+    )
     invitee_id = models.CharField(max_length=100)
     inviter_id = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
-        return f"Invitee to {self.group.name} for {self.invitee_id}"
+        return f"Invitee to {self.community.name} for {self.invitee_id}"
 
 
 class InviteLink(models.Model):
@@ -114,8 +116,8 @@ class InviteLink(models.Model):
         (168, "1 week"),
     ]
 
-    group = models.ForeignKey(
-        Group, on_delete=models.CASCADE, related_name="invite_links"
+    community = models.ForeignKey(
+        Community, on_delete=models.CASCADE, related_name="invite_links"
     )
     created_by = models.CharField(max_length=255)
     created_by_name = models.CharField(max_length=255)
@@ -132,7 +134,7 @@ class InviteLink(models.Model):
         db_table = "invite_links"
 
     def __str__(self):
-        return f"Invite to {self.group.name} (expires: {self.expires_at})"
+        return f"Invite to {self.community.name} (expires: {self.expires_at})"
 
     def is_expired(self):
         """Check if the invite link has expired"""

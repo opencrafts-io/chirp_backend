@@ -2,7 +2,7 @@ from django.db import models
 from django.core.exceptions import ValidationError
 import os
 
-from groups.models import Group
+from communities.models import Community
 from users.models import User
 
 
@@ -68,8 +68,8 @@ class Attachment(models.Model):
 
 
 class Post(models.Model):
-    group = models.ForeignKey(
-        Group,
+    community = models.ForeignKey(
+        Community,
         on_delete=models.CASCADE,
         related_name="community_posts",
         default=1,
