@@ -24,7 +24,17 @@ class AttachmentSerializer(serializers.ModelSerializer):
         ]
 
     def get_file_url(self, obj):
-        """Generate the full URL for the file"""
+        """
+        Builds an accessible URL for the file attached to the given object.
+        
+        If the serializer context contains a `request`, constructs an absolute URL from `obj.file.url`. If the Django setting `USE_TLS` is true the URL scheme is normalized to `https`. If the URL contains `qachirp.opencrafts.io` but lacks the `/qa-chirp/` path segment, `/media/` is rewritten to `/qa-chirp/media/`. If no `request` is available returns the raw `obj.file.url`. Returns `None` when `obj.file` is not present.
+        
+        Parameters:
+            obj: Model instance exposing a `file` attribute (e.g., a FileField or similar).
+        
+        Returns:
+            str or None: The resolved file URL, or `None` if the object has no file.
+        """
         if obj.file:
             request = self.context.get("request")
             if request:
@@ -40,7 +50,15 @@ class AttachmentSerializer(serializers.ModelSerializer):
         return None
 
     def get_file_size_mb(self, obj):
-        """Get file size in MB"""
+        """
+        Get the attachment's file size in megabytes.
+        
+        Parameters:
+            obj: Attachment model instance whose file size will be obtained.
+        
+        Returns:
+            Size of the file in megabytes as a float.
+        """
         return obj.get_file_size_mb()
 
 
@@ -74,6 +92,15 @@ class CommentSerializer(serializers.ModelSerializer):
         ]
 
     def get_replies(self, obj):
+        """
+        Return a list of serialized reply comments for the given comment, limited to a maximum nesting depth.
+        
+        Parameters:
+            obj (Comment): The comment whose direct replies should be serialized. The serializer respects and increments `context["current_depth"]` when recursing.
+        
+        Returns:
+            list: Serialized reply data; returns an empty list when the maximum depth of 3 has been reached.
+        """
         max_depth = 3  # set your sane limit
         current_depth = self.context.get("current_depth", 0)
         if current_depth >= max_depth:

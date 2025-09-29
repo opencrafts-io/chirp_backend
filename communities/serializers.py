@@ -68,6 +68,17 @@ class UnifiedCommunitySerializer(serializers.ModelSerializer):
         ]
 
     def get_logo_url(self, obj):
+        """
+        Builds the absolute URL for a community's logo if one exists.
+        
+        If the community has a logo, returns its URL; when a request is present in the serializer context the URL is built as an absolute URI, otherwise the raw file URL is returned. If settings.USE_TLS is True the scheme is changed to `https`. For the QA host `qachirp.opencrafts.io` the path is adjusted to include `/qa-chirp/` by replacing `/media/` with `/qa-chirp/media/` when needed.
+        
+        Parameters:
+            obj: An object with a `get_logo()` method that returns a file-like object with `get_file_url()`.
+        
+        Returns:
+            The logo URL as a string, or `None` if no logo is available.
+        """
         logo = obj.get_logo()
         if logo:
             request = self.context.get("request")
@@ -84,6 +95,15 @@ class UnifiedCommunitySerializer(serializers.ModelSerializer):
         return None
 
     def get_banner_url(self, obj):
+        """
+        Return an absolute URL for the community's banner image, or None if no banner is available.
+        
+        Parameters:
+        	obj: An object with a `get_banner()` method that returns a media-like object exposing `get_file_url()`.
+        
+        Returns:
+        	banner_url (str): Absolute URL to the banner image with TLS and QA-host adjustments applied, or `None` if the object has no banner.
+        """
         banner = obj.get_banner()
         if banner:
             request = self.context.get("request")
@@ -100,6 +120,15 @@ class UnifiedCommunitySerializer(serializers.ModelSerializer):
         return None
 
     def get_is_banned(self, obj):
+        """
+        Check whether the current context user is banned from the given community.
+        
+        Parameters:
+            obj (Community): The community instance whose memberships will be checked. Uses `self.context["user_id"]` to identify the user; if `user_id` is missing, not found, or an error occurs, the function returns `False`.
+        
+        Returns:
+            bool: `True` if the context user has a banned membership in the community, `False` otherwise.
+        """
         user_id = self.context.get("user_id")
         if not user_id:
             return False
@@ -113,27 +142,75 @@ class UnifiedCommunitySerializer(serializers.ModelSerializer):
             return False
 
     def get_can_post(self, obj):
+        """
+        Determine whether the current context user is allowed to post in the provided community.
+        
+        Parameters:
+            obj: The community object to check permissions against.
+        
+        Returns:
+            `True` if the context user can post in the community, `False` if they cannot, or `None` if no user is present in the serializer context.
+        """
         user_id = self.context.get("user_id")
         if not user_id:
             return None
         return obj.can_post(user_id)
 
     def get_can_moderate(self, obj):
+        """
+        Determine whether the user from the serializer context has moderation privileges for the given community.
+        
+        Parameters:
+            obj: The community instance to check.
+        
+        Returns:
+            `True` if the context user can moderate the community, `False` if they cannot, or `None` if no user is present in the serializer context.
+        """
         user_id = self.context.get("user_id")
         if not user_id:
             return None
         return obj.can_moderate(user_id)
 
     def get_creator_id(self, obj):
+        """
+        Get the community creator's user ID or None if the community has no creator.
+        
+        Returns:
+            str: The creator's `user_id` as a string if a creator exists, `None` otherwise.
+        """
         return str(obj.creator.user_id) if obj.creator else None
 
     def get_creator_name(self, obj):
+        """
+        Return the creator's display name for the given community or None.
+        
+        Parameters:
+            obj: Community instance whose creator name will be returned.
+        
+        Returns:
+            The creator's name as a string, or `None` if no creator is set.
+        """
         return obj.creator.name if obj.creator else None
 
     def get_is_private(self, obj):
+        """
+        Return whether the community is private.
+        
+        Returns:
+            True if the community's `private` flag is set, False otherwise.
+        """
         return obj.private
 
     def get_moderators(self, obj):
+        """
+        List moderator user IDs for the given community.
+        
+        Parameters:
+            obj: Community instance to extract moderator and creator memberships from.
+        
+        Returns:
+            List of moderator user IDs as strings (includes members with role "moderator" or "creator"); returns an empty list on error.
+        """
         try:
             return [
                 str(m.user.user_id)
@@ -143,6 +220,16 @@ class UnifiedCommunitySerializer(serializers.ModelSerializer):
             return []
 
     def get_moderator_names(self, obj):
+        """
+        Return the display names of moderators (including the creator) for the given community.
+        
+        Parameters:
+        	obj: Community
+        		The community instance to retrieve moderator names from.
+        
+        Returns:
+        	moderator_names (list[str]): A list of moderator display names; an empty list if there are no moderators or if an error occurs.
+        """
         try:
             return [
                 m.user.name
@@ -152,6 +239,15 @@ class UnifiedCommunitySerializer(serializers.ModelSerializer):
             return []
 
     def get_members(self, obj):
+        """
+        List member user IDs for the community.
+        
+        Parameters:
+            obj (Community): The community instance whose memberships will be queried.
+        
+        Returns:
+            list[str]: A list of member `user_id` values as strings. Returns an empty list if memberships cannot be retrieved.
+        """
         try:
             return [
                 str(m.user.user_id) for m in obj.group_memberships.filter(role="member")
@@ -160,12 +256,30 @@ class UnifiedCommunitySerializer(serializers.ModelSerializer):
             return []
 
     def get_member_names(self, obj):
+        """
+        Return the display names of users who have the "member" role in the given community.
+        
+        Parameters:
+            obj: Community: The community instance whose memberships will be inspected.
+        
+        Returns:
+            list[str]: A list of member user names; returns an empty list if memberships cannot be accessed or an error occurs.
+        """
         try:
             return [m.user.name for m in obj.group_memberships.filter(role="member")]
         except:
             return []
 
     def get_banned_users(self, obj):
+        """
+        Return the list of banned users' IDs for the given community.
+        
+        Parameters:
+            obj: Community model instance whose group memberships will be inspected.
+        
+        Returns:
+            list[str]: A list of banned users' `user_id` values as strings. Returns an empty list if the banned membership list cannot be retrieved.
+        """
         try:
             return [
                 str(m.user.user_id) for m in obj.group_memberships.filter(banned=True)
@@ -174,21 +288,58 @@ class UnifiedCommunitySerializer(serializers.ModelSerializer):
             return []
 
     def get_banned_user_names(self, obj):
+        """
+        Get the display names of users who are banned from the community.
+        
+        Parameters:
+        	obj: The community instance whose group memberships will be inspected.
+        
+        Returns:
+        	list[str]: A list of banned users' `name` values; returns an empty list if the information is unavailable or an error occurs.
+        """
         try:
             return [m.user.name for m in obj.group_memberships.filter(banned=True)]
         except:
             return []
 
     def get_rules(self, obj):
+        """
+        Get the community's rules as a list.
+        
+        Parameters:
+        	obj (Community): Community instance from which to read guidelines.
+        
+        Returns:
+        	list: The community's guidelines if they are a list, otherwise an empty list.
+        """
         return obj.guidelines if isinstance(obj.guidelines, list) else []
 
     def get_member_count(self, obj):
+        """
+        Return the number of group memberships associated with the given community.
+        
+        Parameters:
+        	obj: The community instance whose group memberships will be counted.
+        
+        Returns:
+        	member_count (int): The count of group memberships for `obj`. Returns 0 if the count cannot be determined.
+        """
         try:
             return obj.group_memberships.count()
         except:
             return 0
 
     def to_representation(self, instance):
+        """
+        Limit specific list fields in the serialized representation to at most five items.
+        
+        After obtaining the standard representation from the superclass, truncates any present list in
+        `moderators`, `moderator_names`, `members`, `member_names`, `banned_users`, and `banned_user_names`
+        to the first five elements. Other fields are returned unchanged.
+        
+        Returns:
+            dict: The serialized representation with the specified list fields truncated when present.
+        """
         data = super().to_representation(instance)
 
         for field in [
@@ -258,6 +409,15 @@ class CommunitySerializer(serializers.ModelSerializer):
         ]
 
     def get_banner_url(self, obj):
+        """
+        Return the banner image URL for the given community or None if unavailable.
+        
+        Parameters:
+            obj (Community): The community model instance to read the banner from.
+        
+        Returns:
+            banner_url (str or None): The banner's URL string if the community has a banner and the URL can be accessed, otherwise `None`.
+        """
         if obj.banner:
             try:
                 return obj.banner.url
@@ -266,6 +426,15 @@ class CommunitySerializer(serializers.ModelSerializer):
         return None
 
     def get_profile_picture_url(self, obj):
+        """
+        Return the profile picture URL for the given community if available.
+        
+        Parameters:
+            obj (Community): The community instance to read the profile picture from.
+        
+        Returns:
+            profile_picture_url (str): The profile picture URL, or `None` if no picture is set or the URL cannot be resolved.
+        """
         if obj.profile_picture:
             try:
                 return obj.profile_picture.url
@@ -283,7 +452,18 @@ class CommunityInviteSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "inviter_id", "created_at"]
 
     def validate_invitee_id(self, value):
-        """Validate invitee_id"""
+        """
+        Validate an invitee identifier against emptiness and length constraints.
+        
+        Parameters:
+            value (str): The invitee ID to validate.
+        
+        Returns:
+            str: The validated invitee ID.
+        
+        Raises:
+            serializers.ValidationError: If `value` is empty (after trimming) or longer than 100 characters.
+        """
         if not value or not value.strip():
             raise serializers.ValidationError("Invitee ID cannot be empty.")
 
@@ -340,7 +520,17 @@ class InviteLinkSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        """Create invite link with auto-generated token"""
+        """
+        Create an InviteLink and assign a unique 32-character alphanumeric token.
+        
+        The method injects a generated alphanumeric token into validated_data and ensures the token does not collide with existing InviteLink tokens before creating the instance.
+        
+        Parameters:
+            validated_data (dict): Serializer-validated fields to use when creating the InviteLink.
+        
+        Returns:
+            InviteLink: The newly created InviteLink instance with a unique `token` field.
+        """
         import secrets
         import string
 

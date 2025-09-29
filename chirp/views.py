@@ -12,6 +12,12 @@ from rest_framework.response import Response
 class PingView(APIView):
     """Health check endpoint"""
     def get(self, request):
+        """
+        Health-check endpoint that responds with a simple JSON message.
+        
+        Returns:
+            Response: A DRF Response containing a JSON object with "message" set to "Bang".
+        """
         return Response({"message": "Bang"})
 #
 # class UserSearchView(APIView):

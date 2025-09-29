@@ -30,9 +30,26 @@ class PostCreateView(CreateAPIView):
 
     def get_queryset(self):
         # Required by DRF's CreateAPIView
+        """
+        Provide the base queryset for this view consisting of all Post records.
+        
+        Returns:
+            QuerySet: All Post objects.
+        """
         return Post.objects.all()
 
     def perform_create(self, serializer):
+        """
+        Create and save a new Post tied to the requesting user and specified community.
+        
+        Validates the requesting user's presence in the request context, ensures the user and community exist, verifies the user is a non-banned member of the community, and then saves the serializer with author, community, and created_at set.
+        
+        Parameters:
+            serializer: DRF serializer instance containing validated post data to be saved.
+        
+        Raises:
+            ValidationError: If the request's user_id is missing, the user does not exist, the community does not exist, or the user is not an active (non-banned) member of the community.
+        """
         user_id = getattr(self.request, "user_id", None)
         if not user_id:
             raise ValidationError(
@@ -81,6 +98,17 @@ class PostsFeedView(ListAPIView):
     serializer_class = PostSerializer
 
     def get_queryset(self) -> QuerySet[Post]:
+        """
+        Return posts from communities where the requesting user is an active (not banned) member, ordered by recommendation score and creation time.
+        
+        Each returned Post is annotated with `recommendation_score`, has `author` and `community` selected, and the queryset is distinct.
+        
+        Returns:
+            QuerySet[Post]: QuerySet of Post objects filtered and annotated for the requesting user.
+        
+        Raises:
+            ValidationError: If the request lacks a `user_id` in its context or if no User exists with the provided `user_id`.
+        """
         user_id = getattr(self.request, "user_id", None)
         if not user_id:
             raise ValidationError(
@@ -149,6 +177,16 @@ class DestroyPostView(DestroyAPIView):
     lookup_field = "id"
 
     def perform_destroy(self, instance):
+        """
+        Delete the given post instance if the requesting user (from request.user_id) is the post's author.
+        
+        Parameters:
+            instance (Post): The Post model instance to delete.
+        
+        Raises:
+            ValidationError: If the request is missing user information or the user does not exist.
+            PermissionDenied: If the requesting user is not the author of the post.
+        """
         user_id = getattr(self.request, "user_id", None)
         if not user_id:
             raise ValidationError(
@@ -171,6 +209,14 @@ class PostSearchView(ListAPIView):
 
     def get_queryset(self) -> QuerySet[Post]:
 
+        """
+        Return posts whose title or content contains the request's "q" parameter; if the query is absent or shorter than 2 characters, return an empty queryset.
+        
+        The search is case-insensitive and matches substrings in either `title` or `content`. Results are ordered by `title`.
+        
+        Returns:
+            QuerySet[Post]: Posts matching the query, or an empty queryset when the query is missing or shorter than 2 characters.
+        """
         q = self.request.GET.get("q", "").strip()
 
         # If the query is too short, return an empty queryset
@@ -189,6 +235,14 @@ class RecordPostViewerView(CreateAPIView):
     serializer_class = PostViewSerializer
 
     def perform_create(self, serializer):
+        """
+        Create or retrieve a PostView for the specified post and request user, and attach it to the serializer instance.
+        
+        Validates that the post (from URL kwarg "id") and the request user exist; raises ValidationError if the post id is missing/invalid or the user id cannot be parsed or does not exist. On success, sets `serializer.instance` to the existing or newly created PostView for the (post, user) pair.
+        
+        Parameters:
+            serializer: The serializer whose `.instance` will be set to the PostView object.
+        """
         post_id = self.kwargs.get("id")
 
         try:
@@ -221,6 +275,17 @@ class PostVoteView(CreateAPIView):
     serializer_class = PostVoteSerializer
 
     def perform_create(self, serializer):
+        """
+        Create or update a user's vote for a post and attach the resulting PostVotes instance to the serializer.
+        
+        Validates that `value` is either `PostVotes.UPVOTE` or `PostVotes.DOWNVOTE`, then updates an existing vote or creates a new one for the (post, user) pair and assigns it to `serializer.instance`.
+        
+        Parameters:
+            serializer: DRF serializer with `validated_data` containing `post`, `user`, and `value`.
+        
+        Raises:
+            ValidationError: If `value` is not `PostVotes.UPVOTE` or `PostVotes.DOWNVOTE`.
+        """
         post = serializer.validated_data["post"]
         user = serializer.validated_data["user"]
         value = serializer.validated_data["value"]
@@ -244,6 +309,15 @@ class PostVoteDeleteView(DestroyAPIView):
     lookup_field = "post_id"
 
     def get_object(self):
+        """
+        Retrieve the PostVotes instance for the current request user and the `post_id` URL parameter.
+        
+        Returns:
+            PostVotes: The vote object for the given post and authenticated user.
+        
+        Raises:
+            ValidationError: If the request user does not exist or if no vote exists for the (post_id, user) pair.
+        """
         post_id = self.kwargs["post_id"]
 
         try:
@@ -260,12 +334,28 @@ class CommentListCreateView(ListCreateAPIView):
     serializer_class = CommentSerializer
 
     def get_queryset(self):
+        """
+        Return top-level comments for the post identified by the `post_id` URL parameter.
+        
+        The returned queryset contains Comment objects with no parent (top-level) for the specified post and prefetches the `replies` and `author` relations.
+        
+        Returns:
+            QuerySet[Comment]: Top-level comments for the post with `replies` and `author` prefetched.
+        """
         post_id = self.kwargs["post_id"]
         return Comment.objects.filter(post_id=post_id, parent=None).prefetch_related(
             "replies", "author"
         )
 
     def get_serializer_context(self):
+        """
+        Provide serializer context with an initial depth indicator for nested comment serialization.
+        
+        Adds a `current_depth` key set to 0 to the serializer context so serializers can track nesting level when rendering or validating nested comment replies.
+        
+        Returns:
+            dict: The serializer context including `current_depth` set to 0.
+        """
         context = super().get_serializer_context()
         context["current_depth"] = 0  # start depth counting
         return context
@@ -277,6 +367,14 @@ class CommentRetrieveView(RetrieveAPIView):
     lookup_field = "id"
 
     def get_serializer_context(self):
+        """
+        Provide the serializer context with an initial nesting depth for comment serialization.
+        
+        The returned context preserves the base serializer context and adds "current_depth" set to 0.
+        
+        Returns:
+            context (dict): Serializer context dictionary with "current_depth" = 0.
+        """
         context = super().get_serializer_context()
         context["current_depth"] = 0
         return context
@@ -288,6 +386,16 @@ class CommentDestroyView(DestroyAPIView):
     lookup_field = "id"
 
     def perform_destroy(self, instance):
+        """
+        Delete the provided comment instance if the requesting user is its author.
+        
+        Parameters:
+            instance (Comment): The comment instance to delete.
+        
+        Raises:
+            ValidationError: If the request does not contain a user_id or the user_id does not correspond to an existing User.
+            PermissionDenied: If the requesting user is not the author of the comment.
+        """
         user_id = getattr(self.request, "user_id", None)
         if not user_id:
             raise ValidationError(

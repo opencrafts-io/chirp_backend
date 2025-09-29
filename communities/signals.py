@@ -7,6 +7,16 @@ from communities.views import Community
 
 @receiver(post_save, sender=Community)
 def create_owner_membership(sender, instance: Community, created: bool, **kwargs):
+    """
+    Create an initial super-mod CommunityMembership for a newly created Community.
+    
+    When a Community instance is created, create a CommunityMembership that links the community to its creator with the role "super-mod".
+    
+    Parameters:
+        sender: The model class that sent the signal.
+        instance (Community): The Community instance that was saved.
+        created (bool): True if the Community instance was created (not just updated).
+    """
     if created:
         CommunityMembership.objects.create(
             community=instance,
@@ -18,7 +28,11 @@ def create_owner_membership(sender, instance: Community, created: bool, **kwargs
 @receiver(post_save, sender=CommunityMembership)
 def update_member_count_on_create(sender, instance, created, **kwargs):
     """
-    Increment counts when a membership is created or role changes.
+    Recalculate and persist a community's member, moderator, and banned user counts after a membership is created or when its role/banned status changes.
+    
+    Parameters:
+        instance (CommunityMembership): The membership that triggered the signal; its associated community is used to recompute counts.
+        created (bool): Whether the membership was newly created.
     """
     community = instance.community
 
@@ -45,7 +59,16 @@ def update_member_count_on_create(sender, instance, created, **kwargs):
 @receiver(post_delete, sender=CommunityMembership)
 def update_member_count_on_delete(sender, instance, **kwargs):
     """
-    Decrement counts when a membership is removed.
+    Recomputes and persists a community's member, moderator, and banned-user counts after a membership is deleted.
+    
+    Updates:
+    - member_count to the number of community memberships where `banned` is False.
+    - moderator_count to the number of non-banned memberships whose `role` is "moderator" or "super-mod".
+    - banned_users_count to the number of memberships where `banned` is True.
+    Only the three updated fields are saved to the database.
+    
+    Parameters:
+        instance (CommunityMembership): The membership instance that was deleted.
     """
     community = instance.community
 

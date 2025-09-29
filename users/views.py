@@ -23,6 +23,14 @@ class LocalUserSearchView(ListAPIView):
 
     def get_queryset(self) -> QuerySet[User]:
 
+        """
+        Return users whose username, name, or email contains the request's "q" parameter, ordered by name.
+        
+        If the "q" parameter is missing or shorter than 2 characters, no users are returned.
+        
+        Returns:
+            QuerySet[User]: QuerySet of matching User objects ordered by `name`; an empty QuerySet if the query is missing or shorter than 2 characters.
+        """
         q = self.request.GET.get("q", "").strip()
 
         # If the query is too short, return an empty queryset
@@ -39,4 +47,10 @@ class UserListView(ListAPIView):
     pagination_class = UserPagination
 
     def get_queryset(self) -> QuerySet[User]:
+        """
+        Return the queryset used by the view.
+        
+        Returns:
+            QuerySet[User]: A queryset containing all User instances.
+        """
         return User.objects.all()

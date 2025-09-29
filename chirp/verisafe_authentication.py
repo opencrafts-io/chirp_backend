@@ -7,6 +7,20 @@ from .verisafe_jwt import verify_verisafe_jwt  # from earlier
 
 class VerisafeAuthentication(BaseAuthentication):
     def authenticate(self, request):
+        """
+        Authenticate a request using a Verisafe JWT provided in the Authorization header.
+        
+        Reads the "Authorization" header (expected to start with "Bearer "), verifies the token using verify_verisafe_jwt, and on success attaches the token payload to `request.verisafe_claims` and the payload subject to `request.user_id`. Returns a placeholder AnonymousUser and `None` as the auth tuple.
+        
+        Parameters:
+            request: The incoming HTTP request whose headers contain the Authorization bearer token.
+        
+        Returns:
+            tuple: `(user, auth)` where `user` is an `AnonymousUser` placeholder and `auth` is `None`.
+        
+        Raises:
+            AuthenticationFailed: If the Authorization header is missing or not in "Bearer <token>" format, or if token verification fails.
+        """
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
             raise AuthenticationFailed(
