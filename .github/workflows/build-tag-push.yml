@@ -65,11 +65,9 @@ jobs:
           python manage.py makemigrations
           python manage.py migrate
 
-      - name: Set Testing JWT
-        run: echo "TEST_VERISAFE_JWT=${{ secrets.TEST_VERISAFE_JWT }}" >> $GITHUB_ENV
 
       - name: Run Tests
-        run: python manage.py test --verbosity=2
+        run: echo "TEST_VERISAFE_JWT=${{ secrets.TEST_VERISAFE_JWT }}" >> $GITHUB_ENV && python manage.py test --verbosity=2
 
   build-and-push:
     runs-on: ubuntu-latest
