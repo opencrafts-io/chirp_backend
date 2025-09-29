@@ -1,6 +1,7 @@
 from django.contrib.admindocs.views import user_has_model_view_permission
 from django.db.models import Q, QuerySet
 from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.fields import ValidationError
 from rest_framework.generics import (
     CreateAPIView,
@@ -148,9 +149,21 @@ class DestroyPostView(DestroyAPIView):
     lookup_field = "id"
 
     def perform_destroy(self, instance):
-        if instance.author != self.request.user:
+        user_id = getattr(self.request, "user_id", None)
+        if not user_id:
+            raise ValidationError(
+                {"error": "Failed to parse your information from request context"}
+            )
+
+        try:
+            user = User.objects.get(user_id=user_id)
+        except User.DoesNotExist:
+            raise ValidationError({"error": f"User with id {user_id} does not exist"})
+        if instance.author != user:
             raise PermissionDenied("You can only delete your own posts.")
         instance.delete()
+
+
 
 
 class PostSearchView(ListAPIView):
@@ -273,3 +286,19 @@ class CommentDestroyView(DestroyAPIView):
     serializer_class = CommentSerializer
     queryset = Comment.objects.all()
     lookup_field = "id"
+
+    def perform_destroy(self, instance):
+        user_id = getattr(self.request, "user_id", None)
+        if not user_id:
+            raise ValidationError(
+                {"error": "Failed to parse your information from request context"}
+            )
+
+        try:
+            user = User.objects.get(user_id=user_id)
+        except User.DoesNotExist:
+            raise ValidationError({"error": f"User with id {user_id} does not exist"})
+
+        if instance.author != user:
+            raise PermissionDenied("You can only delete your own comments.")
+        instance.delete()
