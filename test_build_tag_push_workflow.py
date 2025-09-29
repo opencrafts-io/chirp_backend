@@ -9,12 +9,16 @@ Testing Framework: unittest (Python standard library)
 """
 
 import unittest
-import yaml
+try:
+    import yaml
+except ImportError:
+    yaml = None
 import os
 import re
 from unittest.mock import patch, MagicMock
 
 
+@unittest.skipIf(yaml is None, "PyYAML is required for TestBuildTagPushWorkflow")
 class TestBuildTagPushWorkflow(unittest.TestCase):
     """Test suite for the GitHub Actions workflow configuration."""
     
@@ -151,9 +155,9 @@ jobs:
 
           echo "🔨 Building $IMAGE_BASE:$IMAGE_TAG and $IMAGE_BASE:$SHA_TAG"
 
-          pack build "$IMAGE_BASE:$IMAGE_TAG" \\
-            --buildpack paketo-buildpacks/python \\
-            --builder paketobuildpacks/builder-jammy-base \\
+          pack build "$IMAGE_BASE:$IMAGE_TAG" \
+            --buildpack paketo-buildpacks/python \
+            --builder paketobuildpacks/builder-jammy-base \
             --cache "type=build;format=volume"
 
           docker tag "$IMAGE_BASE:$IMAGE_TAG" "$IMAGE_BASE:$SHA_TAG"
@@ -170,7 +174,6 @@ jobs:
           echo "🚀 Pushing $IMAGE_BASE:$SHA_TAG"
           docker push "$IMAGE_BASE:$SHA_TAG"
 '''
-        
         self.workflow_data = yaml.safe_load(self.workflow_content)
 
     def test_workflow_structure_validity(self):
@@ -197,14 +200,14 @@ jobs:
         jobs = self.workflow_data['jobs']
         self.assertIn('test', jobs)
         self.assertIn('build-and-push', jobs)
-        
+
         # Test job has required keys
         test_job = jobs['test']
         self.assertIn('runs-on', test_job)
         self.assertIn('services', test_job)
         self.assertIn('env', test_job)
         self.assertIn('steps', test_job)
-        
+
         # Build-and-push job has required keys
         build_job = jobs['build-and-push']
         self.assertIn('runs-on', build_job)
@@ -214,39 +217,39 @@ jobs:
     def test_postgres_service_configuration(self):
         """Test PostgreSQL service configuration in the test job."""
         postgres_service = self.workflow_data['jobs']['test']['services']['postgres']
-        
+
         self.assertEqual(postgres_service['image'], 'postgres:16')
         self.assertIn('env', postgres_service)
         self.assertIn('ports', postgres_service)
         self.assertIn('options', postgres_service)
-        
+
         # Test environment variables
         env = postgres_service['env']
         self.assertEqual(env['POSTGRES_USER'], 'chirp_user')
         self.assertEqual(env['POSTGRES_PASSWORD'], 'secretpassword')
         self.assertEqual(env['POSTGRES_DB'], 'chirp_db')
-        
+
         # Test port mapping
         self.assertIn('5432:5432', postgres_service['ports'])
 
     def test_job_environment_variables(self):
         """Test environment variables configuration in test job."""
         test_env = self.workflow_data['jobs']['test']['env']
-        
+
         # Database connection variables
         self.assertEqual(test_env['DB_USER'], 'chirp_user')
         self.assertEqual(test_env['DB_PASSWORD'], 'secretpassword')
         self.assertEqual(test_env['DB_NAME'], 'chirp_db')
         self.assertEqual(test_env['DB_HOST'], 'localhost')
         self.assertEqual(test_env['DB_PORT'], 5432)
-        
+
         # PostgreSQL client variables
         self.assertEqual(test_env['PGUSER'], 'chirp_user')
         self.assertEqual(test_env['PGPASSWORD'], 'secretpassword')
         self.assertEqual(test_env['PGDATABASE'], 'chirp_db')
         self.assertEqual(test_env['PGHOST'], 'localhost')
         self.assertEqual(test_env['PGPORT'], 5432)
-        
+
         # Django configuration
         self.assertEqual(test_env['DJANGO_SETTINGS_MODULE'], 'chirp.settings')
         self.assertIn('secrets.TEST_VERISAFE_JWT', test_env['TEST_VERISAFE_JWT'])
@@ -259,14 +262,14 @@ jobs:
     def test_python_version_consistency(self):
         """Test that Python version is consistent across jobs."""
         jobs = self.workflow_data['jobs']
-        
+
         # Find Python setup steps in all jobs
         python_versions = []
         for _job_name, job_config in jobs.items():
             for step in job_config['steps']:
                 if step.get('uses') == 'actions/setup-python@v5':
                     python_versions.append(step['with']['python-version'])
-        
+
         # All Python versions should be the same
         self.assertTrue(all(v == '3.12' for v in python_versions))
         self.assertTrue(len(python_versions) >= 2)  # Both jobs should set Python version
@@ -280,12 +283,12 @@ jobs:
             if step.get('name') == 'Cache Python Dependencies':
                 cache_step = step
                 break
-        
+
         self.assertIsNotNone(cache_step)
         self.assertEqual(cache_step['uses'], 'actions/cache@v4')
         self.assertEqual(cache_step['with']['path'], '~/.cache/pip')
         self.assertIn('hashFiles', cache_step['with']['key'])
-        
+
         # Test CNB layers cache in build job
         build_steps = self.workflow_data['jobs']['build-and-push']['steps']
         cnb_cache_step = None
@@ -293,7 +296,7 @@ jobs:
             if step.get('name') == 'Cache CNB Layers':
                 cnb_cache_step = step
                 break
-        
+
         self.assertIsNotNone(cnb_cache_step)
         self.assertEqual(cnb_cache_step['uses'], 'actions/cache@v4')
         self.assertEqual(cnb_cache_step['with']['path'], '~/.cache/pack')
@@ -301,14 +304,14 @@ jobs:
     def test_required_secrets_usage(self):
         """Test that required secrets are properly referenced."""
         workflow_str = self.workflow_content
-        
+
         # Check for required secrets
         required_secrets = [
             'TEST_VERISAFE_JWT',
-            'DOCKERHUB_USERNAME', 
+            'DOCKERHUB_USERNAME',
             'DOCKERHUB_TOKEN'
         ]
-        
+
         for secret in required_secrets:
             self.assertIn(f'secrets.{secret}', workflow_str)
 
@@ -320,10 +323,10 @@ jobs:
             if step.get('name') == 'Set Docker Tags':
                 tag_step = step
                 break
-        
+
         self.assertIsNotNone(tag_step)
         self.assertEqual(tag_step['id'], 'tags')
-        
+
         # Test that the step contains branch logic
         run_script = tag_step['run']
         self.assertIn('GITHUB_REF', run_script)
@@ -339,10 +342,10 @@ jobs:
             if step.get('name') == 'Build Docker image with Buildpacks':
                 build_step = step
                 break
-        
+
         self.assertIsNotNone(build_step)
         run_script = build_step['run']
-        
+
         # Test buildpack components
         self.assertIn('pack build', run_script)
         self.assertIn('paketo-buildpacks/python', run_script)
@@ -353,17 +356,17 @@ jobs:
         """Test that steps in test job are in logical order."""
         test_steps = self.workflow_data['jobs']['test']['steps']
         step_names = [step['name'] for step in test_steps]
-        
+
         # Expected order of critical steps
         expected_order = [
             'Checkout Code',
-            'Set up Python', 
+            'Set up Python',
             'Cache Python Dependencies',
             'Install Dependencies',
             'Run Migrations',
             'Run Tests'
         ]
-        
+
         for i, expected_step in enumerate(expected_order):
             self.assertIn(expected_step, step_names)
             actual_index = step_names.index(expected_step)
@@ -377,7 +380,7 @@ jobs:
         """Test that steps in build job are in logical order."""
         build_steps = self.workflow_data['jobs']['build-and-push']['steps']
         step_names = [step['name'] for step in build_steps]
-        
+
         # Expected order of critical steps
         expected_order = [
             'Checkout Code',
@@ -388,7 +391,7 @@ jobs:
             'Build Docker image with Buildpacks',
             'Push Docker images to Docker Hub'
         ]
-        
+
         for i, expected_step in enumerate(expected_order):
             self.assertIn(expected_step, step_names)
             actual_index = step_names.index(expected_step)
@@ -401,7 +404,7 @@ jobs:
     def test_github_actions_versions(self):
         """Test that GitHub Actions use specific, stable versions."""
         jobs = self.workflow_data['jobs']
-        
+
         action_versions = {}
         for job_name, job_config in jobs.items():
             for step in job_config['steps']:
@@ -410,7 +413,7 @@ jobs:
                     if action not in action_versions:
                         action_versions[action] = []
                     action_versions[action].append(job_name)
-        
+
         # Verify specific versions are used (not latest)
         for action in action_versions:
             self.assertRegex(action, r'@v\d+', f"Action {action} should use specific version")
@@ -419,7 +422,7 @@ jobs:
         """Test PostgreSQL health check configuration."""
         postgres_service = self.workflow_data['jobs']['test']['services']['postgres']
         options = postgres_service['options']
-        
+
         # Test health check components
         self.assertIn('--health-cmd', options)
         self.assertIn('pg_isready', options)
@@ -435,7 +438,7 @@ jobs:
             if step.get('name') == 'Run Migrations':
                 migration_step = step
                 break
-        
+
         self.assertIsNotNone(migration_step)
         run_script = migration_step['run']
         self.assertIn('python manage.py makemigrations', run_script)
@@ -449,7 +452,7 @@ jobs:
             if step.get('name') == 'Run Tests':
                 test_step = step
                 break
-        
+
         self.assertIsNotNone(test_step)
         run_script = test_step['run']
         self.assertIn('python manage.py test', run_script)
@@ -464,7 +467,7 @@ jobs:
             if step.get('name') == 'Install pack CLI':
                 pack_step = step
                 break
-        
+
         self.assertIsNotNone(pack_step)
         run_script = pack_step['run']
         self.assertIn('curl -sSL', run_script)
@@ -479,7 +482,7 @@ jobs:
             if step.get('name') == 'Log in to Docker Hub':
                 login_step = step
                 break
-        
+
         self.assertIsNotNone(login_step)
         run_script = login_step['run']
         self.assertIn('docker login', run_script)
@@ -495,7 +498,7 @@ jobs:
             if step.get('name') == 'Push Docker images to Docker Hub':
                 push_step = step
                 break
-        
+
         self.assertIsNotNone(push_step)
         run_script = push_step['run']
         self.assertIn('docker push', run_script)
@@ -536,12 +539,12 @@ jobs:
         """Test consistency between service and job environment variables."""
         postgres_env = self.workflow_data['jobs']['test']['services']['postgres']['env']
         job_env = self.workflow_data['jobs']['test']['env']
-        
+
         # Database connection consistency
         self.assertEqual(postgres_env['POSTGRES_USER'], job_env['DB_USER'])
         self.assertEqual(postgres_env['POSTGRES_PASSWORD'], job_env['DB_PASSWORD'])
         self.assertEqual(postgres_env['POSTGRES_DB'], job_env['DB_NAME'])
-        
+
         # PostgreSQL client consistency
         self.assertEqual(postgres_env['POSTGRES_USER'], job_env['PGUSER'])
         self.assertEqual(postgres_env['POSTGRES_PASSWORD'], job_env['PGPASSWORD'])
@@ -553,7 +556,7 @@ jobs:
         required_keys = ['name', 'on', 'jobs']
         for key in required_keys:
             self.assertIn(key, self.workflow_data)
-        
+
         # Test jobs structure
         jobs = self.workflow_data['jobs']
         for job_name in ['test', 'build-and-push']:
@@ -566,7 +569,7 @@ jobs:
 
 class TestWorkflowEdgeCases(unittest.TestCase):
     """Test edge cases and failure conditions for the workflow."""
-    
+
     def test_empty_workflow_validation(self):
         """Test validation of empty workflow configuration."""
         empty_workflow = {}
@@ -574,6 +577,7 @@ class TestWorkflowEdgeCases(unittest.TestCase):
             # Should fail when trying to access required keys
             _ = empty_workflow['name']
 
+    @unittest.skipIf(yaml is None, "PyYAML is required for test_malformed_yaml_handling")
     def test_malformed_yaml_handling(self):
         """Test handling of malformed YAML structure."""
         malformed_yaml = "name: Test\n  invalid_indent: value"
