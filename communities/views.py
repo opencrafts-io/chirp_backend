@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
 
+from communities.permissions import IsCommunityModerator, IsCommunitySuperMod
 from users.models import User
 from .models import Community, CommunityMembership
 from .serializers import (
@@ -54,20 +55,29 @@ class CommunityCreateView(CreateAPIView):
 
 class CommunityRetrieveView(RetrieveAPIView):
     serializer_class = CommunitySerializer
-    queryset = Community.objects.all()
     lookup_field = "id"
+    lookup_url_kwarg = "community_id"
+    queryset = Community.objects.all()
+    
+    def get_queryset(self)-> QuerySet[Community]:
+        return super().get_queryset().select_related("creator")
+ 
 
 
 class CommunityUpdateView(UpdateAPIView):
     serializer_class = CommunitySerializer
     queryset = Community.objects.all()
+    permission_classes = [IsCommunityModerator]
     lookup_field = "id"
+    lookup_url_kwarg = "community_id"
 
 
 class CommunityDestroyView(DestroyAPIView):
+    permission_classes = [IsCommunitySuperMod]
     serializer_class = CommunitySerializer
     queryset = Community.objects.all()
     lookup_field = "id"
+    lookup_url_kwarg = "community_id"
 
 
 class CommunitySearchView(ListAPIView):
@@ -223,6 +233,50 @@ class CommunityBanUserView(UpdateAPIView):
                 banning_reason=None,
                 banned_at=None,
             )
+
+
+class CommunityJoinView(CreateAPIView):
+    """
+    Allows a user to join a community.
+    """
+
+    serializer_class = CommunityMembershipSerializer
+    def create(self, request, *args, **kwargs):
+        user_id = getattr(self.request, "user_id", None)
+        if not user_id:
+            return Response({"error": "Failed to parse your information from request context"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = User.objects.get(user_id=user_id)
+        except User.DoesNotExist:
+            return Response({"error": f"User with id {user_id} does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        community_id = self.kwargs.get("community_id")
+        try:
+            community = Community.objects.get(id=community_id)
+        except Community.DoesNotExist:
+            return Response({"error": "Community does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        membership, created = CommunityMembership.objects.get_or_create(
+            community=community,
+            user=user,
+            defaults={"role": "member"} 
+        )
+
+        if not created and membership.banned:
+            return Response({"error": "You are banned from this community."}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = self.get_serializer(membership)
+        
+        response_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        
+        return Response(serializer.data, status=response_status)
+
+class CommunityLeaveView(DestroyAPIView):
+    serializer_class = CommunityMembershipSerializer
+    lookup_url_kwarg = "membership_id"
+    lookup_field = "id"
+    queryset = CommunityMembership.objects.all()
+
 # class CommunityCreateView(APIView):
 #     """Create a new community"""
 #
@@ -416,113 +470,43 @@ class CommunityDetailWithUserView(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-class CommunityJoinView(APIView):
-    """Join a community"""
-
-    def post(self, request, community_id):
-        user_name = request.data.get("user_name")
-        user_id = request.data.get("user_id")
-
-        if not user_name or not user_id:
-            return Response(
-                {"error": "user_name and user_id are required in request body"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            community = Community._default_manager.get(id=community_id)
-        except Community.DoesNotExist:  # type: ignore
-            return Response(
-                {"error": "Community not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-
-        try:
-            community.self_join(user_id, user_name)
-        except ValidationError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-        serializer = UnifiedCommunitySerializer(
-            community, context={"request": request, "user_id": user_id}
-        )
-        return Response(
-            {
-                "message": "Successfully joined the community",
-                "community": serializer.data,
-            },
-            status=status.HTTP_200_OK,
-        )
-
-
-class CommunityLeaveView(APIView):
-    """Leave a community"""
-
-    def post(self, request, community_id):
-        user_id = request.data.get("user_id")
-        user_name = request.data.get("user_name")
-
-        if not user_id:
-            return Response(
-                {"error": "user_id is required in request body"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            community = Community._default_manager.get(id=community_id)
-        except Community.DoesNotExist:  # type: ignore
-            return Response(
-                {"error": "Community not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-
-        if user_id == community.creator_id:
-            return Response(
-                {"error": "Creator cannot leave the community"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Remove from moderators if present
-        if user_id in community.moderators:
-            current_moderators = list(community.moderators)
-            current_moderator_names = list(community.moderator_names)
-            try:
-                index = current_moderators.index(user_id)
-                current_moderators.remove(user_id)
-                current_moderator_names.pop(index)
-                community.moderators = current_moderators
-                community.moderator_names = current_moderator_names
-            except (ValueError, IndexError):
-                pass
-
-        # Remove from members if present
-        if user_id in community.members:
-            current_members = list(community.members)
-            current_member_names = list(community.member_names)
-            try:
-                index = current_members.index(user_id)
-                current_members.remove(user_id)
-                current_member_names.pop(index)
-                community.members = current_members
-                community.member_names = current_member_names
-            except (ValueError, IndexError):
-                pass
-
-        community.save()
-
-        # Delete CommunityMembership record
-        try:
-            from users.models import User
-            from communitys.models import CommunityMembership
-
-            user = User._default_manager.get(user_id=user_id)
-            CommunityMembership._default_manager.filter(
-                community=community, user=user
-            ).delete()
-        except:
-            pass
-
-        return Response({"message": "Successfully left the community"})
-
-
+#
+# class CommunityJoinView(APIView):
+#     """Join a community"""
+#
+#     def post(self, request, community_id):
+#         user_name = request.data.get("user_name")
+#         user_id = request.data.get("user_id")
+#
+#         if not user_name or not user_id:
+#             return Response(
+#                 {"error": "user_name and user_id are required in request body"},
+#                 status=status.HTTP_400_BAD_REQUEST,
+#             )
+#
+#         try:
+#             community = Community._default_manager.get(id=community_id)
+#         except Community.DoesNotExist:  # type: ignore
+#             return Response(
+#                 {"error": "Community not found"}, status=status.HTTP_404_NOT_FOUND
+#             )
+#
+#         try:
+#             community.self_join(user_id, user_name)
+#         except ValidationError as e:
+#             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+#
+#         serializer = UnifiedCommunitySerializer(
+#             community, context={"request": request, "user_id": user_id}
+#         )
+#         return Response(
+#             {
+#                 "message": "Successfully joined the community",
+#                 "community": serializer.data,
+#             },
+#             status=status.HTTP_200_OK,
+#         )
+#
 class CommunityModerationView(APIView):
     """Moderate community members and content"""
 

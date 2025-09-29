@@ -36,17 +36,17 @@ urlpatterns = [
     path("search/", CommunitySearchView.as_view(), name="community-search"),
     path("all", CommunityListView.as_view(), name="community-list"),
     path(
-        "<int:id>/details",
+        "<int:community_id>/details",
         CommunityRetrieveView.as_view(),
         name="community-detail-view",
     ),
     path(
-        "<int:id>/update",
+        "<int:community_id>/update",
         CommunityUpdateView.as_view(),
         name="community-detail-view",
     ),
     path(
-        "<int:id>/delete",
+        "<int:community_id>/delete",
         CommunityDestroyView.as_view(),
         name="community-delete-view",
     ),
@@ -74,6 +74,15 @@ urlpatterns = [
         CommunityBanUserView.as_view(),
         name="community-ban-user",
     ),
+    # Community Join and leaving
+    path(
+        "<int:community_id>/join/", CommunityJoinView.as_view(), name="community-join"
+    ),
+    path(
+        "<int:membership_id>/leave/",
+        CommunityLeaveView.as_view(),
+        name="community-leave",
+    ),
     path("<int:community_id>/", CommunityDetailView.as_view(), name="community-detail"),
     path(
         "<int:community_id>/detail/",
@@ -82,11 +91,6 @@ urlpatterns = [
     ),
     path(
         "<int:community_id>/join/", CommunityJoinView.as_view(), name="community-join"
-    ),
-    path(
-        "<int:community_id>/leave/",
-        CommunityLeaveView.as_view(),
-        name="community-leave",
     ),
     # Community moderation
     path(

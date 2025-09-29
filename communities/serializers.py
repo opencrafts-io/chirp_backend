@@ -355,19 +355,35 @@ class InviteLinkSerializer(serializers.ModelSerializer):
 
 class CommunityMembershipSerializer(serializers.ModelSerializer):
     community = CommunitySerializer(read_only=True)
+    user = UserSerializer(read_only=True)
+    banned_by = UserSerializer(read_only=True)
+
     community_id = serializers.PrimaryKeyRelatedField(
         queryset=Community.objects.all(),
         source="community",
+        write_only=True,
+        required=False,
+        allow_null=True,
     )
     user_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
         source="user",
+        write_only=True,
+        required=False,
+        allow_null=True,
     )
-    user = UserSerializer(read_only=True)
     banned_by_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), source="banned_by"
+        queryset=User.objects.all(),
+        source="banned_by",
+        write_only=True,
+        required=False,
+        allow_null=True,
     )
-    banned_by = UserSerializer(read_only=True)
+    role = serializers.CharField(
+        max_length=20,
+        required=False,
+        allow_blank=True,
+    )
 
     class Meta:
         model = CommunityMembership
