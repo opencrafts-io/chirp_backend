@@ -66,7 +66,7 @@ urlpatterns = [
     #     name="get-community-memberhips",
     # ),
     # Older versions
-    path("postable/", CommunityPostableView.as_view(), name="community-postable"),
+    path("postable", CommunityPostableView.as_view(), name="community-postable"),
     path("<int:community_id>/", CommunityDetailView.as_view(), name="community-detail"),
     path(
         "<int:community_id>/detail/",

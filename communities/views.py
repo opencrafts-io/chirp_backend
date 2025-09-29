@@ -83,6 +83,7 @@ class CommunitySearchView(ListAPIView):
             .order_by("name")
         )
 
+
 # Community memberships
 class CommunityMembershipApiView(ListAPIView):
     """
@@ -141,32 +142,31 @@ class PersonalCommunityMembershipApiView(ListAPIView):
             raise e
 
 
-class CommunityPostableView(APIView):
-    """Get all communitys where the user can post (for post creation dropdown)"""
+class CommunityPostableView(ListAPIView):
+    serializer_class = CommunitySerializer
 
-    def post(self, request):
-        if not hasattr(request, "user_id") or not request.user_id:
-            return Response(
-                {"error": "Authentication required"},
-                status=status.HTTP_401_UNAUTHORIZED,
+    def get_queryset(self) -> QuerySet[Community]:
+        try:
+            user_id = self.request.user_id or None
+
+            if user_id is None or user_id == "":
+                raise ValidationError(
+                    f"Failed to parse your information from request context"
+                )
+            user = User.objects.get(user_id=user_id)
+
+            return (
+                Community.objects.filter(
+                    community_memberships__user=user,
+                    community_memberships__banned=False,
+                )
+                .select_related("creator")
+                .distinct()
+                .order_by("name")
             )
 
-        user_id = request.user_id
-
-        all_communitys = Community._default_manager.all()
-
-        postable_communitys = []
-        for community in all_communitys:
-            if community.is_member(user_id):
-                if community.can_post(user_id):
-                    postable_communitys.append(community)
-
-        serializer = UnifiedCommunitySerializer(
-            postable_communitys,
-            many=True,
-            context={"request": request, "user_id": user_id},
-        )
-        return Response(serializer.data)
+        except Exception as e:
+            raise e
 
 
 # class CommunityCreateView(APIView):
