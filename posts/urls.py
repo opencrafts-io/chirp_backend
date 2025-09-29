@@ -10,6 +10,7 @@ from posts.views import (
     PostSearchView,
     PostVoteDeleteView,
     PostVoteView,
+    PostsFeedView,
     RecordPostViewerView,
     RetrievePostByAuthorView,
     RetrievePostByCommunityView,
@@ -21,6 +22,11 @@ urlpatterns = [
         "create/",
         PostCreateView.as_view(),
         name="post-create",
+    ),
+    path(
+        "feed/",
+        PostsFeedView.as_view(),
+        name="post-feed",
     ),
     path(
         "all/",

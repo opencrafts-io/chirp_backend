@@ -25,6 +25,58 @@ class PostCreateView(CreateAPIView):
     serializer_class = PostSerializer
 
 
+from django.db.models import F, ExpressionWrapper, FloatField
+
+
+class PostsFeedView(ListAPIView):
+    """
+    Returns recommended posts from communities where the user
+    is an active (non-banned) member.
+    Recommendations consider upvotes, downvotes, comments, and views.
+
+
+    score = (upvotes * 3) - (downvotes * 2) + (comment_count * 2) + (views_count * 0.5)
+
+    1. Upvotes have the highest positive weight.
+    2. Downvotes strongly penalize.
+    3. Comment activity is weighted higher than views.
+    4. Views provide a smaller positive nudge
+    """
+
+    serializer_class = PostSerializer
+
+    def get_queryset(self) -> QuerySet[Post]:
+        user_id = getattr(self.request, "user_id", None)
+        if not user_id:
+            raise ValidationError(
+                {"error": "Failed to parse your information from request context"}
+            )
+
+        try:
+            user = User.objects.get(user_id=user_id)
+        except User.DoesNotExist:
+            raise ValidationError({"error": f"User with id {user_id} does not exist"})
+
+        return (
+            Post.objects.filter(
+                community__community_memberships__user=user,
+                community__community_memberships__banned=False,
+            )
+            .annotate(
+                recommendation_score=ExpressionWrapper(
+                    (F("upvotes") * 3)
+                    - (F("downvotes") * 2)
+                    + (F("comment_count") * 2)
+                    + (F("views_count") * 0.5),
+                    output_field=FloatField(),
+                )
+            )
+            .select_related("author", "community")
+            .distinct()
+            .order_by("-recommendation_score", "-created_at")
+        )
+
+
 class ListPostView(ListAPIView):
     """Lists all posts on the system"""
 
