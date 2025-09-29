@@ -7,4 +7,9 @@ class PostsConfig(AppConfig):
 
 
     def ready(self) -> None:
+        """
+        Ensure the app's signal handlers are registered when Django initializes the application.
+        
+        This method imports the module that registers signal handlers for the posts app (`posts.signals`) so those handlers are connected during app startup.
+        """
         import posts.signals

@@ -50,6 +50,12 @@ class Community(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
+        """
+        Return a human-readable representation of the community combining its name and creator.
+        
+        Returns:
+            str: A string formatted as "{name} created by ${creator}".
+        """
         return f"{self.name} created by ${self.creator}"
 
 
@@ -94,6 +100,12 @@ class CommunityMembership(models.Model):
         ]
 
     def __str__(self):
+        """
+        Provide a human-readable string describing the membership's user, role, and community.
+        
+        Returns:
+            A string formatted as "{user} - {role} in {community.name}".
+        """
         return f"{self.user} - {self.role} in {self.community.name}"
 
 
@@ -106,6 +118,12 @@ class CommunityInvite(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
+        """
+        Provide a human-readable representation of the invite showing the community name and invitee identifier.
+        
+        Returns:
+            A string containing the community name and invitee identifier in the format "Invitee to {community.name} for {invitee_id}".
+        """
         return f"Invitee to {self.community.name} for {self.invitee_id}"
 
 
@@ -135,18 +153,41 @@ class InviteLink(models.Model):
         db_table = "invite_links"
 
     def __str__(self):
+        """
+        Human-readable representation of the invite link.
+        
+        Returns:
+            str: A string containing the community name and the invite's expiration datetime formatted as
+                 "Invite to {community.name} (expires: {expires_at})".
+        """
         return f"Invite to {self.community.name} (expires: {self.expires_at})"
 
     def is_expired(self):
-        """Check if the invite link has expired"""
+        """
+        Determine whether the invite link is past its expiration time.
+        
+        Returns:
+            bool: True if the current time is after `expires_at`, False otherwise.
+        """
         return timezone.now() > self.expires_at
 
     def can_be_used(self):
-        """Check if the invite link can be used"""
+        """
+        Determine whether the invite link is available for use.
+        
+        Returns:
+            `true` if the link is not marked as used and has not expired, `false` otherwise.
+        """
         return not self.is_used and not self.is_expired()
 
     def mark_as_used(self, user_id, user_name):
-        """Mark the invite link as used"""
+        """
+        Mark this invite link as used and record the user and timestamp.
+        
+        Parameters:
+            user_id (str): Identifier of the user who used the link.
+            user_name (str): Display name of the user who used the link.
+        """
         self.is_used = True
         self.used_by = user_id
         self.used_by_name = user_name
@@ -154,7 +195,11 @@ class InviteLink(models.Model):
         self.save()
 
     def save(self, *args, **kwargs):
-        """Auto-calculate expiration time when saving"""
+        """
+        Ensure the invite link's expires_at is set from expiration_hours before saving.
+        
+        If `expires_at` is not set, set it to the current time plus `expiration_hours`, then perform the normal model save.
+        """
         if not self.expires_at:
             self.expires_at = timezone.now() + timezone.timedelta(
                 hours=self.expiration_hours

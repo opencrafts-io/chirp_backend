@@ -25,5 +25,11 @@ class User(models.Model):
         ]
 
     def __str__(self):
+        """
+        Provide a concise display string identifying the user by username and name.
+        
+        Returns:
+            str: A string formatted as "@{username} - ({name})".
+        """
         return f"@{self.username} - ({self.name})"
 

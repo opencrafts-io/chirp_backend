@@ -6,6 +6,15 @@ import sys
 
 class VerisafeAuthMiddleware:
     def __init__(self, get_response):
+        """
+        Initialize the middleware, store the next request callable, create a Verisafe client, and define URL path prefixes that bypass authentication.
+        
+        Parameters:
+            get_response (callable): The next middleware or view callable that should be invoked to produce a response.
+        
+        Notes:
+            The `exempt_urls` list contains path prefixes that will not require authentication. Due to a missing comma between the first two entries, the literals '/users/' and '/ping/' are concatenated into a single entry '/users//ping/', which alters which paths are actually exempt.
+        """
         self.get_response = get_response
         self.verisafe_client = get_verisafe_client()
         # URLs that don't require authentication
