@@ -36,6 +36,7 @@ jobs:
       PGHOST: localhost
       PGPORT: 5432
       DJANGO_SETTINGS_MODULE: chirp.settings
+      TEST_VERISAFE_JWT: ${{ secrets.TEST_VERISAFE_JWT }}
 
     steps:
       - name: Checkout Code
