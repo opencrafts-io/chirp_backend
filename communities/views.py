@@ -1,4 +1,5 @@
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.generics import (
     CreateAPIView,
     DestroyAPIView,
@@ -11,7 +12,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
 
-from posts import serializers
 from users.models import User
 from .models import Community, CommunityMembership
 from .serializers import (
@@ -20,7 +20,7 @@ from .serializers import (
     UnifiedCommunitySerializer,
 )
 from django.db.models import Q
-from django.core.exceptions import ValidationError
+from django.utils import timezone
 from .models import InviteLink
 from .serializers import InviteLinkSerializer
 
@@ -168,7 +168,61 @@ class CommunityPostableView(ListAPIView):
         except Exception as e:
             raise e
 
+class CommunityBanUserView(UpdateAPIView):
+    """
+    Ban or unban a user from a community based on the `action` query param:
+    ?action=ban  → ban the user
+    ?action=unban → unban the user
 
+    Optionally, provide a `reason` query param when banning:
+    ?reason=Spamming
+    """
+
+    serializer_class = CommunityMembershipSerializer
+
+    def get_queryset(self):
+        community_id = self.kwargs.get("community_id")
+        return CommunityMembership.objects.filter(community_id=community_id)
+
+    def perform_update(self, serializer: CommunityMembershipSerializer):
+        user_id = self.request.user_id or None
+        if not user_id:
+            raise ValidationError({"error": "Failed to parse your information from request context"})
+
+        current_user = User.objects.get(user_id=user_id)
+        membership = serializer.instance
+
+        action = self.request.query_params.get("action")
+        if action not in ("ban", "unban"):
+            raise ValidationError({"error": "Invalid action. Must be 'ban' or 'unban'."})
+
+        # Prevent self ban/unban
+        if membership.user == current_user:
+            raise ValidationError({"error": f"Cannot {action} yourself from the community"})
+
+        # Protect super-mods
+        if membership.role == "super-mod":
+            raise ValidationError({"error": f"You cannot {action} a super-mod from the community"})
+
+        if action == "ban":
+            if membership.banned:
+                return membership  # Already banned
+            reason = self.request.query_params.get("reason", "No reason provided")
+            serializer.save(
+                banned=True,
+                banned_by=current_user,
+                banning_reason=reason,
+                banned_at=timezone.now(),
+            )
+        else:  # unban
+            if not membership.banned:
+                return membership 
+            serializer.save(
+                banned=False,
+                banned_by=None,
+                banning_reason=None,
+                banned_at=None,
+            )
 # class CommunityCreateView(APIView):
 #     """Create a new community"""
 #

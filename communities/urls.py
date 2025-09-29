@@ -1,5 +1,6 @@
 from django.urls import path
 from .views import (
+    CommunityBanUserView,
     CommunityDestroyView,
     CommunityListView,
     CommunityPostableView,
@@ -67,6 +68,12 @@ urlpatterns = [
     # ),
     # Older versions
     path("postable", CommunityPostableView.as_view(), name="community-postable"),
+    # banning users
+    path(
+        "<int:community_id>/ban/<int:pk>/",
+        CommunityBanUserView.as_view(),
+        name="community-ban-user",
+    ),
     path("<int:community_id>/", CommunityDetailView.as_view(), name="community-detail"),
     path(
         "<int:community_id>/detail/",
