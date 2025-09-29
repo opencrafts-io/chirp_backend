@@ -32,6 +32,7 @@ from .views import (
 urlpatterns = [
     # Community management
     path("create/", CommunityCreateView.as_view(), name="community-create"),
+    path("search/", CommunitySearchView.as_view(), name="community-search"),
     path("all", CommunityListView.as_view(), name="community-list"),
     path(
         "<int:id>/details",
