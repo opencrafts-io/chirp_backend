@@ -1,5 +1,6 @@
 from django.contrib.admindocs.views import user_has_model_view_permission
 from django.db.models import Q, QuerySet
+from django.utils import timezone
 from rest_framework.fields import ValidationError
 from rest_framework.generics import (
     CreateAPIView,
@@ -9,6 +10,8 @@ from rest_framework.generics import (
     RetrieveAPIView,
 )
 
+from django.db.models import F, ExpressionWrapper, FloatField
+from communities.models import Community, CommunityMembership
 from posts.models import Comment, Post, PostView, PostVotes
 from posts.serializers import (
     CommentSerializer,
@@ -24,8 +27,39 @@ class PostCreateView(CreateAPIView):
 
     serializer_class = PostSerializer
 
+    def get_queryset(self):
+        # Required by DRF's CreateAPIView
+        return Post.objects.all()
 
-from django.db.models import F, ExpressionWrapper, FloatField
+    def perform_create(self, serializer):
+        user_id = getattr(self.request, "user_id", None)
+        if not user_id:
+            raise ValidationError(
+                {"error": "Failed to parse your information from request context"}
+            )
+
+        try:
+            user = User.objects.get(user_id=user_id)
+        except User.DoesNotExist:
+            raise ValidationError({"error": f"User with id {user_id} does not exist"})
+
+        community_id = self.kwargs.get("community_id")
+        try:
+            community = Community.objects.get(id=community_id)
+        except Community.DoesNotExist:
+            raise ValidationError({"error": "Community does not exist"})
+
+        # Check membership
+        membership = CommunityMembership.objects.filter(
+            community=community, user=user, banned=False
+        ).first()
+        if not membership:
+            raise ValidationError(
+                {"error": "You must be a member of this community to post."}
+            )
+
+        # Save post
+        serializer.save(author=user, community=community, created_at=timezone.now())
 
 
 class PostsFeedView(ListAPIView):
