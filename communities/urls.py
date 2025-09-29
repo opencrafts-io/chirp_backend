@@ -24,6 +24,7 @@ from .views import (
     InviteLinkListView,
     CommunitySearchView,
     CommunityMembershipApiView,
+    PersonalCommunityMembershipApiView,
 )
 
 # from posts.views import  PostCreateView
@@ -53,6 +54,16 @@ urlpatterns = [
         CommunityMembershipApiView.as_view(),
         name="get-community-memberhips",
     ),
+    path(
+        "memberships/mine",
+        PersonalCommunityMembershipApiView.as_view(),
+        name="get-personal-memberships",
+    ),
+    # path(
+    #     "<int:community_id>/memberships",
+    #     CommunityMembershipApiView.as_view(),
+    #     name="get-community-memberhips",
+    # ),
     # Older versions
     path("postable/", CommunityPostableView.as_view(), name="community-postable"),
     path("<int:community_id>/", CommunityDetailView.as_view(), name="community-detail"),

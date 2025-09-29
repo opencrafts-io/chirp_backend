@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
 
+from posts import serializers
 from users.models import User
 from .models import Community, CommunityMembership
 from .serializers import (
@@ -100,33 +101,31 @@ class CommunityMembershipApiView(ListAPIView):
             "banned_by",
         )
 
-    # def get(self, request):
-    #     if not hasattr(request, 'user_id') or not request.user_id:
-    #         return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
-    #
-    #     user_id = request.user_id
-    #
-    #     public_communitys = Community._default_manager.filter(is_private=False)
-    #     if public_communitys.exists():
-    #         public_communitys = list(public_communitys)
-    #     else:
-    #         public_communitys = []
-    #     user_communitys = Community._default_manager.filter(
-    #         Q(members__contains=[user_id]) |  # type: ignore
-    #         Q(moderators__contains=[user_id]) |  # type: ignore
-    #         Q(creator_id=user_id)
-    #     ).distinct()
-    #     if user_communitys.exists():
-    #         user_communitys = list(user_communitys)
-    #     else:
-    #         user_communitys = []
-    #
-    #     # Combine and remove duplicates
-    #     all_communitys = list(public_communitys) + list(user_communitys)
-    #     unique_communitys = list({community.id: community for community in all_communitys}.values())
-    #
-    #     # serializer = UnifiedCommunitySerializer(unique_communitys, many=True, context={'request': request, 'user_id': user_id})
-    #     return Response(serializer.data)
+
+class PersonalCommunityMembershipApiView(ListAPIView):
+    """
+    Returns a list of all personal memberships
+    """
+
+    serializer_class = CommunityMembershipSerializer
+
+    def get_queryset(self) -> QuerySet[CommunityMembership]:
+        try:
+            user_id = self.request.user_id or None
+
+            if user_id is None or user_id == "":
+                raise ValidationError(
+                    f"Failed to parse your information from request context"
+                )
+            user = User.objects.get(user_id=user_id)
+
+            return CommunityMembership.objects.filter(user=user).select_related(
+                "community", "user", "banned_by"
+            )
+        except User.DoesNotExist:
+            raise ValidationError("User does not exist!")
+        except Exception as e:
+            raise e
 
 
 class CommunityPostableView(APIView):
