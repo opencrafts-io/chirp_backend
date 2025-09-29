@@ -147,6 +147,11 @@ class DestroyPostView(DestroyAPIView):
     queryset = Post.objects.all()
     lookup_field = "id"
 
+    def perform_destroy(self, instance):
+        if instance.author != self.request.user:
+            raise PermissionDenied("You can only delete your own posts.")
+        instance.delete()
+
 
 class PostSearchView(ListAPIView):
     serializer_class = PostSerializer
