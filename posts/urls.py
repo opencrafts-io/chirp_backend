@@ -5,7 +5,9 @@ from posts.views import (
     CommentListCreateView,
     CommentRetrieveView,
     DestroyPostView,
+    ListPostAttachmentsView,
     ListPostView,
+    PostAttachmentCreateView,
     PostCreateView,
     PostSearchView,
     PostVoteDeleteView,
@@ -22,6 +24,16 @@ urlpatterns = [
         "create/",
         PostCreateView.as_view(),
         name="post-create",
+    ),
+    path(
+        "attachment/create/",
+        PostAttachmentCreateView.as_view(),
+        name="post-attachment-create",
+    ),
+    path(
+        "<int:post_id>/attachments",
+        ListPostAttachmentsView.as_view(),
+        name="post-attachment-view",
     ),
     path(
         "feed/",

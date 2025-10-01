@@ -13,8 +13,9 @@ from rest_framework.generics import (
 
 from django.db.models import F, ExpressionWrapper, FloatField
 from communities.models import Community, CommunityMembership
-from posts.models import Comment, Post, PostView, PostVotes
+from posts.models import Attachment, Comment, Post, PostView, PostVotes
 from posts.serializers import (
+    AttachmentSerializer,
     CommentSerializer,
     PostSerializer,
     PostViewSerializer,
@@ -46,7 +47,7 @@ class PostCreateView(CreateAPIView):
 
         community = serializer.validated_data.get("community")
         if not community:
-            raise ValidationError({"error": "Community must be provided."})  
+            raise ValidationError({"error": "Community must be provided."})
         # Check membership
         membership = CommunityMembership.objects.filter(
             community=community, user=user, banned=False
@@ -58,6 +59,24 @@ class PostCreateView(CreateAPIView):
 
         # Save post
         serializer.save(author=user, community=community, created_at=timezone.now())
+
+
+class PostAttachmentCreateView(CreateAPIView):
+    serializer_class = AttachmentSerializer
+
+
+class ListPostAttachmentsView(ListAPIView):
+    serializer_class = AttachmentSerializer
+
+    def get_queryset(self) -> QuerySet[Attachment]:
+        post_id = self.kwargs.get("post_id")
+        try:
+            Post.objects.get(id=post_id)
+            return Attachment.objects.filter(post=post_id)
+        except Post.DoesNotExist:
+            raise ValidationError({"error": f"Post with id {post_id} does not exist"})
+        except Exception as e:
+            raise ValidationError({"error": f"Coud not satisfy your request."})
 
 
 class PostsFeedView(ListAPIView):
@@ -160,8 +179,6 @@ class DestroyPostView(DestroyAPIView):
         if instance.author != user:
             raise PermissionDenied("You can only delete your own posts.")
         instance.delete()
-
-
 
 
 class PostSearchView(ListAPIView):

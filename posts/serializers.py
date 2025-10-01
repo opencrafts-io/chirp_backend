@@ -3,69 +3,24 @@ from rest_framework import serializers
 from django.conf import settings
 
 from communities.models import Community
+from communities.serializers import CommunitySerializer
 from users.serializers import UserSerializer
 from .models import Attachment, Post, Comment, PostView, PostVotes
 from users.models import User
 
 
 class AttachmentSerializer(serializers.ModelSerializer):
-    file_url = serializers.SerializerMethodField()
-    file_size_mb = serializers.SerializerMethodField()
-
     class Meta:
         model = Attachment
-        fields = [
-            "id",
-            "attachment_type",
-            "file_url",
-            "file_size_mb",
-            "original_filename",
-            "created_at",
-        ]
+        fields = "__all__"
 
-    def get_file_url(self, obj):
-        """
-        Builds an accessible URL for the file attached to the given object.
-        
-        If the serializer context contains a `request`, constructs an absolute URL from `obj.file.url`. If the Django setting `USE_TLS` is true the URL scheme is normalized to `https`. If the URL contains `qachirp.opencrafts.io` but lacks the `/qa-chirp/` path segment, `/media/` is rewritten to `/qa-chirp/media/`. If no `request` is available returns the raw `obj.file.url`. Returns `None` when `obj.file` is not present.
-        
-        Parameters:
-            obj: Model instance exposing a `file` attribute (e.g., a FileField or similar).
-        
-        Returns:
-            str or None: The resolved file URL, or `None` if the object has no file.
-        """
-        if obj.file:
-            request = self.context.get("request")
-            if request:
-                url = request.build_absolute_uri(obj.file.url)
-                if getattr(settings, "USE_TLS", False):
-                    url = url.replace("http://", "https://")
-
-                if "qachirp.opencrafts.io" in url and "/qa-chirp/" not in url:
-                    url = url.replace("/media/", "/qa-chirp/media/")
-
-                return url
-            return obj.file.url
-        return None
-
-    def get_file_size_mb(self, obj):
-        """
-        Get the attachment's file size in megabytes.
-        
-        Parameters:
-            obj: Attachment model instance whose file size will be obtained.
-        
-        Returns:
-            Size of the file in megabytes as a float.
-        """
-        return obj.get_file_size_mb()
-
-
-class communitieserializer(serializers.Serializer):
-    id = serializers.IntegerField()
-    name = serializers.CharField()
-    description = serializers.CharField()
+    def create(self, validated_data):
+        # Auto-populate file_size and original_filename
+        file = validated_data.get("file")
+        if file:
+            validated_data["file_size"] = file.size
+            validated_data["original_filename"] = file.name
+        return super().create(validated_data)
 
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -94,10 +49,10 @@ class CommentSerializer(serializers.ModelSerializer):
     def get_replies(self, obj):
         """
         Return a list of serialized reply comments for the given comment, limited to a maximum nesting depth.
-        
+
         Parameters:
             obj (Comment): The comment whose direct replies should be serialized. The serializer respects and increments `context["current_depth"]` when recursing.
-        
+
         Returns:
             list: Serialized reply data; returns an empty list when the maximum depth of 3 has been reached.
         """
@@ -115,7 +70,7 @@ class CommentSerializer(serializers.ModelSerializer):
 class PostSerializer(serializers.ModelSerializer):
     # Nested for reading
     author = UserSerializer(read_only=True)
-    community = communitieserializer(read_only=True)
+    community = CommunitySerializer(read_only=True)
     attachments = AttachmentSerializer(many=True, read_only=True)
     comments = CommentSerializer(many=True, read_only=True)
 
@@ -154,6 +109,34 @@ class PostSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def create(self, validated_data):
+        attachments_data = validated_data.pop("attachments", [])
+        post = Post.objects.create(**validated_data)
+        for attachment_data in attachments_data:
+            Attachment.objects.create(post=post, **attachment_data)
+        return post
+
+    def update(self, instance, validated_data):
+        attachments_data = validated_data.pop("attachments", [])
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        existing_ids = [a.get("id") for a in attachments_data if a.get("id")]
+        instance.attachments.exclude(id__in=existing_ids).delete()
+
+        for attachment_data in attachments_data:
+            attachment_id = attachment_data.get("id")
+            if attachment_id:
+                Attachment.objects.filter(id=attachment_id, post=instance).update(
+                    **attachment_data
+                )
+            else:
+                Attachment.objects.create(post=instance, **attachment_data)
+
+        return instance
 
 
 class PostViewSerializer(serializers.ModelSerializer):

@@ -91,7 +91,7 @@ class Post(models.Model):
     def __str__(self) -> str:
         """
         Return a human-readable representation of the post.
-        
+
         Returns:
             str: The post's title followed by "by" and the author; if the title is empty or None, "Post" is used in place of the title.
         """
@@ -167,7 +167,7 @@ class Comment(models.Model):
     def __str__(self):
         """
         Return a human-readable representation of the comment.
-        
+
         Returns:
             A string in the format "Comment by <author> on <post>" describing the comment's author and associated post.
         """
@@ -177,7 +177,7 @@ class Comment(models.Model):
     def is_root(self) -> bool:
         """
         Indicates whether the comment is top-level (has no parent).
-        
+
         Returns:
             True if the comment has no parent, False otherwise.
         """
@@ -187,7 +187,7 @@ class Comment(models.Model):
     def depth(self):
         """
         Return the nesting level of this comment within its thread.
-        
+
         Returns:
             int: Depth of the comment where 0 indicates a top-level (root) comment.
         """
@@ -201,13 +201,13 @@ class Comment(models.Model):
     def get_all_replies(self, max_depth: int = 3, _current_depth: int = 0):
         """
         Collects nested reply Comment instances up to a specified nesting depth.
-        
+
         Parameters:
-        	max_depth (int): Maximum levels of nested replies to include (default 3). A value of N includes replies up to N levels deep.
-        	_current_depth (int): Internal recursion depth counter; not intended for external callers.
-        
+                max_depth (int): Maximum levels of nested replies to include (default 3). A value of N includes replies up to N levels deep.
+                _current_depth (int): Internal recursion depth counter; not intended for external callers.
+
         Returns:
-        	list: A flat list of reply Comment instances (including nested replies) up to the specified depth.
+                list: A flat list of reply Comment instances (including nested replies) up to the specified depth.
         """
         if _current_depth >= max_depth:
             return []
