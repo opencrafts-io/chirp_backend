@@ -12,6 +12,7 @@ from .views import (
     CommunitySearchView,
     CommunityMembershipApiView,
     PersonalCommunityMembershipApiView,
+    PersonalCommunityMembershipsApiView,
 )
 
 # from posts.views import  PostCreateView
@@ -44,6 +45,11 @@ urlpatterns = [
     ),
     path(
         "memberships/mine",
+        PersonalCommunityMembershipsApiView.as_view(),
+        name="get-personal-memberships",
+    ),
+    path(
+        "memberships/mine/for/<int:community_id>",
         PersonalCommunityMembershipApiView.as_view(),
         name="get-personal-memberships",
     ),
