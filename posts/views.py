@@ -137,7 +137,8 @@ class RetrievePostByCommunityView(RetrieveAPIView):
 
     serializer_class = PostSerializer
     queryset = Post.objects.all()
-    lookup_field = "group"
+    lookup_field = "community"
+    lookup_url_kwarg = "community_id"
 
 
 class DestroyPostView(DestroyAPIView):

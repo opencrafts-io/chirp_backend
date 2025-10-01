@@ -44,7 +44,7 @@ urlpatterns = [
         name="get-post-by-author",
     ),
     path(
-        "from/<int:group>/",
+        "from/<int:community_id>/",
         RetrievePostByCommunityView.as_view(),
         name="get-post-by-author",
     ),
