@@ -1,36 +1,37 @@
-# users/consumers.py
-from event_bus.consumer import BaseConsumer
-from event_bus.registry import register
-from django.conf import settings
-from .models import User
 import json
 import uuid
+import logging
+from event_bus.consumer import BaseConsumer
+from event_bus.registry import register
+from .models import User
 
 
 @register
 class VerisafeUserCreatedEventConsumer(BaseConsumer):
-    queue_name = "io.opencrafts.chirp.verisafe.user.created"
-    exchange_name = "verisafe.exchange"
-    exchange_type = "direct"
-    routing_key = "verisafe.user.created"
+    def __init__(self) -> None:
+        self.queue_name = "io.opencrafts.chirp.verisafe.user.created"
+        self.exchange_name = "verisafe.exchange"
+        self.exchange_type = "direct"
+        self.routing_key = "verisafe.user.created"
+        self.logger = logging.getLogger(f"{type(self).__name__}")
 
     def handle_message(self, body: str, routing_key=None):
-        """
-        Handle incoming created user event from Verisafe.
-        body: JSON string containing the event
-        """
         try:
-            print(body)
             event = json.loads(body)
-        except json.JSONDecodeError:
-            print(f"[UserEventConsumer] Failed to decode message: {body}")
+        except json.JSONDecodeError as e:
+            self.logger.error(
+                "Failed to decode message", extra={"body": body, "exception": str(e)}
+            )
             return
 
-        event_type = routing_key
-        payload = event.get("payload", {})
+        if not self.validate_event(event, "user.created"):
+            return
+
+        payload = event.get("user", {})
+        user = None
         try:
-            User.objects.update_or_create(
-                user_id=uuid.UUID(payload["user_id"]),
+            user, created = User.objects.update_or_create(
+                user_id=uuid.UUID(payload["id"]),
                 defaults={
                     "name": payload.get("name"),
                     "username": payload.get("username"),
@@ -40,37 +41,43 @@ class VerisafeUserCreatedEventConsumer(BaseConsumer):
                     "vibe_points": payload.get("vibe_points", 0),
                 },
             )
-            print(
-                f"[VerisafeUserCreatedEventConsumer] Created user {payload.get('username')}"
+            action = "created" if created else "updated"
+            self.logger.info(
+                f"User @{user.username} {action} successfully",
+                extra={"user_id": str(user.user_id), "event": "user.created"},
             )
 
         except Exception as e:
-            print(e)
+            self.logger.exception(
+                "Failed to create/update user",
+                extra={"payload": payload, "exception": str(e)},
+            )
 
 
 @register
 class VerisafeUserUpdatedEventConsumer(BaseConsumer):
-    queue_name = "io.opencrafts.chirp.verisafe.user.updated"
-    exchange_name = "verisafe.exchange"
-    exchange_type = "direct"
-    routing_key = "verisafe.user.updated"
+    def __init__(self) -> None:
+        self.queue_name = "io.opencrafts.chirp.verisafe.user.updated"
+        self.exchange_name = "verisafe.exchange"
+        self.exchange_type = "direct"
+        self.routing_key = "verisafe.user.updated"
+        self.logger = logging.getLogger(f"{type(self).__name__}")
 
     def handle_message(self, body: str, routing_key=None):
-        """
-        Handle incoming created user event from Verisafe.
-        body: JSON string containing the event
-        """
         try:
-            print(body)
             event = json.loads(body)
-        except json.JSONDecodeError:
-            print(f"[UserEventConsumer] Failed to decode message: {body}")
+        except json.JSONDecodeError as e:
+            self.logger.error(
+                "Failed to decode message", extra={"body": body, "exception": str(e)}
+            )
             return
 
-        event_type = routing_key
-        payload = event.get("payload", {})
+        if not self.validate_event(event, "user.updated"):
+            return
+
+        payload = event.get("user", {})
         try:
-            User.objects.update_or_create(
+            user, _ = User.objects.update_or_create(
                 user_id=uuid.UUID(payload["user_id"]),
                 defaults={
                     "name": payload.get("name"),
@@ -81,41 +88,54 @@ class VerisafeUserUpdatedEventConsumer(BaseConsumer):
                     "vibe_points": payload.get("vibe_points", 0),
                 },
             )
-            print(
-                f"[VerisafeUserUpdatedEventConsumer] Updated user {payload.get('username')}"
+            self.logger.info(
+                f"User @{user.username} updated successfully",
+                extra={"user_id": str(user.user_id), "event": "user.updated"},
             )
 
         except Exception as e:
-            print(e)
+            self.logger.exception(
+                "Failed to update user", extra={"payload": payload, "exception": str(e)}
+            )
 
 
 @register
 class VerisafeUserDeletedEventConsumer(BaseConsumer):
-    queue_name = "io.opencrafts.chirp.verisafe.user.deleted"
-    exchange_name = "verisafe.exchange"
-    exchange_type = "direct"
-    routing_key = "verisafe.user.deleted"
+    def __init__(self) -> None:
+        self.queue_name = "io.opencrafts.chirp.verisafe.user.deleted"
+        self.exchange_name = "verisafe.exchange"
+        self.exchange_type = "direct"
+        self.routing_key = "verisafe.user.deleted"
+        self.logger = logging.getLogger(f"{type(self).__name__}")
 
     def handle_message(self, body: str, routing_key=None):
-        """
-        Handle incoming created user event from Verisafe.
-        body: JSON string containing the event
-        """
         try:
-            print(body)
             event = json.loads(body)
-        except json.JSONDecodeError:
-            print(f"[UserEventConsumer] Failed to decode message: {body}")
+        except json.JSONDecodeError as e:
+            self.logger.error(
+                "Failed to decode message", extra={"body": body, "exception": str(e)}
+            )
             return
 
-        event_type = routing_key
-        payload = event.get("payload", {})
+        if not self.validate_event(event, "user.deleted"):
+            return
+
+        payload = event.get("user", {})
+        user_id = payload.get("id")
         try:
-
-            User.objects.filter(user_id=uuid.UUID(payload["user_id"])).delete()
-            print(
-                f"[VerisafeUserDeletedEventConsumer] Created user {payload.get('username')}"
-            )
-
+            deleted_count, _ = User.objects.filter(user_id=uuid.UUID(user_id)).delete()
+            if deleted_count:
+                self.logger.info(
+                    f"User {user_id} deleted successfully",
+                    extra={"user_id": user_id, "event": "user.deleted"},
+                )
+            else:
+                self.logger.warning(
+                    f"User {user_id} not found for deletion",
+                    extra={"user_id": user_id, "event": "user.deleted"},
+                )
         except Exception as e:
-            print(e)
+            self.logger.exception(
+                f"Failed to delete user {user_id}",
+                extra={"payload": payload, "exception": str(e)},
+            )

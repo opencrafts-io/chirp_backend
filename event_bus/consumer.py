@@ -1,18 +1,54 @@
+from time import time
 import pika
 from django.conf import settings
+import logging
 
 
 class BaseConsumer:
-    queue_name = None
-    exchange_name = None
-    exchange_type = "topic"
-    routing_key = "#"
+
+    def __init__(self) -> None:
+        self.queue_name = None
+        self.exchange_name = None
+        self.exchange_type = "topic"
+        self.routing_key = "#"
+        self.logger = logging.getLogger("BaseConsumerLogger")
+
+    def validate_event(
+        self,
+        event: dict,
+        expected_type: str,
+        source_service: str = "io.opencrafts.verisafe",
+    ) -> bool:
+        """Validate event metadata."""
+        metadata = event.get("meta", {})
+        if metadata.get("event_type") != expected_type:
+            self.logger.error(
+                f"[{str(type(self).__name__)}] Wrong event_type: expected {expected_type}, got {metadata.get('event_type')}",
+                extra={
+                    "abort": True,
+                    "user_id": event.get("payload", {}).get("user_id"),
+                },
+            )
+            return False
+        if metadata.get("source_service_id") != source_service:
+            self.logger.error(
+                f"[{str(type(self).__name__)}] Wrong source_service_id: expected {source_service}, got {metadata.get('source_service_id')}",
+                extra={
+                    "abort": True,
+                    "user_id": event.get("payload", {}).get("user_id"),
+                },
+            )
+            return False
+        return True
 
     def handle_message(self, body: str, routing_key: str):
         """Override this in subclasses."""
         raise NotImplementedError
 
     def start(self):
+
+        if not self.queue_name:
+            raise ValueError(f"{self.__class__.__name__} must define queue_name")
         creds = pika.PlainCredentials(
             settings.RABBITMQ_USER, settings.RABBITMQ_PASSWORD
         )
@@ -53,9 +89,7 @@ class BaseConsumer:
             on_message_callback=callback,
             auto_ack=True,
         )
-
-        print(
-            f"[event_bus] Listening on queue '{self.queue_name}'"
-            f"{' bound to exchange ' + self.exchange_name if self.exchange_name else ''}…"
+        self.logger.info(
+            f"[{str(type(self).__name__)}] Listening for events on queue {self.queue_name}, bound to exchange {self.exchange_name}",
         )
         ch.start_consuming()
