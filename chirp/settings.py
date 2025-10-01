@@ -51,7 +51,7 @@ INSTALLED_APPS = [
     "channels",
     "users",
     "posts",
-    "groups",
+    "communities",
     "dmessages",
     "utils",
     "conversations",
@@ -79,7 +79,9 @@ WEBSOCKET_MAX_MESSAGE_SIZE = 1024 * 1024
 
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [],
-    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "chirp.verisafe_authentication.VerisafeAuthentication",
+    ],
     "DEFAULT_PAGINATION_CLASS": "chirp.pagination.StandardResultsSetPagination",
     "PAGE_SIZE": 50,
 }
@@ -134,7 +136,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "posts.middleware.VerisafeAuthMiddleware",
 ]
 
 ROOT_URLCONF = "chirp.urls"
@@ -201,18 +202,30 @@ USE_I18N = True
 
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
-
-STATIC_URL = "static/"
-
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.2/howto/static-files/
+
+STATIC_URL = "static/"
 MEDIA_URL = "/media/"
+
+ENVIRONMENT = os.getenv("ENVIRONMENT", "dev")
+
+if ENVIRONMENT == "prod":
+    MEDIA_URL = "/media/"
+    STATIC_URL = "static/"
+elif ENVIRONMENT == "staging":
+    MEDIA_URL = "/qa-chirp/media/"
+    STATIC_URL = "/qa-chirp/static/"
+else:
+    MEDIA_URL = "/dev-chirp/media/"
+    STATIC_URL = "/dev-chirp/static/"
+
 MEDIA_ROOT = BASE_DIR / "media"
 
 # File upload settings for large images
