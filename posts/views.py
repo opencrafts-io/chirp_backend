@@ -13,7 +13,7 @@ from rest_framework.generics import (
 
 from django.db.models import F, ExpressionWrapper, FloatField
 from communities.models import Community, CommunityMembership
-from posts.models import Comment, Post, PostView, PostVotes
+from posts.models import Attachment, Comment, Post, PostView, PostVotes
 from posts.serializers import (
     AttachmentSerializer,
     CommentSerializer,
@@ -63,13 +63,20 @@ class PostCreateView(CreateAPIView):
 
 class PostAttachmentCreateView(CreateAPIView):
     serializer_class = AttachmentSerializer
-    # def perform_create(self, serializer):
-    #     post_id = self.kwargs.get("post_id")  # get post_id from URL
-    #     try:
-    #         post = Post.objects.get(id=post_id)
-    #     except Post.DoesNotExist:
-    #         raise ValidationError({"error": f"Post with id {post_id} does not exist"})
-    #     serializer.save(post=post)
+
+
+class ListPostAttachmentsView(ListAPIView):
+    serializer_class = AttachmentSerializer
+
+    def get_queryset(self) -> QuerySet[Attachment]:
+        post_id = self.kwargs.get("post_id")
+        try:
+            Post.objects.get(id=post_id)
+            return Attachment.objects.filter(post=post_id)
+        except Post.DoesNotExist:
+            raise ValidationError({"error": f"Post with id {post_id} does not exist"})
+        except Exception as e:
+            raise ValidationError({"error": f"Coud not satisfy your request."})
 
 
 class PostsFeedView(ListAPIView):
