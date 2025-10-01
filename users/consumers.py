@@ -78,7 +78,7 @@ class VerisafeUserUpdatedEventConsumer(BaseConsumer):
         payload = event.get("user", {})
         try:
             user, _ = User.objects.update_or_create(
-                user_id=uuid.UUID(payload["user_id"]),
+                user_id=uuid.UUID(payload["id"]),
                 defaults={
                     "name": payload.get("name"),
                     "username": payload.get("username"),
