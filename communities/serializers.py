@@ -551,22 +551,14 @@ class CommunityMembershipSerializer(serializers.ModelSerializer):
     community_id = serializers.PrimaryKeyRelatedField(
         queryset=Community.objects.all(),
         source="community",
-        write_only=True,
-        required=False,
-        allow_null=True,
     )
     user_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
         source="user",
-        write_only=True,
-        required=False,
-        allow_null=True,
     )
     banned_by_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
         source="banned_by",
-        write_only=True,
-        required=False,
         allow_null=True,
     )
     role = serializers.CharField(
