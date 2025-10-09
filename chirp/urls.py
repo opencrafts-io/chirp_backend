@@ -24,7 +24,7 @@ from django.conf.urls.static import static
 # Base URL patterns without prefix
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("ping/", views.PingView.as_view(), name="ping"),
+    path("ping", views.PingView.as_view(), name="ping"),
     path("posts/", include("posts.urls")),
     path("community/", include("communities.urls")),
     path("conversations/", include("conversations.urls")),
