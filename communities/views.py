@@ -9,8 +9,6 @@ from rest_framework.generics import (
     UpdateAPIView,
 )
 from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.pagination import PageNumberPagination
 
 from communities.permissions import IsCommunityModerator, IsCommunitySuperMod
 from users.models import User
@@ -18,12 +16,9 @@ from .models import Community, CommunityMembership
 from .serializers import (
     CommunityMembershipSerializer,
     CommunitySerializer,
-    UnifiedCommunitySerializer,
 )
 from django.db.models import Q
 from django.utils import timezone
-from .models import InviteLink
-from .serializers import InviteLinkSerializer
 
 
 class CommunityListView(ListAPIView):
@@ -210,45 +205,33 @@ class PersonalCommunityMembershipsApiView(ListAPIView):
             raise e
 
 
-class PersonalCommunityMembershipApiView(ListAPIView):
+class PersonalCommunityMembershipForCommunityApiView(RetrieveAPIView):
     """
-    Returns a list of all personal memberships
+    Returns a community membership
     """
 
     serializer_class = CommunityMembershipSerializer
+    lookup_url_kwarg = "community_id"
+    lookup_field = "community"
 
     def get_queryset(self) -> QuerySet[CommunityMembership]:
-        """
-        Return the CommunityMembership queryset for the user identified in the request context. For the community
-
-        Retrieves `user_id` from the request, validates it, resolves the corresponding User, and returns that user's CommunityMembership records with related `community`, `user`, and `banned_by` selected for efficient access.
-
-        Returns:
-            QuerySet[CommunityMembership]: Memberships belonging to the resolved user with `community`, `user`, and `banned_by` selected.
-
-        Raises:
-            ValidationError: If `user_id` is missing/empty in the request context or if no matching User exists.
-        """
         try:
             user_id = self.request.user_id or None
+            community_id = self.kwargs.get("community_id")
 
             if user_id is None or user_id == "":
                 raise ValidationError(
                     f"Failed to parse your information from request context"
                 )
-
-            community_id = self.kwargs.get("community_id")
-
             user = User.objects.get(user_id=user_id)
 
             return CommunityMembership.objects.filter(
-                user=user, community=community_id
+                user=user, community__id=community_id
             ).select_related("community", "user", "banned_by")
         except User.DoesNotExist:
             raise ValidationError("User does not exist!")
         except Exception as e:
             raise e
-
 
 class CommunityPostableView(ListAPIView):
     serializer_class = CommunitySerializer

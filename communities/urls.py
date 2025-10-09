@@ -11,7 +11,7 @@ from .views import (
     CommunityUpdateView,
     CommunitySearchView,
     CommunityMembershipApiView,
-    PersonalCommunityMembershipApiView,
+    PersonalCommunityMembershipForCommunityApiView,
     PersonalCommunityMembershipsApiView,
 )
 
@@ -50,8 +50,8 @@ urlpatterns = [
     ),
     path(
         "memberships/mine/for/<int:community_id>",
-        PersonalCommunityMembershipApiView.as_view(),
-        name="get-personal-memberships",
+        PersonalCommunityMembershipForCommunityApiView.as_view(),
+        name="get-personal-memberships-for-community",
     ),
     path("postable", CommunityPostableView.as_view(), name="community-postable"),
     # banning users
