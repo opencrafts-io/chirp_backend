@@ -65,12 +65,9 @@ urlpatterns = [
         "<int:community_id>/join/", CommunityJoinView.as_view(), name="community-join"
     ),
     path(
-        "<int:membership_id>/leave/",
+        "<int:community_id>/leave/",
         CommunityLeaveView.as_view(),
         name="community-leave",
-    ),
-    path(
-        "<int:community_id>/join/", CommunityJoinView.as_view(), name="community-join"
     ),
     # Search
     path("search/", CommunitySearchView.as_view(), name="community-search"),

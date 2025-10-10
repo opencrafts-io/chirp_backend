@@ -233,6 +233,7 @@ class PersonalCommunityMembershipForCommunityApiView(RetrieveAPIView):
         except Exception as e:
             raise e
 
+
 class CommunityPostableView(ListAPIView):
     serializer_class = CommunitySerializer
 
@@ -414,6 +415,39 @@ class CommunityJoinView(CreateAPIView):
 
 class CommunityLeaveView(DestroyAPIView):
     serializer_class = CommunityMembershipSerializer
-    lookup_url_kwarg = "membership_id"
-    lookup_field = "id"
-    queryset = CommunityMembership.objects.all()
+
+    def delete(self, request, *args, **kwargs):
+        user_id = getattr(self.request, "user_id", None)
+        if not user_id:
+            return Response(
+                {"error": "Failed to parse your information from request context"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            user = User.objects.get(user_id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"error": f"User with id {user_id} does not exist"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        community_id = self.kwargs.get("community_id")
+        try:
+            community = Community.objects.get(id=community_id)
+        except Community.DoesNotExist:
+            return Response(
+                {"error": "Community does not exist"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            membership = CommunityMembership.objects.get(community=community, user=user)
+        except CommunityMembership.DoesNotExist:
+            return Response(
+                {"error": "You are not a member of this community"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        membership.delete()
+        return Response(
+            {"detail": "You have successfully left the community."},
+            status=status.HTTP_204_NO_CONTENT,
+        )
