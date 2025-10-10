@@ -78,7 +78,7 @@ class CommunityCreateView(CreateAPIView):
             big_picture=None,
             large_icon=None,
             small_icon=None,
-            url=f"academia://communities/{community.id}"
+            url=f"academia://communities/{community.id}",
         )
         publish(
             GOSSIP_MONGER_EXCHANGE, GOSSIP_MONGER_ROUTING_KEY, notification.to_json()
@@ -373,6 +373,33 @@ class CommunityBanUserView(UpdateAPIView):
                 banning_reason=reason,
                 banned_at=timezone.now(),
             )
+            notification: GossipMongerNotificationPayLoad = (
+                GossipMongerNotificationPayLoad(
+                    headings={
+                        "en": f"You were banned from {membership.community__name}"
+                    },
+                    contents={
+                        "en": f"You have been banned for {reason} and you will not be able to make any more posts"
+                        + " on the community"
+                    },
+                    subtitle={"en": "Time out"},
+                    target_user_id=str(user.user_id),
+                    buttons=None,
+                    include_external_user_ids=[],
+                    android_channel_id="60023d0b-dcd4-41ae-8e58-7eabbf382c8c",
+                    ios_sound="hangout",
+                    big_picture=None,
+                    large_icon=None,
+                    small_icon=None,
+                    url=f"academia://communities/{community.id}",
+                )
+            )
+            publish(
+                GOSSIP_MONGER_EXCHANGE,
+                GOSSIP_MONGER_ROUTING_KEY,
+                notification.to_json(),
+            )
+
         else:  # unban
             if not membership.banned:
                 return membership
@@ -381,6 +408,32 @@ class CommunityBanUserView(UpdateAPIView):
                 banned_by=None,
                 banning_reason=None,
                 banned_at=None,
+            )
+            notification: GossipMongerNotificationPayLoad = (
+                GossipMongerNotificationPayLoad(
+                    headings={
+                        "en": f"You were unbanned from {membership.community__name}"
+                    },
+                    contents={
+                        "en": f"You have been unbanned and you will now be able to make more posts"
+                        + " on the community"
+                    },
+                    subtitle={"en": "Welcome back"},
+                    target_user_id=user_id,
+                    buttons=None,
+                    include_external_user_ids=[],
+                    android_channel_id="60023d0b-dcd4-41ae-8e58-7eabbf382c8c",
+                    ios_sound="hangout",
+                    big_picture=None,
+                    large_icon=None,
+                    small_icon=None,
+                    url=None,
+                )
+            )
+            publish(
+                GOSSIP_MONGER_EXCHANGE,
+                GOSSIP_MONGER_ROUTING_KEY,
+                notification.to_json(),
             )
 
 
@@ -432,6 +485,32 @@ class CommunityJoinView(CreateAPIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        notification: GossipMongerNotificationPayLoad = GossipMongerNotificationPayLoad(
+            headings={"en": f"Welcome to {community.name}!"},
+            contents={
+                "en": f"Congratulations on joining {community.name}! 🎉 "
+                "You're now part of a community where you can share your ideas, "
+                "connect with like-minded individuals, and grow together. "
+                "Tap to explore and get started!"
+            },
+            subtitle={"en": "Your journey starts here!"},
+            target_user_id=user_id,
+            buttons=None,
+            include_external_user_ids=[],
+            android_channel_id="60023d0b-dcd4-41ae-8e58-7eabbf382c8c",
+            ios_sound="hangout",
+            big_picture=None,
+            large_icon=None,
+            small_icon=None,
+            url=f"academia:///communities/{community.id}",
+        )
+
+        publish(
+            GOSSIP_MONGER_EXCHANGE,
+            GOSSIP_MONGER_ROUTING_KEY,
+            notification.to_json(),
+        )
+
         serializer = self.get_serializer(membership)
 
         response_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
@@ -473,6 +552,32 @@ class CommunityLeaveView(DestroyAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         membership.delete()
+
+        notification: GossipMongerNotificationPayLoad = GossipMongerNotificationPayLoad(
+            headings={"en": f"Sorry to see you go, @{user.username}!"},
+            contents={
+                "en": f"You’ve left the {community.name} community. We’re sad to see you go, but we understand. "
+                "If you ever change your mind, the community will always be here for you. "
+                "Stay connected, and best of luck on your journey ahead!"
+            },
+            subtitle={"en": "Goodbye, for now."},
+            target_user_id=user_id,
+            buttons=None,
+            include_external_user_ids=[],
+            android_channel_id="60023d0b-dcd4-41ae-8e58-7eabbf382c8c",
+            ios_sound="hangout",
+            big_picture=None,
+            large_icon=None,
+            small_icon=None,
+            url=f"academia:///communities/{community.id}",
+        )
+
+        publish(
+            GOSSIP_MONGER_EXCHANGE,
+            GOSSIP_MONGER_ROUTING_KEY,
+            notification.to_json(),
+        )
+
         return Response(
             {"detail": "You have successfully left the community."},
             status=status.HTTP_204_NO_CONTENT,
