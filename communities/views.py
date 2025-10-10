@@ -11,6 +11,12 @@ from rest_framework.generics import (
 from rest_framework.response import Response
 
 from communities.permissions import IsCommunityModerator, IsCommunitySuperMod
+from event_bus.models.gossip_monger_notification_payload import (
+    GOSSIP_MONGER_EXCHANGE,
+    GOSSIP_MONGER_ROUTING_KEY,
+    GossipMongerNotificationPayLoad,
+)
+from event_bus.publisher import publish
 from users.models import User
 from .models import Community, CommunityMembership
 from .serializers import (
@@ -56,7 +62,27 @@ class CommunityCreateView(CreateAPIView):
         except User.DoesNotExist:
             raise ValidationError(f"User with id {user_id} does not exist")
 
-        serializer.save(creator=user)
+        community = serializer.save(creator=user)
+        notification: GossipMongerNotificationPayLoad = GossipMongerNotificationPayLoad(
+            headings={"en": f"Your community {community.name}, is ready"},
+            contents={
+                "en": f"The community {community.name} you’ve created is now live!"
+                + " Join now and start building meaningful connections, share your ideas, and grow your network. Tap to explore!"
+            },
+            subtitle={"en": "Welcome to your new community!"},
+            target_user_id=str(user.user_id),
+            buttons=None,
+            include_external_user_ids=[],
+            android_channel_id="60023d0b-dcd4-41ae-8e58-7eabbf382c8c",
+            ios_sound="hangout",
+            big_picture=None,
+            large_icon=None,
+            small_icon=None,
+            url=f"academia://communities/{community.id}"
+        )
+        publish(
+            GOSSIP_MONGER_EXCHANGE, GOSSIP_MONGER_ROUTING_KEY, notification.to_json()
+        )
 
 
 class CommunityRetrieveView(RetrieveAPIView):
