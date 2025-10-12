@@ -159,6 +159,12 @@ class RetrievePostByCommunityView(RetrieveAPIView):
     lookup_field = "community"
     lookup_url_kwarg = "community_id"
 
+    def get(self, request, *args, **kwargs):
+        community_id = self.kwargs.get(self.lookup_url_kwarg)
+        posts = Post.objects.filter(community_id=community_id)
+        serializer = self.get_serializer(posts, many=True)
+        return Response(serializer.data)
+
 
 class DestroyPostView(DestroyAPIView):
     serializer_class = PostSerializer
