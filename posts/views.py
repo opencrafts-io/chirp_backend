@@ -152,19 +152,18 @@ class RetrievePostByAuthorView(RetrieveAPIView):
     lookup_field = "author"
 
 
-class RetrievePostByCommunityView(RetrieveAPIView):
-    """Retrieves a post by its community group"""
+class PostListByCommunityView(ListAPIView):
+    """Retrieves all posts for a specific community group"""
 
     serializer_class = PostSerializer
     queryset = Post.objects.all()
     lookup_field = "community"
     lookup_url_kwarg = "community_id"
 
-    def get(self, request, *args, **kwargs):
+    def get_queryset(self):
+        # Retrieves the posts for a specific community
         community_id = self.kwargs.get(self.lookup_url_kwarg)
-        posts = Post.objects.filter(community_id=community_id)
-        serializer = self.get_serializer(posts, many=True)
-        return Response(serializer.data)
+        return Post.objects.filter(community_id=community_id)
 
 
 class DestroyPostView(DestroyAPIView):

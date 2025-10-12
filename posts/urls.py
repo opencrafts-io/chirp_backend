@@ -9,13 +9,13 @@ from posts.views import (
     ListPostView,
     PostAttachmentCreateView,
     PostCreateView,
+    PostListByCommunityView,
     PostSearchView,
     PostVoteDeleteView,
     PostVoteView,
     PostsFeedView,
     RecordPostViewerView,
     RetrievePostByAuthorView,
-    RetrievePostByCommunityView,
     RetrievePostByIDView,
 )
 
@@ -57,8 +57,8 @@ urlpatterns = [
     ),
     path(
         "from/<int:community_id>/",
-        RetrievePostByCommunityView.as_view(),
-        name="get-post-by-author",
+        PostListByCommunityView.as_view(),
+        name="get-post-by-community",
     ),
     path(
         "search/",
