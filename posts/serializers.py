@@ -1,115 +1,181 @@
+import os
+from django.forms import fields
 from rest_framework import serializers
 from django.conf import settings
-from .models import Attachment, Post, Comment
+
+from communities.models import Community
+from communities.serializers import CommunitySerializer
+from users.serializers import UserSerializer
+from .models import Attachment, Post, Comment, PostView, PostVotes
 from users.models import User
 
 
 class AttachmentSerializer(serializers.ModelSerializer):
-    file_url = serializers.SerializerMethodField()
-    file_size_mb = serializers.SerializerMethodField()
-
     class Meta:
         model = Attachment
-        fields = ["id", "attachment_type", "file_url", "file_size_mb", "original_filename", "created_at"]
+        fields = "__all__"
 
-    def get_file_url(self, obj):
-        """Generate the full URL for the file"""
-        if obj.file:
-            request = self.context.get('request')
-            if request:
-                url = request.build_absolute_uri(obj.file.url)
-                if getattr(settings, 'USE_TLS', False):
-                    url = url.replace('http://', 'https://')
-
-                if 'qachirp.opencrafts.io' in url and '/qa-chirp/' not in url:
-                    url = url.replace('/media/', '/qa-chirp/media/')
-
-                return url
-            return obj.file.url
-        return None
-
-    def get_file_size_mb(self, obj):
-        """Get file size in MB"""
-        return obj.get_file_size_mb()
-
-
-class GroupSerializer(serializers.Serializer):
-    id = serializers.IntegerField()
-    name = serializers.CharField()
-    description = serializers.CharField()
+    def create(self, validated_data):
+        # Auto-populate file_size and original_filename
+        file = validated_data.get("file")
+        if file:
+            validated_data["file_size"] = file.size
+            validated_data["original_filename"] = file.name
+            file_extension = os.path.splitext(file.name)[1].lower()
+            if file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.bmp']:
+                validated_data["attachment_type"] = "image"
+            elif file_extension in ['.mp4', '.avi', '.mov', '.mkv']:
+                validated_data["attachment_type"] = "video"
+            elif file_extension in ['.mp3', '.wav', '.aac', '.ogg']:
+                validated_data["attachment_type"] = "audio"
+            else:
+                validated_data["attachment_type"] = "file" 
+        return super().create(validated_data)
 
 
 class CommentSerializer(serializers.ModelSerializer):
     replies = serializers.SerializerMethodField()
-    user_avatar = serializers.SerializerMethodField()
-    is_liked = serializers.SerializerMethodField()
-    user_id = serializers.SerializerMethodField()
-    user_name = serializers.SerializerMethodField()
+    author = UserSerializer(read_only=True)
+    author_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="author"
+    )
 
     class Meta:
         model = Comment
-        fields = ['id', 'content', 'user_id', 'user_name', 'user_avatar',
-                 'created_at', 'updated_at', 'depth', 'like_count', 'is_liked', 'replies']
+        fields = [
+            "id",
+            "post",
+            "author_id",
+            "author",
+            "content",
+            "created_at",
+            "updated_at",
+            "upvotes",
+            "downvotes",
+            "replies",
+            "parent",
+        ]
 
     def get_replies(self, obj):
-        if obj.replies.exists():
-            return CommentSerializer(obj.replies.all(), many=True, context=self.context).data
-        return []
+        """
+        Return a list of serialized reply comments for the given comment, limited to a maximum nesting depth.
 
-    def get_user_id(self, obj):
-        return obj.user_ref.user_id if obj.user_ref else obj.user_id
+        Parameters:
+            obj (Comment): The comment whose direct replies should be serialized. The serializer respects and increments `context["current_depth"]` when recursing.
 
-    def get_user_name(self, obj):
-        if obj.user_ref:
-            return obj.user_ref.user_name
-        user = User._default_manager.filter(user_id=obj.user_id).only('user_name').first()
-        return user.user_name if user and user.user_name else obj.user_name
+        Returns:
+            list: Serialized reply data; returns an empty list when the maximum depth of 3 has been reached.
+        """
+        max_depth = 3  # set your sane limit
+        current_depth = self.context.get("current_depth", 0)
+        if current_depth >= max_depth:
+            return []
 
-    def get_user_avatar(self, obj):
-        return obj.avatar_url
-
-    def get_is_liked(self, obj):
-        request = self.context.get('request')
-        if request and hasattr(request, 'user_id') and request.user_id:
-            return obj.likes.filter(user_id=request.user_id).exists()
-        return False
+        serializer = CommentSerializer(
+            obj.replies.all(), many=True, context={"current_depth": current_depth + 1}
+        )
+        return serializer.data
 
 
 class PostSerializer(serializers.ModelSerializer):
-    is_liked = serializers.BooleanField(read_only=True)
+    # Nested for reading
+    author = UserSerializer(read_only=True)
+    community = CommunitySerializer(read_only=True)
     attachments = AttachmentSerializer(many=True, read_only=True)
-    content = serializers.CharField(max_length=280, required=False, allow_blank=True)
-    group = GroupSerializer(read_only=True)
-    group_id = serializers.IntegerField(write_only=True, required=False)
-    comment_count = serializers.SerializerMethodField()
-    user_id = serializers.SerializerMethodField()
-    user_name = serializers.SerializerMethodField()
+    comments = CommentSerializer(many=True, read_only=True)
+
+    # Primary keys for writing and also readable
+    author_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="author"
+    )
+    community_id = serializers.PrimaryKeyRelatedField(
+        queryset=Community.objects.all(), source="community"
+    )
 
     class Meta:
         model = Post
         fields = [
             "id",
-            "group",
-            "group_id",
-            "user_id",
-            "user_name",
-            "email",
-            "avatar_url",
+            "community",
+            "community_id",
+            "author",
+            "author_id",
+            "title",
             "content",
+            "upvotes",
+            "downvotes",
+            "attachments",
+            "views_count",
+            "comment_count",
+            "comments",
             "created_at",
             "updated_at",
-            "like_count",
-            "is_liked",
-            "attachments",
-            "comment_count",
         ]
-        read_only_fields = ["like_count"]
+        read_only_fields = [
+            "upvotes",
+            "downvotes",
+            "attachments",
+            "comments",
+            "created_at",
+            "updated_at",
+        ]
 
-    def get_user_id(self, obj):
-        return obj.user_ref.user_id if obj.user_ref else obj.user_id
+    def create(self, validated_data):
+        attachments_data = validated_data.pop("attachments", [])
+        post = Post.objects.create(**validated_data)
+        for attachment_data in attachments_data:
+            Attachment.objects.create(post=post, **attachment_data)
+        return post
 
-    def get_user_name(self, obj):
-        return obj.user_ref.user_name if obj.user_ref else obj.user_name
+    def update(self, instance, validated_data):
+        attachments_data = validated_data.pop("attachments", [])
 
-    def get_comment_count(self, obj):
-        return obj.comments.count()
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        existing_ids = [a.get("id") for a in attachments_data if a.get("id")]
+        instance.attachments.exclude(id__in=existing_ids).delete()
+
+        for attachment_data in attachments_data:
+            attachment_id = attachment_data.get("id")
+            if attachment_id:
+                Attachment.objects.filter(id=attachment_id, post=instance).update(
+                    **attachment_data
+                )
+            else:
+                Attachment.objects.create(post=instance, **attachment_data)
+
+        return instance
+
+
+class PostViewSerializer(serializers.ModelSerializer):
+    post = PostSerializer(read_only=True)
+    viewer = UserSerializer(read_only=True, allow_null=True, source="user")
+    viewer_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="user"
+    )
+    post_id = serializers.PrimaryKeyRelatedField(
+        queryset=Post.objects.all(), source="post"
+    )
+
+    class Meta:
+        model = PostView
+        fields = ["id", "post", "post_id", "viewer", "viewer_id", "viewed_at"]
+        read_only_fields = ["id", "viewed_at"]
+
+
+class PostVoteSerializer(serializers.ModelSerializer):
+    post = PostSerializer(read_only=True)
+    voter = UserSerializer(read_only=True, allow_null=True, source="user")
+    voter_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="user"
+    )
+    post_id = serializers.PrimaryKeyRelatedField(
+        queryset=Post.objects.all(), source="post"
+    )
+
+    class Meta:
+        model = PostVotes
+        fields = ["id", "voter", "voter_id", "post", "post_id", "value", "created_at"]
+        read_only_fields = ["voter", "post", "created_at"]

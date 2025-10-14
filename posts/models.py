@@ -2,6 +2,10 @@ from django.db import models
 from django.core.exceptions import ValidationError
 import os
 
+from communities.models import Community
+from users.models import User
+
+
 class Attachment(models.Model):
     ATTACHMENT_TYPE_CHOICES = [
         ("image", "Image"),
@@ -64,132 +68,175 @@ class Attachment(models.Model):
 
 
 class Post(models.Model):
-    group = models.ForeignKey('groups.Group', on_delete=models.CASCADE, related_name='community_posts', default=1)
-    user_id = models.CharField(max_length=100)
-    user_name = models.CharField(max_length=100, default='User')
-    email = models.EmailField(max_length=255, null=True, blank=True)
-    avatar_url = models.URLField(max_length=500, null=True, blank=True)
-    content = models.TextField(max_length=280)
+    community = models.ForeignKey(
+        Community,
+        on_delete=models.CASCADE,
+        related_name="community_posts",
+        default=1,
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="posts_users",
+    )
+    title = models.TextField(blank=True, null=True)
+    content = models.TextField(blank=True, null=True)
+    upvotes = models.IntegerField(default=0)
+    downvotes = models.IntegerField(default=0)
+    comment_count = models.PositiveIntegerField(default=0)
+    views_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    like_count = models.PositiveIntegerField(default=0)
-
-    user_ref = models.ForeignKey('users.User', on_delete=models.CASCADE, null=True, blank=True, related_name='posts')
-
-    class Meta:
-        ordering = ['-created_at']
-
-    def clean(self):
-        """Custom validation for post model"""
-        super().clean()
-
-        if not self.content:
-            raise ValidationError("Content is required.")
-
-        if len(str(self.content)) > 280:
-            raise ValidationError("Content cannot exceed 280 characters.")
-
-        if not self.user_id:
-            raise ValidationError("User ID is required.")
-
-        if len(str(self.user_id)) > 100:
-            raise ValidationError("User ID cannot exceed 100 characters.")
-
-        if not self.user_name:
-            raise ValidationError("User name is required.")
-
-        if len(str(self.user_name)) > 100:
-            raise ValidationError("User name cannot exceed 100 characters.")
-
-        if not self.group:
-            raise ValidationError("Group is required.")
-
-    def delete(self, *args, **kwargs):
-        """Custom delete method to ensure all attachments are properly deleted"""
-        for attachment in self.attachments.all():
-            attachment.delete()
-
-        super().delete(*args, **kwargs)
-
-    def get_threaded_comments(self):
-        """Get all comments organized in a threaded structure"""
-        return self.comments.filter(parent_comment__isnull=True).prefetch_related(
-            'replies', 'replies__replies', 'replies__replies__replies'
-        )
-
-    def __str__(self):
-        return f"{self.user_id}: {self.content[:50]}..."
-
-class PostLike(models.Model):
-    user_id = models.CharField(max_length=100)
-    post = models.ForeignKey(Post, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        unique_together = ('user_id', 'post')
-
-    def __str__(self):
-        return f"Like by {self.user_id} on post {self.post}"
-
-class Comment(models.Model):
-    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='comments')
-    parent_comment = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
-    user_id = models.CharField(max_length=100)
-    user_name = models.CharField(max_length=100, default='User')
-    email = models.EmailField(max_length=255, null=True, blank=True)
-    avatar_url = models.URLField(max_length=500, null=True, blank=True)
-    content = models.TextField(max_length=280)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    depth = models.PositiveIntegerField(default=0)
-    is_deleted = models.BooleanField(default=False)
-    like_count = models.PositiveIntegerField(default=0)
-
-    user_ref = models.ForeignKey('users.User', on_delete=models.CASCADE, null=True, blank=True, related_name='comments')
-
-    class Meta:
-        ordering = ['created_at']
-        indexes = [
-            models.Index(fields=['post', 'parent_comment']),
-            models.Index(fields=['depth']),
-        ]
-
-    def clean(self):
-        """Custom validation for comment model"""
-        super().clean()
-
-        if not self.content:
-            raise ValidationError("Content is required.")
-
-        if len(str(self.content)) > 280:
-            raise ValidationError("Content cannot exceed 280 characters.")
-
-        if not self.user_name:
-            raise ValidationError("User name is required.")
-
-        if len(str(self.user_name)) > 100:
-            raise ValidationError("User name cannot exceed 100 characters.")
-
-        if self.depth > 10:
-            raise ValidationError("Comment depth cannot exceed 10 levels.")
-
-    def save(self, *args, **kwargs):
-        """Auto-calculate depth if not set"""
-        if self.parent_comment and not self.depth:
-            self.depth = self.parent_comment.depth + 1
-        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
-        return f"Comment by {self.user_id} on post: {self.post.content[:50]}..."
+        """
+        Return a human-readable representation of the post.
+
+        Returns:
+            str: The post's title followed by "by" and the author; if the title is empty or None, "Post" is used in place of the title.
+        """
+        return f"{self.title or 'Post'} by {self.author}"
+
+    class Meta:
+        ordering = ["-created_at"]
 
 
-class CommentLike(models.Model):
-    user_id = models.CharField(max_length=100)
-    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='likes')
+class PostView(models.Model):
+    """
+    Tracks which user viewed which post and when.
+    """
+
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="views")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    viewed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("post", "user")  # optional: only one view per user counted
+        ordering = ["-viewed_at"]
+
+
+class PostVotes(models.Model):
+    """
+    Tracks upvotes/downvotes by user.
+    """
+
+    UPVOTE = 1
+    DOWNVOTE = -1
+
+    VOTE_CHOICES = [
+        (UPVOTE, "Upvote"),
+        (DOWNVOTE, "Downvote"),
+    ]
+
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="votes")
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    value = models.SmallIntegerField(choices=VOTE_CHOICES, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('user_id', 'comment')
+        unique_together = ("post", "user")  # one vote per user per post
+
+
+class Comment(models.Model):
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name="comments",
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="comments",
+    )
+    parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="replies",
+    )
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    upvotes = models.IntegerField(default=0)
+    downvotes = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ["created_at"]
 
     def __str__(self):
-        return f"Like by {self.user_id} on comment {self.comment}"
+        """
+        Return a human-readable representation of the comment.
+
+        Returns:
+            A string in the format "Comment by <author> on <post>" describing the comment's author and associated post.
+        """
+        return f"Comment by {self.author} on {self.post}"
+
+    @property
+    def is_root(self) -> bool:
+        """
+        Indicates whether the comment is top-level (has no parent).
+
+        Returns:
+            True if the comment has no parent, False otherwise.
+        """
+        return self.parent is None
+
+    @property
+    def depth(self):
+        """
+        Return the nesting level of this comment within its thread.
+
+        Returns:
+            int: Depth of the comment where 0 indicates a top-level (root) comment.
+        """
+        depth = 0
+        parent = self.parent
+        while parent:
+            depth += 1
+            parent = parent.parent
+        return depth
+
+    def get_all_replies(self, max_depth: int = 3, _current_depth: int = 0):
+        """
+        Collects nested reply Comment instances up to a specified nesting depth.
+
+        Parameters:
+                max_depth (int): Maximum levels of nested replies to include (default 3). A value of N includes replies up to N levels deep.
+                _current_depth (int): Internal recursion depth counter; not intended for external callers.
+
+        Returns:
+                list: A flat list of reply Comment instances (including nested replies) up to the specified depth.
+        """
+        if _current_depth >= max_depth:
+            return []
+
+        all_replies = []
+        for reply in self.replies.all():
+            all_replies.append(reply)
+            all_replies.extend(
+                reply.get_all_replies(
+                    max_depth=max_depth, _current_depth=_current_depth + 1
+                )
+            )
+        return all_replies
+
+
+class CommentVote(models.Model):
+    comment = models.ForeignKey(
+        Comment,
+        on_delete=models.CASCADE,
+        related_name="votes",
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+    )
+    is_upvote = models.BooleanField(null=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    class Meta:
+        unique_together = ("comment", "user")

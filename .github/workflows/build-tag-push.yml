@@ -36,6 +36,7 @@ jobs:
       PGHOST: localhost
       PGPORT: 5432
       DJANGO_SETTINGS_MODULE: chirp.settings
+      TEST_VERISAFE_JWT: ${{ secrets.TEST_VERISAFE_JWT }}
 
     steps:
       - name: Checkout Code
@@ -64,8 +65,9 @@ jobs:
           python manage.py makemigrations
           python manage.py migrate
 
+
       - name: Run Tests
-        run: python manage.py test --verbosity=2
+        run: echo "TEST_VERISAFE_JWT=${{ secrets.TEST_VERISAFE_JWT }}" >> $GITHUB_ENV && python manage.py test --verbosity=2
 
   build-and-push:
     runs-on: ubuntu-latest
