@@ -1,3 +1,4 @@
+import os
 from django.forms import fields
 from rest_framework import serializers
 from django.conf import settings
@@ -20,6 +21,15 @@ class AttachmentSerializer(serializers.ModelSerializer):
         if file:
             validated_data["file_size"] = file.size
             validated_data["original_filename"] = file.name
+            file_extension = os.path.splitext(file.name)[1].lower()
+            if file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.bmp']:
+                validated_data["attachment_type"] = "image"
+            elif file_extension in ['.mp4', '.avi', '.mov', '.mkv']:
+                validated_data["attachment_type"] = "video"
+            elif file_extension in ['.mp3', '.wav', '.aac', '.ogg']:
+                validated_data["attachment_type"] = "audio"
+            else:
+                validated_data["attachment_type"] = "file" 
         return super().create(validated_data)
 
 
