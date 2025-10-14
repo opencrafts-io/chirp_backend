@@ -139,7 +139,7 @@ class PostsFeedView(ListAPIView):
 
         # Fetch public community posts
         public_community_posts = (
-            Post.objects.filter(community__is_private=False)  # Only public communities
+            Post.objects.filter(community__private=False)  # Only public communities
             .annotate(
                 recommendation_score=ExpressionWrapper(
                     (F("upvotes") * 3)
@@ -153,8 +153,6 @@ class PostsFeedView(ListAPIView):
             .all()
         )
 
-        # We now need to combine both querysets (user community posts and public posts)
-        # First, we will limit the number of public posts to keep the results manageable
         public_community_posts = public_community_posts[:5]  # Limit to 5 random posts
 
         # Combine both querysets using Q objects for conditions
