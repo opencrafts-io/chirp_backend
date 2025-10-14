@@ -99,7 +99,7 @@ class PostsFeedView(ListAPIView):
 
     serializer_class = PostSerializer
 
-    def get_queryset(self)-> QuerySet[Post]:
+    def get_queryset(self):
         user_id = getattr(self.request, "user_id", None)
         if not user_id:
             raise ValidationError(
@@ -111,8 +111,8 @@ class PostsFeedView(ListAPIView):
         except User.DoesNotExist:
             raise ValidationError({"error": f"User with id {user_id} does not exist"})
 
-        # Check if the user is part of any community
-        user_communities = user.community_memberships.filter(banned=False)
+        # Check if the user is part of any community via CommunityMembership
+        user_communities = CommunityMembership.objects.filter(user=user, banned=False)
 
         # Initialize the user community posts queryset
         user_community_posts = Post.objects.none()
@@ -121,8 +121,7 @@ class PostsFeedView(ListAPIView):
             # User is part of one or more communities, prioritize posts from these communities
             user_community_posts = (
                 Post.objects.filter(
-                    community__community_memberships__user=user,
-                    community__community_memberships__banned=False,
+                    community__in=user_communities.values("community"),
                 )
                 .annotate(
                     recommendation_score=ExpressionWrapper(
@@ -154,6 +153,8 @@ class PostsFeedView(ListAPIView):
             .all()
         )
 
+        # We now need to combine both querysets (user community posts and public posts)
+        # First, we will limit the number of public posts to keep the results manageable
         public_community_posts = public_community_posts[:5]  # Limit to 5 random posts
 
         # Combine both querysets using Q objects for conditions
