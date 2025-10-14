@@ -148,7 +148,7 @@ class PostsFeedView(ListAPIView):
                     + (F("views_count") * 0.5),
                     output_field=FloatField(),
                 )
-            )
+            ).distinct()
             .order_by("-recommendation_score", "-created_at")
             .all()
         )
