@@ -10,6 +10,7 @@ from rest_framework.generics import (
     ListCreateAPIView,
     RetrieveAPIView,
 )
+import random
 
 from django.db.models import F, ExpressionWrapper, FloatField
 from rest_framework.views import Response
@@ -83,21 +84,22 @@ class ListPostAttachmentsView(ListAPIView):
 class PostsFeedView(ListAPIView):
     """
     Returns recommended posts from communities where the user
-    is an active (non-banned) member.
-    Recommendations consider upvotes, downvotes, comments, and views.
+    is an active (non-banned) member. If the user is not a member
+    of any community, returns a set of random posts with the same criteria.
 
+    Recommendation score is calculated as follows:
 
     score = (upvotes * 3) - (downvotes * 2) + (comment_count * 2) + (views_count * 0.5)
 
     1. Upvotes have the highest positive weight.
     2. Downvotes strongly penalize.
     3. Comment activity is weighted higher than views.
-    4. Views provide a smaller positive nudge
+    4. Views provide a smaller positive nudge.
     """
 
     serializer_class = PostSerializer
 
-    def get_queryset(self) -> QuerySet[Post]:
+    def get_queryset(self)-> QuerySet[Post]:
         user_id = getattr(self.request, "user_id", None)
         if not user_id:
             raise ValidationError(
@@ -109,11 +111,36 @@ class PostsFeedView(ListAPIView):
         except User.DoesNotExist:
             raise ValidationError({"error": f"User with id {user_id} does not exist"})
 
-        return (
-            Post.objects.filter(
-                community__community_memberships__user=user,
-                community__community_memberships__banned=False,
+        # Check if the user is part of any community
+        user_communities = user.community_memberships.filter(banned=False)
+
+        # Initialize the user community posts queryset
+        user_community_posts = Post.objects.none()
+
+        if user_communities.exists():
+            # User is part of one or more communities, prioritize posts from these communities
+            user_community_posts = (
+                Post.objects.filter(
+                    community__community_memberships__user=user,
+                    community__community_memberships__banned=False,
+                )
+                .annotate(
+                    recommendation_score=ExpressionWrapper(
+                        (F("upvotes") * 3)
+                        - (F("downvotes") * 2)
+                        + (F("comment_count") * 2)
+                        + (F("views_count") * 0.5),
+                        output_field=FloatField(),
+                    )
+                )
+                .select_related("author", "community")
+                .distinct()
+                .order_by("-recommendation_score", "-created_at")
             )
+
+        # Fetch public community posts
+        public_community_posts = (
+            Post.objects.filter(community__is_private=False)  # Only public communities
             .annotate(
                 recommendation_score=ExpressionWrapper(
                     (F("upvotes") * 3)
@@ -123,10 +150,17 @@ class PostsFeedView(ListAPIView):
                     output_field=FloatField(),
                 )
             )
-            .select_related("author", "community")
-            .distinct()
             .order_by("-recommendation_score", "-created_at")
+            .all()
         )
+
+        public_community_posts = public_community_posts[:5]  # Limit to 5 random posts
+
+        # Combine both querysets using Q objects for conditions
+        combined_queryset = user_community_posts | public_community_posts
+
+        # Return the combined queryset, properly ordered
+        return combined_queryset.order_by("-recommendation_score", "-created_at")
 
 
 class ListPostView(ListAPIView):
