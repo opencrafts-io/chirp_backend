@@ -1,6 +1,5 @@
+from django.core.files.storage import default_storage
 from django.db import models
-from django.core.exceptions import ValidationError
-import os
 
 from communities.models import Community
 from users.models import User
@@ -42,8 +41,8 @@ class Attachment(models.Model):
     def delete(self, *args, **kwargs):
         if self.file:
             try:
-                if os.path.isfile(self.file.path):
-                    os.remove(self.file.path)
+                if hasattr(self.file, "name"):
+                    default_storage.delete(self.file.name)
             except (OSError, ValueError):
                 pass
         super().delete(*args, **kwargs)
