@@ -12,14 +12,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
-from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables from .env file
-env_path = Path(__file__).resolve().parent.parent / ".env"
-load_dotenv(dotenv_path=env_path)
 
 
 # Quick-start development settings - unsuitable for production
@@ -74,11 +70,11 @@ CHANNEL_LAYERS = {
 }
 
 # Rabbit mq setup
-RABBITMQ_USER = os.getenv("RABBITMQ_USER", None)
-RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", None)
-RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", None)
-RABBITMQ_PORT = os.getenv("RABBITMQ_PORT", None)
-RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", None)
+RABBITMQ_USER = os.getenv("RABBITMQ_USER", "rabbit" )
+RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", "zero")
+RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "ds")
+RABBITMQ_PORT = os.getenv("RABBITMQ_PORT", "5672")
+RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", "/")
 
 
 # WebSocket Security Settings
@@ -122,7 +118,8 @@ JWT_ALGORITHM = "HS256"
 # For RS256 (asymmetric), use private key for signing, public key for verification
 
 # Verisafe Integration
-VERISAFE_BASE_URL = os.getenv("VERISAFE_BASE_URL", "https://qaverisafe.opencrafts.io")
+VERISAFE_BASE_URL = os.getenv("VERISAFE_BASE_URL", "https://api.opencrafts.io"                    
+  )
 VERISAFE_SERVICE_TOKEN = os.getenv("VERISAFE_SERVICE_TOKEN", "")
 
 # Verisafe JWT Configuration
@@ -173,9 +170,9 @@ WSGI_APPLICATION = "chirp.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME", "chirp_db"),
-        "USER": os.getenv("DB_USER", "chirp_user"),
-        "PASSWORD": os.getenv("DB_PASSWORD", "chirp_password"),
+        "NAME": os.getenv("DB_NAME", "chirp"),
+        "USER": os.getenv("DB_USER", "mr_app"),
+        "PASSWORD": os.getenv("DB_PASSWORD", "mr_app"),
         "HOST": os.getenv("DB_HOST", "localhost"),
         "PORT": os.getenv("DB_PORT", "5432"),
     }
@@ -224,13 +221,14 @@ AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", None)
 assert AWS_ACCESS_KEY_ID is not None, "AWS_ACCESS_KEY_ID was not set in .env!"
 
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", None)
-assert AWS_ACCESS_KEY_ID is not None, "AWS_SECRET_ACCESS_KEY was not set in .env!"
+assert AWS_SECRET_ACCESS_KEY is not None, "AWS_SECRET_ACCESS_KEY was not set in .env!"  # ← FIXED
 
 AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", None)
-assert AWS_ACCESS_KEY_ID is not None, "AWS_STORAGE_BUCKET_NAME was not set in .env!"
+assert AWS_STORAGE_BUCKET_NAME is not None, "AWS_STORAGE_BUCKET_NAME was not set in .env!"  # ← FIXED
 
 AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", None)
 assert AWS_S3_REGION_NAME is not None, "AWS_S3_REGION_NAME was not set in .env!"
+
 
 AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
 
