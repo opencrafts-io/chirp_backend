@@ -31,7 +31,7 @@ SECRET_KEY = "django-insecure-_27eto_6&*cz6cx26valns6lqv*v4am224r3j9y5@hoz*58=_-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS_STR = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1")
+ALLOWED_HOSTS_STR = os.getenv("ALLOWED_HOSTS", "localhost,api.opencrafts.io")
 ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_STR.split(",")]
 VERISAFE_API_SECRET = os.getenv("VERISAFE_API_SECRET", "")
 
@@ -74,11 +74,11 @@ CHANNEL_LAYERS = {
 }
 
 # Rabbit mq setup
-RABBITMQ_USER = os.getenv("RABBITMQ_USER", None)
-RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", None)
-RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", None)
-RABBITMQ_PORT = os.getenv("RABBITMQ_PORT", None)
-RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", None)
+RABBITMQ_USER = os.getenv("RABBITMQ_USER", "default_user_4oX1f3lXz8RNBxNTEps" )
+RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", "iYCOF0zFluAt0WM-FTJ0-CxySqv9Q2xG")
+RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "definition.default.svc")
+RABBITMQ_PORT = os.getenv("RABBITMQ_PORT", "5672")
+RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", "/")
 
 
 # WebSocket Security Settings
@@ -122,7 +122,8 @@ JWT_ALGORITHM = "HS256"
 # For RS256 (asymmetric), use private key for signing, public key for verification
 
 # Verisafe Integration
-VERISAFE_BASE_URL = os.getenv("VERISAFE_BASE_URL", "https://qaverisafe.opencrafts.io")
+VERISAFE_BASE_URL = os.getenv("VERISAFE_BASE_URL", "https://api.opencrafts.io"                    
+  )
 VERISAFE_SERVICE_TOKEN = os.getenv("VERISAFE_SERVICE_TOKEN", "")
 
 # Verisafe JWT Configuration
@@ -173,10 +174,10 @@ WSGI_APPLICATION = "chirp.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME", "chirp_db"),
-        "USER": os.getenv("DB_USER", "chirp_user"),
-        "PASSWORD": os.getenv("DB_PASSWORD", "chirp_password"),
-        "HOST": os.getenv("DB_HOST", "localhost"),
+        "NAME": os.getenv("DB_NAME", "chirp"),
+        "USER": os.getenv("DB_USER", "asdfghjkljsdfadfgj"),
+        "PASSWORD": os.getenv("DB_PASSWORD", "sdfgkhldgsfASZFxgjkhfdgsxg"),
+        "HOST": os.getenv("DB_HOST", "chirp-db-rw.production.svc"),
         "PORT": os.getenv("DB_PORT", "5432"),
     }
 }
