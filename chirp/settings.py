@@ -225,13 +225,14 @@ AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", None)
 assert AWS_ACCESS_KEY_ID is not None, "AWS_ACCESS_KEY_ID was not set in .env!"
 
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", None)
-assert AWS_ACCESS_KEY_ID is not None, "AWS_SECRET_ACCESS_KEY was not set in .env!"
+assert AWS_SECRET_ACCESS_KEY is not None, "AWS_SECRET_ACCESS_KEY was not set in .env!"  # ← FIXED
 
 AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", None)
-assert AWS_ACCESS_KEY_ID is not None, "AWS_STORAGE_BUCKET_NAME was not set in .env!"
+assert AWS_STORAGE_BUCKET_NAME is not None, "AWS_STORAGE_BUCKET_NAME was not set in .env!"  # ← FIXED
 
 AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", None)
 assert AWS_S3_REGION_NAME is not None, "AWS_S3_REGION_NAME was not set in .env!"
+
 
 AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
 
