@@ -31,7 +31,7 @@ SECRET_KEY = "django-insecure-_27eto_6&*cz6cx26valns6lqv*v4am224r3j9y5@hoz*58=_-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS_STR = os.getenv("ALLOWED_HOSTS", "localhost,api.opencrafts.io")
+ALLOWED_HOSTS_STR = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1")
 ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_STR.split(",")]
 VERISAFE_API_SECRET = os.getenv("VERISAFE_API_SECRET", "")
 
@@ -74,9 +74,9 @@ CHANNEL_LAYERS = {
 }
 
 # Rabbit mq setup
-RABBITMQ_USER = os.getenv("RABBITMQ_USER", "default_user_4oX1f3lXz8RNBxNTEps" )
-RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", "iYCOF0zFluAt0WM-FTJ0-CxySqv9Q2xG")
-RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "definition.default.svc")
+RABBITMQ_USER = os.getenv("RABBITMQ_USER", "rabbit" )
+RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", "zero")
+RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "ds")
 RABBITMQ_PORT = os.getenv("RABBITMQ_PORT", "5672")
 RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", "/")
 
@@ -175,9 +175,9 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.getenv("DB_NAME", "chirp"),
-        "USER": os.getenv("DB_USER", "asdfghjkljsdfadfgj"),
-        "PASSWORD": os.getenv("DB_PASSWORD", "sdfgkhldgsfASZFxgjkhfdgsxg"),
-        "HOST": os.getenv("DB_HOST", "chirp-db-rw.production.svc"),
+        "USER": os.getenv("DB_USER", "mr_app"),
+        "PASSWORD": os.getenv("DB_PASSWORD", "mr_app"),
+        "HOST": os.getenv("DB_HOST", "localhost"),
         "PORT": os.getenv("DB_PORT", "5432"),
     }
 }
