@@ -25,8 +25,8 @@ def verify_verisafe_jwt(token: str):
         )
         return payload
     except ExpiredSignatureError as e:
-        logger.error("Error while validating user token", extra={"error": str(e)})
+        logger.error(f"Error while validating user token {e}", extra={"error": str(e)})
         raise Exception("Token has expired")
     except InvalidTokenError as e:
-        logger.error("Error while validating user token", extra={"error": str(e)})
+        logger.error(f"Error while validating user token {e}", extra={"error": str(e)})
         raise Exception(f"Invalid token: {str(e)}")
