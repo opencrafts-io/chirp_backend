@@ -95,19 +95,19 @@ jobs:
           sudo chmod +x /usr/local/bin/yq
           yq --version
 
-      - name: Compute Deployment File Path
+      - name: Compute deployment file path
         id: target
         run: |
           BRANCH="${GITHUB_REF_NAME#refs/heads/}"
-          if [ "$BRANCH" = "main" ]; then
-            FILE="services/chirp/deployment.yaml"
+          if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+            FILE="infraops/services/chirp/deployment.yaml"
           else
-            FILE="qaservices/chirp/deployment.yaml"
+            FILE="infraops/qaservices/chirp/deployment.yaml"
           fi
           echo "file=$FILE" >> "$GITHUB_OUTPUT"
           echo "Deployment file: $FILE"
 
-      - name: Update Deployment YAML
+      - name: Update deployment.yaml
         run: |
           FILE="${{ steps.target.outputs.file }}"
           IMAGE="${{ steps.tags.outputs.image_base }}:${{ steps.tags.outputs.sha_tag }}"
@@ -123,14 +123,19 @@ jobs:
           echo "New image:"
           yq eval '.spec.template.spec.containers[0].image' "$FILE"
 
-      - name: Commit & Push Deployment Changes
+      - name: Commit and push changes
         run: |
           cd infraops
-          IMAGE="${{ steps.tags.outputs.image_base }}:${{ steps.tags.outputs.sha_tag }}"
+          IMAGE="${{ steps.img.outputs.image }}"
           git config user.name "CI Bot from Github Actions"
           git config user.email "actions@github.com"
-
-          FILE="${{ steps.target.outputs.file }}"
+          
+          if [ "${{ github.ref_name }}" = "main" ] || [ "${{ github.ref_name }}" = "master" ]; then
+            FILE="services/chirp/deployment.yaml"
+          else
+            FILE="qaservices/chirp/deployment.yaml"
+          fi
+          
           git add "$FILE"
-          git commit -m "chore: update chirp image to $IMAGE (${{ github.ref_name }})" || echo "No changes to commit"
+          git commit -m "chore: update chirp image to $IMAGE (${{ github.ref_name }})"
           git push origin main
