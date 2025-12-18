@@ -100,9 +100,9 @@ jobs:
         run: |
           BRANCH="${GITHUB_REF_NAME#refs/heads/}"
           if [ "$BRANCH" = "main" ]; then
-            FILE="infraops/services/chirp/deployment.yaml"
+            FILE="services/chirp/deployment.yaml"
           else
-            FILE="infraops/qaservices/chirp/deployment.yaml"
+            FILE="qaservices/chirp/deployment.yaml"
           fi
           echo "file=$FILE" >> "$GITHUB_OUTPUT"
           echo "Deployment file: $FILE"
