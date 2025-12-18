@@ -126,7 +126,7 @@ jobs:
       - name: Commit and push changes
         run: |
           cd infraops
-          IMAGE="${{ steps.img.outputs.image }}"
+          IMAGE="${{ steps.tags.outputs.image_base }}:${{ steps.tags.outputs.sha_tag }}"
           git config user.name "CI Bot from Github Actions"
           git config user.email "actions@github.com"
           
