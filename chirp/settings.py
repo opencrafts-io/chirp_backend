@@ -141,6 +141,7 @@ CACHES = {
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "chirp.middlewares.request_logging_middleware.RequestLoggingMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -293,3 +294,49 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
 # HTTPS Configuration
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_TLS = os.environ.get("USE_TLS", "False").lower() == "true"
+
+
+# Logging
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": True,
+    "formatters": {
+        "standard": {"format": "%(asctime)s [%(levelname)s]- %(message)s"},
+        "json": {
+            "()": "chirp.log_formatter.StandardJSONLogFormatter",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "json",
+        },
+        "null": {
+            "class": "logging.NullHandler",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "django.server": {
+            "handlers": [],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "chirp": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
