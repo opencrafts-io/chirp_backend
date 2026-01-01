@@ -3,7 +3,8 @@ name: Build, Push, and Update Chirp Backend
 on:
   push:
     branches:
-      - '**'
+      - main
+      - staging
 
 jobs:
   build-push-update:
