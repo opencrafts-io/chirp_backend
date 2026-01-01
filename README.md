@@ -9,7 +9,7 @@ A Django-based microservice for a simple social media platform called Chirp.
 - 💬 Post messages in groups with permission controls
 - 📩 Send direct messages with privacy protection
 - 🔐 JWT-based authentication and authorization
-- 🏥 Health check endpoint for server monitoring
+- 🏥 Health check endpoint for server monitoring.
 
 ## Project Structure
 - `chirp/` - Main Django project settings, URLs, and JWT utilities
