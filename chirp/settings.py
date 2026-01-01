@@ -320,20 +320,20 @@ LOGGING = {
     "loggers": {
         "django": {
             "handlers": ["console"],
-            "level": "INFO",
+            "level": "ERROR",
             "propagate": True,
         },
         "django.request": {
             "handlers": ["console"],
-            "level": "INFO",
-            "propagate": False,
-        },
-        "django.server": {
-            "handlers": [],
-            "level": "INFO",
+            "level": "ERROR",
             "propagate": False,
         },
         "chirp": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "": {
             "handlers": ["console"],
             "level": "INFO",
             "propagate": False,
