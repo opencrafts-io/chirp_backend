@@ -7,7 +7,7 @@ billiard==4.2.3
 bleach==6.3.0
 boto3==1.41.5
 botocore==1.41.5
-cbor2==5.7.1
+cbor2==5.8.0
 certifi==2025.11.12
 cffi==2.0.0
 channels==4.3.2
