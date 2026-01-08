@@ -63,7 +63,7 @@ types-PyYAML==6.0.12.20250915
 typing_extensions==4.15.0
 tzdata==2025.2
 ujson==5.11.0
-urllib3==2.6.0
+urllib3==2.6.3
 vine==5.1.0
 wcwidth==0.2.14
 webencodings==0.5.1
