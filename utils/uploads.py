@@ -12,3 +12,9 @@ def get_community_profile_path(instance, filename):
     ext = filename.split(".")[-1]
     filename = f"profile_{uuid.uuid4().hex}.{ext}"
     return os.path.join("communities", str(instance.name), "profiles", filename)
+
+
+def get_post_attachment_path(instance, filename):
+    ext = filename.split(".")[-1]
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    return os.path.join("attachments", str(instance.attachment_type), "posts", filename)

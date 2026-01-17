@@ -3,6 +3,7 @@ from django.db import models
 
 from communities.models import Community
 from users.models import User
+from utils.uploads import get_post_attachment_path
 
 
 class Attachment(models.Model):
@@ -19,7 +20,7 @@ class Attachment(models.Model):
     attachment_type = models.CharField(
         max_length=10, choices=ATTACHMENT_TYPE_CHOICES, default="image"
     )
-    file = models.FileField(upload_to="attachments/")
+    file = models.FileField(upload_to=get_post_attachment_path)
     file_size = models.BigIntegerField(null=True, blank=True)
     original_filename = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
