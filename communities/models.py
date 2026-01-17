@@ -2,6 +2,7 @@ from django.db import models
 from django.utils import timezone
 
 from users.models import User
+from utils.uploads import get_community_banner_path, get_community_profile_path
 
 
 class Community(models.Model):
@@ -28,7 +29,7 @@ class Community(models.Model):
     monthly_visitor_count = models.PositiveIntegerField(default=0)
     weekly_visitor_count = models.PositiveIntegerField(default=0)
     banner = models.ImageField(
-        upload_to="community/banners/",
+        upload_to=get_community_banner_path,
         null=True,
         width_field="banner_width",
         height_field="banner_height",
@@ -36,7 +37,7 @@ class Community(models.Model):
     banner_width = models.PositiveIntegerField(default=0)
     banner_height = models.PositiveIntegerField(default=0)
     profile_picture = models.ImageField(
-        upload_to="community/profile_pictures/",
+        upload_to=get_community_profile_path,
         height_field="profile_picture_height",
         width_field="profile_picture_width",
         null=True,
@@ -52,7 +53,7 @@ class Community(models.Model):
     def __str__(self):
         """
         Return a human-readable representation of the community combining its name and creator.
-        
+
         Returns:
             str: A string formatted as "{name} created by ${creator}".
         """
@@ -102,7 +103,7 @@ class CommunityMembership(models.Model):
     def __str__(self):
         """
         Provide a human-readable string describing the membership's user, role, and community.
-        
+
         Returns:
             A string formatted as "{user} - {role} in {community.name}".
         """
@@ -120,7 +121,7 @@ class CommunityInvite(models.Model):
     def __str__(self) -> str:
         """
         Provide a human-readable representation of the invite showing the community name and invitee identifier.
-        
+
         Returns:
             A string containing the community name and invitee identifier in the format "Invitee to {community.name} for {invitee_id}".
         """
@@ -155,7 +156,7 @@ class InviteLink(models.Model):
     def __str__(self):
         """
         Human-readable representation of the invite link.
-        
+
         Returns:
             str: A string containing the community name and the invite's expiration datetime formatted as
                  "Invite to {community.name} (expires: {expires_at})".
@@ -165,7 +166,7 @@ class InviteLink(models.Model):
     def is_expired(self):
         """
         Determine whether the invite link is past its expiration time.
-        
+
         Returns:
             bool: True if the current time is after `expires_at`, False otherwise.
         """
@@ -174,7 +175,7 @@ class InviteLink(models.Model):
     def can_be_used(self):
         """
         Determine whether the invite link is available for use.
-        
+
         Returns:
             `true` if the link is not marked as used and has not expired, `false` otherwise.
         """
@@ -183,7 +184,7 @@ class InviteLink(models.Model):
     def mark_as_used(self, user_id, user_name):
         """
         Mark this invite link as used and record the user and timestamp.
-        
+
         Parameters:
             user_id (str): Identifier of the user who used the link.
             user_name (str): Display name of the user who used the link.
@@ -197,7 +198,7 @@ class InviteLink(models.Model):
     def save(self, *args, **kwargs):
         """
         Ensure the invite link's expires_at is set from expiration_hours before saving.
-        
+
         If `expires_at` is not set, set it to the current time plus `expiration_hours`, then perform the normal model save.
         """
         if not self.expires_at:
