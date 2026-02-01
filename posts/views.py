@@ -15,6 +15,8 @@ import random
 from django.db.models import F, ExpressionWrapper, FloatField
 from rest_framework.views import Response
 from communities.models import Community, CommunityMembership
+from interactions.models import Block
+from interactions.utils import get_mutual_blocked_ids
 from posts.models import Attachment, Comment, Post, PostView, PostVotes
 from posts.serializers import (
     AttachmentSerializer,
@@ -110,6 +112,11 @@ class PostsFeedView(ListAPIView):
             user = User.objects.get(user_id=user_id)
         except User.DoesNotExist:
             raise ValidationError({"error": f"User with id {user_id} does not exist"})
+        
+        blocked_user_ids = get_mutual_blocked_ids(user)
+        blocked_comm_ids = Block.objects.filter(
+            blocker=user, block_type='community'
+        ).values_list('blocked_community_id', flat=True)
 
         # Define the recommendation score annotation to avoid repetition
         recommendation_score_annotation = ExpressionWrapper(
@@ -123,24 +130,20 @@ class PostsFeedView(ListAPIView):
         # Check if the user is part of any non-banned community
         user_communities = CommunityMembership.objects.filter(user=user, banned=False)
 
+        # base queryset that excludes blocked content
+        base_qs = Post.objects.exclude(
+            author_id__in=blocked_user_ids
+        ).exclude(
+            community_id__in=blocked_comm_ids
+        )
+
         if user_communities.exists():
-            # Case 1: User is in communities. Fetch posts from those communities.
-            queryset = (
-                Post.objects.filter(community__in=user_communities.values("community"))
-                .annotate(recommendation_score=recommendation_score_annotation)
-                .select_related("author", "community")
-                .order_by("-recommendation_score", "-created_at")
-            )
+            queryset = base_qs.filter(community__in=user_communities.values("community"))
         else:
             # Case 2: User is not in any community. Fetch top posts from public communities.
-            queryset = (
-                Post.objects.filter(community__private=False)
-                .annotate(recommendation_score=recommendation_score_annotation)
-                .select_related("author", "community")
-                .order_by("-recommendation_score", "-created_at")
-            )
+            queryset = base_qs.filter(community__private=False)
 
-        return queryset
+        return queryset.annotate(recommendation_score=recommendation_score_annotation).select_related("author", "community").order_by("-recommendation_score", "-created_at")
 
 
 class ListPostView(ListAPIView):
@@ -294,11 +297,29 @@ class PostVoteDeleteView(DestroyAPIView):
 class CommentListCreateView(ListCreateAPIView):
     serializer_class = CommentSerializer
 
+    # def get_queryset(self):
+    #     post_id = self.kwargs["post_id"]
+    #     return Comment.objects.filter(post_id=post_id, parent=None).prefetch_related(
+    #         "replies", "author"
+    #     )
+    
     def get_queryset(self):
+        # Existing user extraction
+        user_id = getattr(self.request, "user_id", None)
+        user = User.objects.get(user_id=user_id)
+        
+        # Get mutual blocked IDs
+        blocked_user_ids = get_mutual_blocked_ids(user)
+        
         post_id = self.kwargs["post_id"]
-        return Comment.objects.filter(post_id=post_id, parent=None).prefetch_related(
-            "replies", "author"
-        )
+        
+        # Exclude comments from anyone in the mutual block list
+        return Comment.objects.filter(
+            post_id=post_id, 
+            parent=None
+        ).exclude(
+            author_id__in=blocked_user_ids
+        ).prefetch_related("replies", "author")
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
