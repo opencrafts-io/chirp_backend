@@ -17,6 +17,7 @@ from event_bus.models.gossip_monger_notification_payload import (
     GossipMongerNotificationPayLoad,
 )
 from event_bus.publisher import publish
+from interactions.models import Block
 from users.models import User
 from .models import Community, CommunityMembership
 from .serializers import (
@@ -131,9 +132,20 @@ class CommunitySearchView(ListAPIView):
         Returns:
             QuerySet[Community]: Filtered and ordered queryset of communities with creator relation selected.
         """
+                
+        user_id = self.request.user_id or ""
+        user = User.objects.get(user_id=user_id)
+        
         q = self.request.GET.get("q", "").strip()
+
+        blocked_comm_ids = Block.objects.filter(
+            blocker=user, 
+            block_type='community'
+        ).values_list('blocked_community_id', flat=True)
+
         return (
             Community.objects.filter(Q(description__icontains=q) | Q(name__icontains=q))
+            .exclude(id__in=blocked_comm_ids)
             .select_related("creator")
             .order_by("name")
         )

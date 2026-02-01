@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "conversations",
     "websocket_chat",
     "event_bus",
+    "interactions"
 ]
 
 # Django Channels Configuration
