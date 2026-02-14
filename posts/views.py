@@ -1,4 +1,3 @@
-from django.contrib.admindocs.views import user_has_model_view_permission
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
@@ -10,11 +9,7 @@ from rest_framework.generics import (
     ListCreateAPIView,
     RetrieveAPIView,
 )
-import random
-
-from django.db.models import F, ExpressionWrapper, FloatField
-from rest_framework.views import Response
-from communities.models import Community, CommunityMembership
+from communities.models import CommunityMembership
 from interactions.models import Block
 from interactions.utils import get_mutual_blocked_ids
 from posts.models import Attachment, Comment, Post, PostView, PostVotes
@@ -34,7 +29,6 @@ class PostCreateView(CreateAPIView):
     serializer_class = PostSerializer
 
     def get_queryset(self):
-        # Required by DRF's CreateAPIView
         return Post.objects.all()
 
     def perform_create(self, serializer):
@@ -85,18 +79,24 @@ class ListPostAttachmentsView(ListAPIView):
 
 class PostsFeedView(ListAPIView):
     """
-    Returns recommended posts from communities where the user
-    is an active (non-banned) member. If the user is not a member
-    of any community, returns a set of top-scoring posts from
-    public communities.
+    Provides a personalized 'Hot' feed for the authenticated user.
 
-    Recommendation score is calculated as follows:
-    score = (upvotes * 3) - (downvotes * 2) + (comment_count * 2) + (views_count * 0.5)
+    The feed implements a blended discovery model:
+    1. CONTENT SELECTION:
+       - Subscribed: Posts from communities the user has joined.
+       - Discovery: Posts from public communities to encourage exploration.
+       - Exclusions: Automatically filters out content from blocked users
+         and blocked communities.
 
-    1. Upvotes have the highest positive weight.
-    2. Downvotes strongly penalize.
-    3. Comment activity is weighted higher than views.
-    4. Views provide a smaller positive nudge.
+    2. RANKING LOGIC (Gravity Decay):
+       Uses the 'Hot' algorithm defined in PostQuerySet. Posts are ranked by
+       engagement (upvotes, comments, views) penalized by the time elapsed
+       since creation (Age). This ensures the feed stays fresh and prevents
+       old viral posts from stagnating at the top.
+
+    3. PERMISSIONS:
+       Requires a valid 'user_id' in the request context. Validates that
+       the user exists and is not banned from the communities being served
     """
 
     serializer_class = PostSerializer
@@ -112,38 +112,29 @@ class PostsFeedView(ListAPIView):
             user = User.objects.get(user_id=user_id)
         except User.DoesNotExist:
             raise ValidationError({"error": f"User with id {user_id} does not exist"})
-        
+
         blocked_user_ids = get_mutual_blocked_ids(user)
         blocked_comm_ids = Block.objects.filter(
-            blocker=user, block_type='community'
-        ).values_list('blocked_community_id', flat=True)
+            blocker=user, block_type="community"
+        ).values_list("blocked_community_id", flat=True)
 
-        # Define the recommendation score annotation to avoid repetition
-        recommendation_score_annotation = ExpressionWrapper(
-            (F("upvotes") * 3)
-            - (F("downvotes") * 2)
-            + (F("comment_count") * 2)
-            + (F("views_count") * 0.5),
-            output_field=FloatField(),
+        user_communities = CommunityMembership.objects.filter(
+            user=user, banned=False
+        ).values_list("community_id", flat=True)
+
+        content_filter = Q(community_id__in=user_communities) | Q(
+            community__private=False
         )
 
-        # Check if the user is part of any non-banned community
-        user_communities = CommunityMembership.objects.filter(user=user, banned=False)
-
-        # base queryset that excludes blocked content
-        base_qs = Post.objects.exclude(
-            author_id__in=blocked_user_ids
-        ).exclude(
-            community_id__in=blocked_comm_ids
+        queryset = (
+            Post.objects.exclude(author_id__in=blocked_user_ids)
+            .exclude(community_id__in=blocked_comm_ids)
+            .filter(content_filter)
+            .select_related("author", "community")
+            .distinct()
         )
 
-        if user_communities.exists():
-            queryset = base_qs.filter(community__in=user_communities.values("community"))
-        else:
-            # Case 2: User is not in any community. Fetch top posts from public communities.
-            queryset = base_qs.filter(community__private=False)
-
-        return queryset.annotate(recommendation_score=recommendation_score_annotation).select_related("author", "community").order_by("-recommendation_score", "-created_at")
+        return queryset.hot()
 
 
 class ListPostView(ListAPIView):
@@ -180,7 +171,7 @@ class PostListByCommunityView(ListAPIView):
     def get_queryset(self):
         # Retrieves the posts for a specific community
         community_id = self.kwargs.get(self.lookup_url_kwarg)
-        return Post.objects.filter(community_id=community_id)
+        return Post.objects.filter(community_id=community_id).hot()
 
 
 class DestroyPostView(DestroyAPIView):
@@ -302,24 +293,23 @@ class CommentListCreateView(ListCreateAPIView):
     #     return Comment.objects.filter(post_id=post_id, parent=None).prefetch_related(
     #         "replies", "author"
     #     )
-    
+
     def get_queryset(self):
         # Existing user extraction
         user_id = getattr(self.request, "user_id", None)
         user = User.objects.get(user_id=user_id)
-        
+
         # Get mutual blocked IDs
         blocked_user_ids = get_mutual_blocked_ids(user)
-        
+
         post_id = self.kwargs["post_id"]
-        
+
         # Exclude comments from anyone in the mutual block list
-        return Comment.objects.filter(
-            post_id=post_id, 
-            parent=None
-        ).exclude(
-            author_id__in=blocked_user_ids
-        ).prefetch_related("replies", "author")
+        return (
+            Comment.objects.filter(post_id=post_id, parent=None)
+            .exclude(author_id__in=blocked_user_ids)
+            .prefetch_related("replies", "author")
+        )
 
     def get_serializer_context(self):
         context = super().get_serializer_context()

@@ -18,9 +18,9 @@ click-didyoumean==0.3.1
 click-plugins==1.1.1.2
 click-repl==0.3.0
 constantly==23.10.4
-cryptography==46.0.3
+cryptography==46.0.5
 daphne==4.2.1
-Django==5.2.9
+Django==5.2.11
 django-storages==1.14.6
 django-stubs==5.2.7
 django-stubs-ext==5.2.7
@@ -56,7 +56,7 @@ s3transfer==0.15.0
 service-identity==24.2.0
 setuptools==80.9.0
 six==1.17.0
-sqlparse==0.5.3
+sqlparse==0.5.4
 Twisted==25.5.0
 txaio==25.9.2
 types-PyYAML==6.0.12.20250915

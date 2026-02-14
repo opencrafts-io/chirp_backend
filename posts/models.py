@@ -2,6 +2,7 @@ from django.core.files.storage import default_storage
 from django.db import models
 
 from communities.models import Community
+from posts.managers import PostQuerySet
 from users.models import User
 from utils.uploads import get_post_attachment_path
 
@@ -87,6 +88,8 @@ class Post(models.Model):
     views_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = PostQuerySet.as_manager()
 
     def __str__(self) -> str:
         """
