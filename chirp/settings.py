@@ -14,6 +14,8 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
+from chirp.celery import debug_task
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -58,7 +60,7 @@ INSTALLED_APPS = [
     "conversations",
     "websocket_chat",
     "event_bus",
-    "interactions"
+    "interactions",
 ]
 
 # Django Channels Configuration
@@ -80,6 +82,11 @@ RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", None)
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", None)
 RABBITMQ_PORT = os.getenv("RABBITMQ_PORT", None)
 RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", None)
+
+
+# Celery setup
+CELERY_BROKER_URL = f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST}"
+CELERY_TIMEZONE = "UTC"
 
 
 # WebSocket Security Settings
@@ -341,3 +348,5 @@ LOGGING = {
         },
     },
 }
+
+debug_task.delay()
