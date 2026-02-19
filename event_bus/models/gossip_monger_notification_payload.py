@@ -14,7 +14,7 @@ class GossipMongerNotificationPayLoad:
 
     def __init__(
         self,
-        target_user_id: str,
+        target_user_id: Optional[str],
         include_external_user_ids: List[str],
         headings: Optional[Dict[str, str]],
         contents: Dict[str, str],

@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
@@ -19,6 +20,10 @@ from posts.serializers import (
     PostSerializer,
     PostViewSerializer,
     PostVoteSerializer,
+)
+from posts.tasks import (
+    send_push_notification_to_community_members,
+    send_push_notification_to_post_creator,
 )
 from users.models import User
 
@@ -56,7 +61,15 @@ class PostCreateView(CreateAPIView):
             )
 
         # Save post
-        serializer.save(author=user, community=community, created_at=timezone.now())
+        post = serializer.save(
+            author=user, community=community, created_at=timezone.now()
+        )
+
+        def notify():
+            send_push_notification_to_post_creator.delay(post.id).forget()
+            send_push_notification_to_community_members.delay(post.id).forget()
+            
+        transaction.on_commit(notify)
 
 
 class PostAttachmentCreateView(CreateAPIView):
