@@ -66,8 +66,8 @@ class PostCreateView(CreateAPIView):
         )
 
         def notify():
-            send_push_notification_to_post_creator.delay(post.id).forget()
-            send_push_notification_to_community_members.delay(post.id).forget()
+            send_push_notification_to_post_creator.delay(post.id)
+            send_push_notification_to_community_members.delay(post.id)
             
         transaction.on_commit(notify)
 

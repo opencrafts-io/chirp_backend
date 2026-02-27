@@ -14,8 +14,6 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
-from chirp.celery import debug_task
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -349,5 +347,3 @@ LOGGING = {
         },
     },
 }
-
-debug_task.delay()
