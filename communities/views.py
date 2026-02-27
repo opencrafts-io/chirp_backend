@@ -132,16 +132,15 @@ class CommunitySearchView(ListAPIView):
         Returns:
             QuerySet[Community]: Filtered and ordered queryset of communities with creator relation selected.
         """
-                
+
         user_id = self.request.user_id or ""
         user = User.objects.get(user_id=user_id)
-        
+
         q = self.request.GET.get("q", "").strip()
 
         blocked_comm_ids = Block.objects.filter(
-            blocker=user, 
-            block_type='community'
-        ).values_list('blocked_community_id', flat=True)
+            blocker=user, block_type="community"
+        ).values_list("blocked_community_id", flat=True)
 
         return (
             Community.objects.filter(Q(description__icontains=q) | Q(name__icontains=q))
@@ -581,7 +580,7 @@ class CommunityLeaveView(DestroyAPIView):
             big_picture=None,
             large_icon=None,
             small_icon=None,
-            url=f"academia:///communities/{community.id}",
+            url=f"academia://communities/{community.id}",
         )
 
         publish(
