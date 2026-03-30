@@ -1,7 +1,6 @@
-import os
 from unittest.mock import patch
 import uuid
-from django.test import Client, TestCase
+from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
@@ -9,9 +8,8 @@ from datetime import timedelta
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from posts.views import RecordPostViewerView
 
-from .models import Post, Community, PostView, User
+from .models import Post, Community, User
 
 
 class PostRankingTest(TestCase):
