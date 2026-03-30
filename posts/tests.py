@@ -1,8 +1,16 @@
-from django.test import TestCase
+import os
+from unittest.mock import patch
+from django.test import Client, TestCase
+from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import Post, Community, User
+from rest_framework import status
+from rest_framework.test import APITestCase
+
+from posts.views import RecordPostViewerView
+
+from .models import Post, Community, PostView, User
 
 
 class PostRankingTest(TestCase):
@@ -85,3 +93,79 @@ class PostRankingTest(TestCase):
 
         # The post with fewer net points should be lower
         self.assertEqual(feed[0], positive_post)
+
+
+class RecordPostViewerViewTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.author = User.objects.create(
+            name="Test User",
+            username="testwriter",
+            email="test@example.com",
+        )
+
+        cls.community = Community.objects.create(
+            name="General", visibility="public", private=False, creator=cls.author
+        )
+
+        cls.post = Post.objects.create(
+            title="Old Legend",
+            author=cls.author,
+            community=cls.community,
+        )
+
+        cls.auth_headers = {"HTTP_AUTHORIZATION": f"Bearer some-random-jwt"}
+
+        cls.url = reverse("record-post-as-viewed", kwargs={"id": cls.post.id})
+
+    @patch("chirp.verisafe_authentication.verify_verisafe_jwt")
+    def test_record_view_success(self, mock_verify):
+        mock_verify.return_value = {
+            "sub": self.author.user_id,
+            "name": self.author.name,
+        }
+
+        url = reverse("record-post-as-viewed", kwargs={"id": self.post.id})
+        payload = {
+            "post_id": self.post.id,
+            "viewer_id": self.author.user_id,
+        }
+
+        response = self.client.post(
+            url,
+            payload,
+            **self.auth_headers,
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    @patch("chirp.verisafe_authentication.verify_verisafe_jwt")
+    def test_record_view_indempotency(self, mock_verify):
+        mock_verify.return_value = {
+            "sub": self.author.user_id,
+            "name": self.author.name,
+        }
+
+        url = reverse("record-post-as-viewed", kwargs={"id": self.post.id})
+        payload = {
+            "post_id": self.post.id,
+            "viewer_id": self.author.user_id,
+        }
+
+        first_response = self.client.post(
+            url,
+            payload,
+            **self.auth_headers,
+        )
+        self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.views_count, 1)
+
+        second_response = self.client.post(
+            url,
+            payload,
+            **self.auth_headers,
+        )
+        print(second_response.json())
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.views_count, 1)

@@ -22,14 +22,14 @@ class AttachmentSerializer(serializers.ModelSerializer):
             validated_data["file_size"] = file.size
             validated_data["original_filename"] = file.name
             file_extension = os.path.splitext(file.name)[1].lower()
-            if file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.bmp']:
+            if file_extension in [".jpg", ".jpeg", ".png", ".gif", ".bmp"]:
                 validated_data["attachment_type"] = "image"
-            elif file_extension in ['.mp4', '.avi', '.mov', '.mkv']:
+            elif file_extension in [".mp4", ".avi", ".mov", ".mkv"]:
                 validated_data["attachment_type"] = "video"
-            elif file_extension in ['.mp3', '.wav', '.aac', '.ogg']:
+            elif file_extension in [".mp3", ".wav", ".aac", ".ogg"]:
                 validated_data["attachment_type"] = "audio"
             else:
-                validated_data["attachment_type"] = "file" 
+                validated_data["attachment_type"] = "file"
         return super().create(validated_data)
 
 
@@ -163,6 +163,7 @@ class PostViewSerializer(serializers.ModelSerializer):
         model = PostView
         fields = ["id", "post", "post_id", "viewer", "viewer_id", "viewed_at"]
         read_only_fields = ["id", "viewed_at"]
+        validators = []
 
 
 class PostVoteSerializer(serializers.ModelSerializer):
