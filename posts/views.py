@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.db.models import Q, QuerySet
 from django.utils import timezone
+from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.fields import ValidationError
 from rest_framework.generics import (
@@ -10,6 +11,7 @@ from rest_framework.generics import (
     ListCreateAPIView,
     RetrieveAPIView,
 )
+from rest_framework.response import Response
 from communities.models import CommunityMembership
 from interactions.models import Block
 from interactions.utils import get_mutual_blocked_ids
@@ -68,7 +70,7 @@ class PostCreateView(CreateAPIView):
         def notify():
             send_push_notification_to_post_creator.delay(post.id)
             send_push_notification_to_community_members.delay(post.id)
-            
+
         transaction.on_commit(notify)
 
 
@@ -229,6 +231,12 @@ class RecordPostViewerView(CreateAPIView):
     """Records a post viewer"""
 
     serializer_class = PostViewSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def perform_create(self, serializer):
         post_id = self.kwargs.get("id")
