@@ -164,7 +164,6 @@ class RecordPostViewerViewTests(APITestCase):
             payload,
             **self.auth_headers,
         )
-        print(second_response.json())
         self.assertEqual(second_response.status_code, status.HTTP_200_OK)
         self.post.refresh_from_db()
         self.assertEqual(self.post.views_count, 1)
