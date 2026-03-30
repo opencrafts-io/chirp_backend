@@ -11,7 +11,7 @@ from rest_framework.generics import (
     ListCreateAPIView,
     RetrieveAPIView,
 )
-from rest_framework.views import Response
+from rest_framework.response import Response
 from communities.models import CommunityMembership
 from interactions.models import Block
 from interactions.utils import get_mutual_blocked_ids
