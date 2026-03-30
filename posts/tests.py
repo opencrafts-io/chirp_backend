@@ -1,5 +1,6 @@
 import os
 from unittest.mock import patch
+import uuid
 from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -169,3 +170,25 @@ class RecordPostViewerViewTests(APITestCase):
         self.assertEqual(second_response.status_code, status.HTTP_200_OK)
         self.post.refresh_from_db()
         self.assertEqual(self.post.views_count, 1)
+
+    @patch("chirp.verisafe_authentication.verify_verisafe_jwt")
+    def test_record_view_from_non_existent_user(self, mock_verify):
+        random_uuid = uuid.uuid4()
+        mock_verify.return_value = {
+            "sub": self.author.user_id,
+            "name": self.author.name,
+        }
+
+        url = reverse("record-post-as-viewed", kwargs={"id": self.post.id})
+        payload = {
+            "post_id": self.post.id,
+            "viewer_id": random_uuid,
+        }
+        response = self.client.post(
+            url,
+            payload,
+            **self.auth_headers,
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.views_count, 0)
