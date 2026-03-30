@@ -138,7 +138,7 @@ class RecordPostViewerViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     @patch("chirp.verisafe_authentication.verify_verisafe_jwt")
-    def test_record_view_indempotency(self, mock_verify):
+    def test_record_view_idempotency(self, mock_verify):
         mock_verify.return_value = {
             "sub": self.author.user_id,
             "name": self.author.name,
