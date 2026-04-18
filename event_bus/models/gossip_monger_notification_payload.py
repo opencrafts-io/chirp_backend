@@ -10,7 +10,6 @@ class GossipMongerNotificationPayLoad:
     APP_ID: str = "88ca0bb7-c0d7-4e36-b9e6-ea0e29213593"
     SOURCE_SERVICE_ID: str = "io.opencrafts.chirp"
     EVENT_TYPE: str = "push.send"
-    REQUEST_ID: str = str(uuid.uuid4())
 
     def __init__(
         self,
@@ -67,7 +66,7 @@ class GossipMongerNotificationPayLoad:
         meta = {
             "event_type": self.EVENT_TYPE,
             "source_service_id": self.SOURCE_SERVICE_ID,
-            "request_id": self.REQUEST_ID,
+            "request_id": str(uuid.uuid4()),
         }
 
         return json.dumps({"notification": notification, "meta": meta}, indent=4)
