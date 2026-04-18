@@ -12,6 +12,44 @@ from rest_framework.test import APITestCase
 from .models import Post, Community, User
 
 
+class PostCreateTest(APITestCase):
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.author = User.objects.create(
+            name="Test User",
+            username="testwriter",
+            email="test@example.com",
+        )
+
+        cls.community = Community.objects.create(
+            name="General", visibility="public", private=False, creator=cls.author
+        )
+
+        cls.auth_headers = {"HTTP_AUTHORIZATION": "Bearer some-random-jwt"}
+
+    @patch("chirp.verisafe_authentication.verify_verisafe_jwt")
+    def test_post_create_view(self, mock_verify):
+        mock_verify.return_value = {
+            "sub": self.author.user_id,
+            "name": self.author.name,
+        }
+
+        url = reverse("post-create")
+        payload = {
+            "title": "Pure positivity",
+            "content": "What the title says",
+            "author_id": f"{self.author.user_id}",
+            "community_id": f"{self.community.id}",
+        }
+
+        response = self.client.post(
+            url,
+            payload,
+            **self.auth_headers,
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+
 class PostRankingTest(TestCase):
     def setUp(self):
         """

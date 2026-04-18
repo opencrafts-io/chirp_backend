@@ -15,23 +15,22 @@ def _get_connection():
     )
 
 
-def _publish(exchange: str, queue_name: str, message: str):
+def _publish(exchange: str, routing_key: str, message: str):
     conn = _get_connection()
     ch = conn.channel()
-    ch.queue_declare(queue=queue_name, durable=True)
     ch.basic_publish(
         exchange=exchange,
-        routing_key=queue_name,
+        routing_key=routing_key,
         body=message,
         properties=pika.BasicProperties(delivery_mode=2),
     )
     conn.close()
 
 
-def publish(exchange: str, queue_name: str, message: str):
+def publish(exchange: str, routing_key: str, message: str):
     thread = threading.Thread(
         target=_publish,
-        args=(exchange, queue_name, message),
+        args=(exchange, routing_key, message),
         daemon=True,  # thread won't block Django shutdown
     )
     thread.start()
