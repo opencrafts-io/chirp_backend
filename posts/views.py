@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db import transaction
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 from rest_framework import status
@@ -28,6 +29,15 @@ from posts.tasks import (
     send_push_notification_to_post_creator,
 )
 from users.models import User
+
+
+def notify_on_post_creation(post_id):
+    """
+    Orchestrator to trigger all asynchronous notification tasks
+    associated with a new post.
+    """
+    send_push_notification_to_post_creator.delay(post_id)
+    send_push_notification_to_community_members.delay(post_id)
 
 
 class PostCreateView(CreateAPIView):
@@ -62,16 +72,12 @@ class PostCreateView(CreateAPIView):
                 {"error": "You must be a member of this community to post."}
             )
 
-        # Save post
-        post = serializer.save(
-            author=user, community=community, created_at=timezone.now()
-        )
+        with transaction.atomic():
+            post = serializer.save(
+                author=user, community=community, created_at=timezone.now()
+            )
 
-        def notify():
-            send_push_notification_to_post_creator.delay(post.id)
-            send_push_notification_to_community_members.delay(post.id)
-
-        transaction.on_commit(notify)
+            transaction.on_commit(lambda: notify_on_post_creation(post.id))
 
 
 class PostAttachmentCreateView(CreateAPIView):
