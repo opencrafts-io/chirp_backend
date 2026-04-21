@@ -1,3 +1,4 @@
+from pprint import pprint
 from unittest.mock import patch
 import uuid
 from django.test import TestCase
@@ -9,7 +10,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 
-from .models import Post, Community, User
+from .models import Post, Community, PostVotes, User
 
 
 class PostCreateTest(APITestCase):
@@ -48,6 +49,97 @@ class PostCreateTest(APITestCase):
             **self.auth_headers,
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+
+class PostVoteTest(APITestCase):
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.author = User.objects.create(
+            name="Test User",
+            username="testwriter",
+            email="test@example.com",
+        )
+
+        cls.community = Community.objects.create(
+            name="General", visibility="public", private=False, creator=cls.author
+        )
+
+        cls.post = Post.objects.create(
+            community=cls.community,
+            author=cls.author,
+            title="Hi there",
+            content="Hello there!",
+        )
+
+        cls.auth_headers = {"HTTP_AUTHORIZATION": "Bearer some-random-jwt"}
+
+    @patch("chirp.verisafe_authentication.verify_verisafe_jwt")
+    def test_post_upvote_view(self, mock_verify):
+        mock_verify.return_value = {
+            "sub": self.author.user_id,
+            "name": self.author.name,
+        }
+
+        url = reverse("post-vote", kwargs={"post_id": self.post.id})
+        payload = {
+            "post_id": self.post.id,
+            "voter_id": self.author.user_id,
+            "value": 1,
+        }
+        response = self.client.post(
+            url,
+            payload,
+            **self.auth_headers,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.upvotes, 1, "upvotes should have been incremented")
+
+    @patch("chirp.verisafe_authentication.verify_verisafe_jwt")
+    def test_post_vote_redact_view(self, mock_verify):
+        mock_verify.return_value = {
+            "sub": self.author.user_id,
+            "name": self.author.name,
+        }
+
+        PostVotes.objects.create(post=self.post, user=self.author, value=1)
+
+        url = reverse("post-vote-redact", kwargs={"post_id": self.post.id})
+        response = self.client.delete(
+            url,
+            **self.auth_headers,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.post.refresh_from_db()
+
+    @patch("chirp.verisafe_authentication.verify_verisafe_jwt")
+    def test_post_downvote_view(self, mock_verify):
+        mock_verify.return_value = {
+            "sub": self.author.user_id,
+            "name": self.author.name,
+        }
+
+        url = reverse("post-vote", kwargs={"post_id": self.post.id})
+        payload = {
+            "post_id": self.post.id,
+            "voter_id": self.author.user_id,
+            "value": -1,
+        }
+        response = self.client.post(
+            url,
+            payload,
+            **self.auth_headers,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        self.post.refresh_from_db()
+        self.assertEqual(
+            self.post.downvotes, 1, "Downvotes should have been decremented"
+        )
 
 
 class PostRankingTest(TestCase):
