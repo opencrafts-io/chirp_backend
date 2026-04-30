@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 
-from .models import Post, Community, User
+from .models import Post, Community, PostVotes, User
 
 
 class PostCreateTest(APITestCase):
@@ -227,3 +227,71 @@ class RecordPostViewerViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.post.refresh_from_db()
         self.assertEqual(self.post.views_count, 0)
+
+
+class PostVotesTest(APITestCase):
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.author = User.objects.create(
+            name="Test User",
+            username="testwriter",
+            email="test@example.com",
+        )
+
+        cls.community = Community.objects.create(
+            name="General", visibility="public", private=False, creator=cls.author
+        )
+
+        cls.post = Post.objects.create(
+            title="Old Legend",
+            author=cls.author,
+            community=cls.community,
+        )
+
+        cls.auth_headers = {"HTTP_AUTHORIZATION": f"Bearer some-random-jwt"}
+
+    @patch("chirp.verisafe_authentication.verify_verisafe_jwt")
+    def test_record_vote_success(self, mock_verify):
+        mock_verify.return_value = {
+            "sub": self.author.user_id,
+            "name": self.author.name,
+        }
+
+        url = reverse("post-vote", kwargs={"post_id": self.post.id})
+        payload = {
+            "post_id": self.post.id,
+            "voter_id": self.author.user_id,
+            "value": 1,  # For upvote
+        }
+        response = self.client.post(
+            url,
+            payload,
+            **self.auth_headers,
+        )
+
+        self.assertEqual(response.status_code, 201)
+
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.upvotes, 1)
+
+    @patch("chirp.verisafe_authentication.verify_verisafe_jwt")
+    def test_view_vote_success(self, mock_verify):
+        mock_verify.return_value = {
+            "sub": self.author.user_id,
+            "name": self.author.name,
+        }
+
+        PostVotes.objects.update_or_create(
+            post=self.post,
+            user=self.author,
+            defaults={"value": 1},
+        )
+
+        url = reverse("post-vote", kwargs={"post_id": self.post.id})
+        response = self.client.get(
+            url,
+            **self.auth_headers,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["value"], 1)

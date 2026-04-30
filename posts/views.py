@@ -7,12 +7,14 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.fields import ValidationError
 from rest_framework.generics import (
     CreateAPIView,
+    ListCreateAPIView,
     DestroyAPIView,
     ListAPIView,
     ListCreateAPIView,
     RetrieveAPIView,
 )
 from rest_framework.response import Response
+from rest_framework import status
 from communities.models import CommunityMembership
 from interactions.models import Block
 from interactions.utils import get_mutual_blocked_ids
@@ -268,11 +270,13 @@ class RecordPostViewerView(CreateAPIView):
             raise e
 
 
-class PostVoteView(CreateAPIView):
+class PostVoteView(ListCreateAPIView):
     """
     Upvote or downvote a post.
     If a vote exists, update it; otherwise, create a new vote.
     """
+
+    lookup_field = "post_id"
 
     serializer_class = PostVoteSerializer
 
@@ -290,6 +294,26 @@ class PostVoteView(CreateAPIView):
             defaults={"value": value},
         )
         serializer.instance = obj
+
+    def get(self, request, *args, **kwargs):
+        post_id = self.kwargs["post_id"]
+        try:
+            user_id = self.request.user_id or ""
+            user = User.objects.get(user_id=user_id)
+            vote = PostVotes.objects.get(post_id=post_id, user=user)
+            return Response(
+                data=self.serializer_class(vote).data,
+                status=status.HTTP_200_OK,
+            )
+        except PostVotes.DoesNotExist:
+            return Response(
+                data={"message": "No vote exists"}, status=status.HTTP_404_NOT_FOUND
+            )
+        except User.DoesNotExist:
+            return Response(
+                data={"message": "Current user does not exist"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
 
 class PostVoteDeleteView(DestroyAPIView):
