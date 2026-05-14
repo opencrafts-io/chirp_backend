@@ -35,7 +35,7 @@ def send_push_notification_to_post_creator(self, post_id: int) -> None:
     notification = GossipMongerNotificationPayLoad(
         headings={"en": "🎉 Your post is live!"},
         contents={
-            "en": f"'{post.title}' is now in {post.community.name}. Share it to get your first 10 likes!"
+            "en": f"'{post.title}' is now in {post.community.name}. Share it to get your first 10 upvotes!"
         },
         subtitle={"en": "Success"},
         target_user_id=author_id,
@@ -48,7 +48,7 @@ def send_push_notification_to_post_creator(self, post_id: int) -> None:
         big_picture=None,
         large_icon=None,
         small_icon=None,
-        url=f"academia://post/{post_id}",
+        url=f"https://academia.opencrafts.io/post/{post_id}",
     )
 
     publish(GOSSIP_MONGER_EXCHANGE, GOSSIP_MONGER_ROUTING_KEY, notification.to_json())
@@ -111,7 +111,7 @@ def send_push_notification_to_community_members(self, post_id: int) -> None:
                 else None
             ),
             small_icon=None,
-            url=f"academia://post/{post_id}",
+            url=f"https://academia.opencrafts.io/post/{post_id}",
         )
         publish(
             GOSSIP_MONGER_EXCHANGE, GOSSIP_MONGER_ROUTING_KEY, notification.to_json()

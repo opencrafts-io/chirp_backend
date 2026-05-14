@@ -1,15 +1,20 @@
 from django.db import transaction
+from django.db import transaction
 from django.db.models import Q, QuerySet
 from django.utils import timezone
+from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.fields import ValidationError
 from rest_framework.generics import (
     CreateAPIView,
+    ListCreateAPIView,
     DestroyAPIView,
     ListAPIView,
     ListCreateAPIView,
     RetrieveAPIView,
 )
+from rest_framework.response import Response
+from rest_framework import status
 from communities.models import CommunityMembership
 from interactions.models import Block
 from interactions.utils import get_mutual_blocked_ids
@@ -26,6 +31,15 @@ from posts.tasks import (
     send_push_notification_to_post_creator,
 )
 from users.models import User
+
+
+def notify_on_post_creation(post_id):
+    """
+    Orchestrator to trigger all asynchronous notification tasks
+    associated with a new post.
+    """
+    send_push_notification_to_post_creator.delay(post_id)
+    send_push_notification_to_community_members.delay(post_id)
 
 
 class PostCreateView(CreateAPIView):
@@ -60,16 +74,12 @@ class PostCreateView(CreateAPIView):
                 {"error": "You must be a member of this community to post."}
             )
 
-        # Save post
-        post = serializer.save(
-            author=user, community=community, created_at=timezone.now()
-        )
+        with transaction.atomic():
+            post = serializer.save(
+                author=user, community=community, created_at=timezone.now()
+            )
 
-        def notify():
-            send_push_notification_to_post_creator.delay(post.id)
-            send_push_notification_to_community_members.delay(post.id)
-            
-        transaction.on_commit(notify)
+            transaction.on_commit(lambda: notify_on_post_creation(post.id))
 
 
 class PostAttachmentCreateView(CreateAPIView):
@@ -230,6 +240,12 @@ class RecordPostViewerView(CreateAPIView):
 
     serializer_class = PostViewSerializer
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     def perform_create(self, serializer):
         post_id = self.kwargs.get("id")
 
@@ -254,11 +270,13 @@ class RecordPostViewerView(CreateAPIView):
             raise e
 
 
-class PostVoteView(CreateAPIView):
+class PostVoteView(ListCreateAPIView):
     """
     Upvote or downvote a post.
     If a vote exists, update it; otherwise, create a new vote.
     """
+
+    lookup_field = "post_id"
 
     serializer_class = PostVoteSerializer
 
@@ -276,6 +294,26 @@ class PostVoteView(CreateAPIView):
             defaults={"value": value},
         )
         serializer.instance = obj
+
+    def get(self, request, *args, **kwargs):
+        post_id = self.kwargs["post_id"]
+        try:
+            user_id = self.request.user_id or ""
+            user = User.objects.get(user_id=user_id)
+            vote = PostVotes.objects.get(post_id=post_id, user=user)
+            return Response(
+                data=self.serializer_class(vote).data,
+                status=status.HTTP_200_OK,
+            )
+        except PostVotes.DoesNotExist:
+            return Response(
+                data={"message": "No vote exists"}, status=status.HTTP_404_NOT_FOUND
+            )
+        except User.DoesNotExist:
+            return Response(
+                data={"message": "Current user does not exist"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
 
 class PostVoteDeleteView(DestroyAPIView):
