@@ -13,7 +13,7 @@ from posts.models import Post
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True)
+@shared_task(bind=True, max_retries=3)
 def send_push_notification_to_post_creator(self, post_id: int) -> None:
     """
     Sends a push notification to the author of a newly created post,
