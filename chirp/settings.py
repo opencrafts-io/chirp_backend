@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "websocket_chat",
     "event_bus",
     "interactions",
+    "silk",
 ]
 
 # Django Channels Configuration
@@ -147,6 +148,7 @@ CACHES = {
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "silk.middleware.SilkyMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "chirp.middlewares.request_logging_middleware.RequestLoggingMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -249,7 +251,9 @@ AWS_S3_URL_PROTOCOL = "https:"
 AWS_S3_USE_SSL = True
 AWS_S3_VERIFY = True
 
-STATIC_URL = "static/"
+STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
+AWS_S3_FILE_OVERWRITE = False
+AWS_QUERYSTRING_AUTH = False
 MEDIA_URL = "/media/"
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "dev")
