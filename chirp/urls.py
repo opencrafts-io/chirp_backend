@@ -18,8 +18,6 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from . import views
-from django.conf import settings
-from django.conf.urls.static import static
 
 # Base URL patterns without prefix
 urlpatterns = [
@@ -37,6 +35,7 @@ urlpatterns = [
     # path('users/<str:user_id>/permissions/', views.UserPermissionsView.as_view(), name='user_permissions'),
     # path('maintenance/', views.AdminMaintenanceView.as_view(), name='admin_maintenance'),
     path("users/", include("users.urls")),
+    path("silk/", include("silk.urls", namespace="silk")),
     # path('search/', views.UnifiedSearchView.as_view(), name='unified-search'),
 ]
 
