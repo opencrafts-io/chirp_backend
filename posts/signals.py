@@ -2,10 +2,7 @@ from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from django.db.models import F
 from posts.models import Comment, Post, PostView, PostVotes
-from posts.tasks import (
-    send_push_notification_to_post_creator,
-    send_push_notification_to_community_members,
-)
+
 
 @receiver(post_save, sender=PostView)
 def increment_post_views_count(sender, instance: PostView, created: bool, **kwargs):
@@ -104,19 +101,3 @@ def decrement_post_vote_counts(sender, instance: PostVotes, **kwargs):
         Post.objects.filter(id=post.id).update(upvotes=F("upvotes") - 1)
     elif instance.value == PostVotes.DOWNVOTE:
         Post.objects.filter(id=post.id).update(downvotes=F("downvotes") - 1)
-
-@receiver(post_save, sender=Post)
-def trigger_post_create_notifications(sender, instance: Post, created: bool, **kwargs):
-    """Initiate notification when a post is newly created."""
-    if not created:
-        return
-    try:
-        send_push_notification_to_post_creator.delay(instance.id)
-    except Exception as exc:
-        import logging
-        logging.getLogger(__name__).warning("Failed to enqueue post creator notification: %s", exc)
-    try:
-        send_push_notification_to_community_members.delay(instance.id)
-    except Exception as exc:
-        import logging
-        logging.getLogger(__name__).warning("Failed to enqueue community notification: %s", exc)
