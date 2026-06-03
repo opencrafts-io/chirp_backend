@@ -295,3 +295,45 @@ class PostVotesTest(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["value"], 1)
+
+    @patch("chirp.verisafe_authentication.verify_verisafe_jwt")
+    def test_downvote_after_upvote_success(self, mock_verify):
+        mock_verify.return_value = {
+            "sub": self.author.user_id,
+            "name": self.author.name,
+        }
+
+        url = reverse("post-vote", kwargs={"post_id": self.post.id})
+        payload = {
+            "post_id": self.post.id,
+            "voter_id": self.author.user_id,
+            "value": 1,
+        }
+        response = self.client.post(
+            url,
+            payload,
+            **self.auth_headers,
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["value"], 1)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.upvotes, 1, "Post votes should be equal to one.")
+
+        url = reverse("post-vote", kwargs={"post_id": self.post.id})
+        payload = {
+            "post_id": self.post.id,
+            "voter_id": self.author.user_id,
+            "value": -1,
+        }
+        response = self.client.post(
+            url,
+            payload,
+            **self.auth_headers,
+        )
+
+        print(response.json())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["value"], -1)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.upvotes, 0, "Post votes should be equal to zero.")
