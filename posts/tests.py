@@ -303,32 +303,37 @@ class PostVotesTest(APITestCase):
             "name": self.author.name,
         }
 
-        PostVotes.objects.update_or_create(
-            post=self.post,
-            user=self.author,
-            defaults={"value": 1},
-        )
-
         url = reverse("post-vote", kwargs={"post_id": self.post.id})
-        response = self.client.get(
+        payload = {
+            "post_id": self.post.id,
+            "voter_id": self.author.user_id,
+            "value": 1,
+        }
+        response = self.client.post(
             url,
+            payload,
             **self.auth_headers,
         )
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["value"], 1)
-
-        PostVotes.objects.update_or_create(
-            post=self.post,
-            user=self.author,
-            defaults={"value": -1},
-        )
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.upvotes, 1, "Post votes should be equal to one.")
 
         url = reverse("post-vote", kwargs={"post_id": self.post.id})
-        response = self.client.get(
+        payload = {
+            "post_id": self.post.id,
+            "voter_id": self.author.user_id,
+            "value": -1,
+        }
+        response = self.client.post(
             url,
+            payload,
             **self.auth_headers,
         )
 
+        print(response.json())
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["value"], -1)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.upvotes, 0, "Post votes should be equal to zero.")
