@@ -17,7 +17,7 @@ def _create_connection() -> pika.BlockingConnection:
         pika.ConnectionParameters(
             host=settings.RABBITMQ_HOST,
             port=settings.RABBITMQ_PORT,
-            virtual_host=settings.RABBITMQ_VHOST,
+            virtual_host=settings.RABBITMQ_VHOST_ENCODED,
             credentials=pika.PlainCredentials(
                 settings.RABBITMQ_USER,
                 settings.RABBITMQ_PASSWORD,
