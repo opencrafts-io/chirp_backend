@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from urllib.parse import quote
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -49,6 +50,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "storages",  # For boto3 aws
+    "silk",
     "channels",
     "users",
     "posts",
@@ -59,7 +61,6 @@ INSTALLED_APPS = [
     "websocket_chat",
     "event_bus",
     "interactions",
-    "silk",
 ]
 
 # Django Channels Configuration
@@ -80,11 +81,12 @@ RABBITMQ_USER = os.getenv("RABBITMQ_USER", None)
 RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", None)
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", None)
 RABBITMQ_PORT = os.getenv("RABBITMQ_PORT", None)
-RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", None)
+RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", "")
+RABBITMQ_VHOST_ENCODED = quote(RABBITMQ_VHOST, safe="")
 
 
 # Celery setup
-CELERY_BROKER_URL = f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST}"
+CELERY_BROKER_URL = f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST_ENCODED}"
 CELERY_TIMEZONE = "UTC"
 CELERY_RESULT_BACKEND = "rpc://"
 
@@ -94,6 +96,11 @@ WEBSOCKET_RATE_LIMIT = 100
 WEBSOCKET_HEARTBEAT_INTERVAL = 30
 WEBSOCKET_CONNECTION_TIMEOUT = 300
 WEBSOCKET_MAX_MESSAGE_SIZE = 1024 * 1024
+
+# Silk profiler
+SILKY_PYTHON_PROFILER = True  # Enables the function-level profiler
+SILKY_PYTHON_PROFILER_BINARY = True  # Faster/more efficient binary recording
+SILKY_INTERCEPT_PERCENT = 100  # Percentage of requests to profile (100 for dev/testing)
 
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [],
