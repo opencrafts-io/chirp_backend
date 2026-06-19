@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from urllib.parse import quote
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -80,14 +81,12 @@ RABBITMQ_USER = os.getenv("RABBITMQ_USER", None)
 RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", None)
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", None)
 RABBITMQ_PORT = os.getenv("RABBITMQ_PORT", None)
-RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", None)
-
-if RABBITMQ_VHOST == "/":
-    RABBITMQ_VHOST = "%2F"
+RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", "")
+RABBITMQ_VHOST_ENCODED = quote(RABBITMQ_VHOST, safe="")
 
 
 # Celery setup
-CELERY_BROKER_URL = f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST}"
+CELERY_BROKER_URL = f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST_ENCODED}"
 CELERY_TIMEZONE = "UTC"
 CELERY_RESULT_BACKEND = "rpc://"
 
