@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "storages",  # For boto3 aws
+    "silk",
     "channels",
     "users",
     "posts",
@@ -59,7 +60,6 @@ INSTALLED_APPS = [
     "websocket_chat",
     "event_bus",
     "interactions",
-    "silk",
 ]
 
 # Django Channels Configuration
@@ -82,6 +82,9 @@ RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", None)
 RABBITMQ_PORT = os.getenv("RABBITMQ_PORT", None)
 RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", None)
 
+if RABBITMQ_VHOST == "/":
+    RABBITMQ_VHOST = "%2F"
+
 
 # Celery setup
 CELERY_BROKER_URL = f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST}"
@@ -94,6 +97,11 @@ WEBSOCKET_RATE_LIMIT = 100
 WEBSOCKET_HEARTBEAT_INTERVAL = 30
 WEBSOCKET_CONNECTION_TIMEOUT = 300
 WEBSOCKET_MAX_MESSAGE_SIZE = 1024 * 1024
+
+# Silk profiler
+SILKY_PYTHON_PROFILER = True  # Enables the function-level profiler
+SILKY_PYTHON_PROFILER_BINARY = True  # Faster/more efficient binary recording
+SILKY_INTERCEPT_PERCENT = 100  # Percentage of requests to profile (100 for dev/testing)
 
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [],
