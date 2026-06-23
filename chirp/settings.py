@@ -14,6 +14,7 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 from urllib.parse import quote
+import logging
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -81,15 +82,21 @@ RABBITMQ_USER = os.getenv("RABBITMQ_USER", None)
 RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", None)
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", None)
 RABBITMQ_PORT = os.getenv("RABBITMQ_PORT", None)
-RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", "")
-RABBITMQ_VHOST_ENCODED = quote(RABBITMQ_VHOST, safe="")
+RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", "/")
+
+# If the vhost is the root "/", we leave vhost_path empty because
+# the base URL template already provides the separating slash.
+vhost_path: str = ""
+if RABBITMQ_VHOST == "/":
+    vhost_path = ""
+else:
+    vhost_path = quote(RABBITMQ_VHOST, safe="")
 
 
 # Celery setup
-CELERY_BROKER_URL = f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST_ENCODED}"
+CELERY_BROKER_URL = f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{vhost_path}"
 CELERY_TIMEZONE = "UTC"
 CELERY_RESULT_BACKEND = "rpc://"
-
 
 # WebSocket Security Settings
 WEBSOCKET_RATE_LIMIT = 100
@@ -251,8 +258,6 @@ assert AWS_S3_REGION_NAME is not None, "AWS_S3_REGION_NAME was not set in .env!"
 
 AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
 
-print(AWS_S3_REGION_NAME)
-
 # For serving static files directly from S3
 AWS_S3_URL_PROTOCOL = "https:"
 AWS_S3_USE_SSL = True
@@ -273,8 +278,6 @@ elif ENVIRONMENT == "staging":
     STORAGE_LOCATION = "qa-chirp-media"
 else:
     STORAGE_LOCATION = "dev-chirp-media"
-
-print(AWS_S3_CUSTOM_DOMAIN)
 
 STORAGES = {
     "default": {
