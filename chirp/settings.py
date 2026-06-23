@@ -78,11 +78,14 @@ CHANNEL_LAYERS = {
 }
 
 # Rabbit mq setup
-RABBITMQ_USER = os.getenv("RABBITMQ_USER", None)
-RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", None)
-RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", None)
-RABBITMQ_PORT = os.getenv("RABBITMQ_PORT", None)
+RABBITMQ_USER = os.getenv("RABBITMQ_USER", "chirp")
+RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", "")
+RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
+RABBITMQ_PORT = os.getenv("RABBITMQ_PORT", "5672")
 RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", "/")
+
+RABBITMQ_USER_ENCODED = quote(RABBITMQ_USER, safe="")
+RABBITMQ_PASSWORD_ENCODED = quote(RABBITMQ_PASSWORD, safe="")
 
 # If the vhost is the root "/", we leave vhost_path empty because
 # the base URL template already provides the separating slash.
@@ -94,7 +97,7 @@ else:
 
 
 # Celery setup
-CELERY_BROKER_URL = f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{vhost_path}"
+CELERY_BROKER_URL = f"amqp://{RABBITMQ_USER_ENCODED}:{RABBITMQ_PASSWORD_ENCODED}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{vhost_path}"
 CELERY_TIMEZONE = "UTC"
 CELERY_RESULT_BACKEND = "rpc://"
 

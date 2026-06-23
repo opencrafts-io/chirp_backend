@@ -63,7 +63,7 @@ if broker_url.endswith("//"):
     )
     bad_url = urlunparse(parsed._replace(netloc=safe_netloc))
 
-    logger.error(f"❌ CRITICAL: Malformed CELERY_BROKER_URL detected: {bad_url}")
+    logger.error(f"[CRITICAL]: Malformed CELERY_BROKER_URL detected: {bad_url}")
 else:
     # Safely isolate and mask the password segment structurally
     parsed = urlparse(broker_url)
