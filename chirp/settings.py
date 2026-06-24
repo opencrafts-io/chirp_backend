@@ -13,8 +13,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 from dotenv import load_dotenv
-
-from event_bus import publisher
+from urllib.parse import quote
+import logging
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "storages",  # For boto3 aws
+    "silk",
     "channels",
     "users",
     "posts",
@@ -77,24 +78,39 @@ CHANNEL_LAYERS = {
 }
 
 # Rabbit mq setup
-RABBITMQ_USER = os.getenv("RABBITMQ_USER", None)
-RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", None)
-RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", None)
-RABBITMQ_PORT = os.getenv("RABBITMQ_PORT", None)
-RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", None)
+RABBITMQ_USER = os.getenv("RABBITMQ_USER", "chirp")
+RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", "")
+RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
+RABBITMQ_PORT = os.getenv("RABBITMQ_PORT", "5672")
+RABBITMQ_VHOST = os.getenv("RABBITMQ_VHOST", "/")
+
+RABBITMQ_USER_ENCODED = quote(RABBITMQ_USER, safe="")
+RABBITMQ_PASSWORD_ENCODED = quote(RABBITMQ_PASSWORD, safe="")
+
+# If the vhost is the root "/", we leave vhost_path empty because
+# the base URL template already provides the separating slash.
+vhost_path: str = ""
+if RABBITMQ_VHOST == "/":
+    vhost_path = ""
+else:
+    vhost_path = quote(RABBITMQ_VHOST, safe="")
 
 
 # Celery setup
-CELERY_BROKER_URL = f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST}"
+CELERY_BROKER_URL = f"amqp://{RABBITMQ_USER_ENCODED}:{RABBITMQ_PASSWORD_ENCODED}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{vhost_path}"
 CELERY_TIMEZONE = "UTC"
 CELERY_RESULT_BACKEND = "rpc://"
-
 
 # WebSocket Security Settings
 WEBSOCKET_RATE_LIMIT = 100
 WEBSOCKET_HEARTBEAT_INTERVAL = 30
 WEBSOCKET_CONNECTION_TIMEOUT = 300
 WEBSOCKET_MAX_MESSAGE_SIZE = 1024 * 1024
+
+# Silk profiler
+SILKY_PYTHON_PROFILER = True  # Enables the function-level profiler
+SILKY_PYTHON_PROFILER_BINARY = True  # Faster/more efficient binary recording
+SILKY_INTERCEPT_PERCENT = 100  # Percentage of requests to profile (100 for dev/testing)
 
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [],
@@ -149,6 +165,7 @@ CACHES = {
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "silk.middleware.SilkyMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "chirp.middlewares.request_logging_middleware.RequestLoggingMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -244,14 +261,14 @@ assert AWS_S3_REGION_NAME is not None, "AWS_S3_REGION_NAME was not set in .env!"
 
 AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
 
-print(AWS_S3_REGION_NAME)
-
 # For serving static files directly from S3
 AWS_S3_URL_PROTOCOL = "https:"
 AWS_S3_USE_SSL = True
 AWS_S3_VERIFY = True
 
-STATIC_URL = "static/"
+STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
+AWS_S3_FILE_OVERWRITE = False
+AWS_QUERYSTRING_AUTH = False
 MEDIA_URL = "/media/"
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "dev")
@@ -264,8 +281,6 @@ elif ENVIRONMENT == "staging":
     STORAGE_LOCATION = "qa-chirp-media"
 else:
     STORAGE_LOCATION = "dev-chirp-media"
-
-print(AWS_S3_CUSTOM_DOMAIN)
 
 STORAGES = {
     "default": {
@@ -349,5 +364,3 @@ LOGGING = {
         },
     },
 }
-
-publisher.register_shutdown_hook()

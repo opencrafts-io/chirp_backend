@@ -3,6 +3,7 @@ from django.db import transaction
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 from rest_framework import status
+from silk.profiling.profiler import silk_profile
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.fields import ValidationError
 from rest_framework.generics import (
@@ -124,6 +125,7 @@ class PostsFeedView(ListAPIView):
 
     serializer_class = PostSerializer
 
+    @silk_profile(name="Feed QuerySet Construction")
     def get_queryset(self):
         user_id = getattr(self.request, "user_id", None)
         if not user_id:
@@ -154,6 +156,11 @@ class PostsFeedView(ListAPIView):
             .exclude(community_id__in=blocked_comm_ids)
             .filter(content_filter)
             .select_related("author", "community")
+            .prefetch_related(
+                "comments",
+                "attachments",
+                "comments__author",
+            )
             .distinct()
         )
 
@@ -280,7 +287,9 @@ class PostVoteView(ListCreateAPIView):
 
     serializer_class = PostVoteSerializer
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         post = serializer.validated_data["post"]
         user = serializer.validated_data["user"]
         value = serializer.validated_data["value"]
@@ -288,12 +297,15 @@ class PostVoteView(ListCreateAPIView):
         if value not in [PostVotes.UPVOTE, PostVotes.DOWNVOTE]:
             raise ValidationError("Invalid vote value. Must be 1 or -1.")
 
-        obj, created = PostVotes.objects.update_or_create(
+        vote, created = PostVotes.objects.update_or_create(
             post=post,
             user=user,
             defaults={"value": value},
         )
-        serializer.instance = obj
+        return Response(
+            self.get_serializer(vote).data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
 
     def get(self, request, *args, **kwargs):
         post_id = self.kwargs["post_id"]

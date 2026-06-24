@@ -180,3 +180,4 @@ class PostVoteSerializer(serializers.ModelSerializer):
         model = PostVotes
         fields = ["id", "voter", "voter_id", "post", "post_id", "value", "created_at"]
         read_only_fields = ["voter", "post", "created_at"]
+        validators = []
