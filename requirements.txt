@@ -61,7 +61,7 @@ service-identity==24.2.0
 setuptools==82.0.1
 six==1.17.0
 sqlparse==0.5.5
-Twisted==25.5.0
+Twisted==26.4.0rc2
 txaio==25.12.2
 types-PyYAML==6.0.12.20260408
 typing_extensions==4.15.0
