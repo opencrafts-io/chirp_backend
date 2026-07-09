@@ -102,6 +102,9 @@ class Post(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["created_at"], name="post_created_at_idx"),
+        ]
 
 
 class PostView(models.Model):

@@ -54,7 +54,7 @@ def send_push_notification_to_post_creator(self, post_id: int) -> None:
     publish(GOSSIP_MONGER_EXCHANGE, GOSSIP_MONGER_ROUTING_KEY, notification.to_json())
 
 
-@shared_task(bind=True)
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def send_push_notification_to_community_members(self, post_id: int) -> None:
     """
     Sends a push notification to all active, non-banned community members
