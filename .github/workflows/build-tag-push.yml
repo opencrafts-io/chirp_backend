@@ -113,28 +113,31 @@ jobs:
         run: |
           BRANCH="${GITHUB_REF_NAME#refs/heads/}"
           if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
-            FILE="infraops/services/chirp/deployment.yaml"
+            DIR="infraops/services/chirp"
           else
-            FILE="infraops/qaservices/chirp/deployment.yaml"
+            DIR="infraops/qaservices/chirp"
           fi
-          echo "file=$FILE" >> "$GITHUB_OUTPUT"
-          echo "Deployment file: $FILE"
+          echo "file=$DIR/deployment.yaml" >> "$GITHUB_OUTPUT"
+          echo "worker_file=$DIR/worker-deployment.yaml" >> "$GITHUB_OUTPUT"
+          echo "Deployment file: $DIR/deployment.yaml"
+          echo "Worker deployment file: $DIR/worker-deployment.yaml"
 
       - name: Update deployment.yaml
         run: |
-          FILE="${{ steps.target.outputs.file }}"
           IMAGE="${{ steps.tags.outputs.image_base }}:${{ steps.tags.outputs.sha_tag }}"
-          echo "Updating $FILE with image: $IMAGE"
-          if [ ! -f "$FILE" ]; then
-            echo "ERROR: $FILE does not exist!"
-            ls -la "$(dirname $FILE)"
-            exit 1
-          fi
-          echo "Old image:"
-          yq eval '.spec.template.spec.containers[0].image' "$FILE"
-          yq eval ".spec.template.spec.containers[0].image = \"$IMAGE\"" -i "$FILE"
-          echo "New image:"
-          yq eval '.spec.template.spec.containers[0].image' "$FILE"
+          for FILE in "${{ steps.target.outputs.file }}" "${{ steps.target.outputs.worker_file }}"; do
+            echo "Updating $FILE with image: $IMAGE"
+            if [ ! -f "$FILE" ]; then
+              echo "ERROR: $FILE does not exist!"
+              ls -la "$(dirname $FILE)"
+              exit 1
+            fi
+            echo "Old image:"
+            yq eval '.spec.template.spec.containers[0].image' "$FILE"
+            yq eval ".spec.template.spec.containers[0].image = \"$IMAGE\"" -i "$FILE"
+            echo "New image:"
+            yq eval '.spec.template.spec.containers[0].image' "$FILE"
+          done
 
       - name: Commit and push changes
         run: |
@@ -142,13 +145,13 @@ jobs:
           IMAGE="${{ steps.tags.outputs.image_base }}:${{ steps.tags.outputs.sha_tag }}"
           git config user.name "CI Bot from Github Actions"
           git config user.email "actions@github.com"
-          
+
           if [ "${{ github.ref_name }}" = "main" ] || [ "${{ github.ref_name }}" = "master" ]; then
-            FILE="services/chirp/deployment.yaml"
+            DIR="services/chirp"
           else
-            FILE="qaservices/chirp/deployment.yaml"
+            DIR="qaservices/chirp"
           fi
-          
-          git add "$FILE"
+
+          git add "$DIR/deployment.yaml" "$DIR/worker-deployment.yaml"
           git commit -m "chore: update chirp image to $IMAGE (${{ github.ref_name }})"
           git push origin main
