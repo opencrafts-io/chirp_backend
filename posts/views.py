@@ -3,7 +3,6 @@ from django.db import transaction
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 from rest_framework import status
-from silk.profiling.profiler import silk_profile
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.fields import ValidationError
 from rest_framework.generics import (
@@ -136,7 +135,6 @@ class PostsFeedView(ListAPIView):
 
     serializer_class = PostSerializer
 
-    @silk_profile(name="Feed QuerySet Construction")
     def get_queryset(self):
         user_id = getattr(self.request, "user_id", None)
         if not user_id:

@@ -51,7 +51,6 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "storages",  # For boto3 aws
-    "silk",
     "channels",
     "users",
     "posts",
@@ -107,11 +106,6 @@ WEBSOCKET_HEARTBEAT_INTERVAL = 30
 WEBSOCKET_CONNECTION_TIMEOUT = 300
 WEBSOCKET_MAX_MESSAGE_SIZE = 1024 * 1024
 
-# Silk profiler
-SILKY_PYTHON_PROFILER = True  # Enables the function-level profiler
-SILKY_PYTHON_PROFILER_BINARY = True  # Faster/more efficient binary recording
-SILKY_INTERCEPT_PERCENT = 100  # Percentage of requests to profile (100 for dev/testing)
-
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [],
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -165,7 +159,6 @@ CACHES = {
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "silk.middleware.SilkyMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "chirp.middlewares.request_logging_middleware.RequestLoggingMiddleware",
     "django.middleware.common.CommonMiddleware",
