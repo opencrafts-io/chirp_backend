@@ -51,15 +51,27 @@ def send_push_notification_to_post_creator(self, post_id: int) -> None:
         url=f"https://academia.opencrafts.io/post/{post_id}",
     )
 
-    publish(GOSSIP_MONGER_EXCHANGE, GOSSIP_MONGER_ROUTING_KEY, notification.to_json())
+    try:
+        publish(
+            GOSSIP_MONGER_EXCHANGE, GOSSIP_MONGER_ROUTING_KEY, notification.to_json()
+        )
+    except Exception as exc:
+        raise self.retry(exc=exc)
 
 
-@shared_task(bind=True)
+@shared_task(bind=True, max_retries=3)
 def send_push_notification_to_community_members(self, post_id: int) -> None:
     """
     Sends a push notification to all active, non-banned community members
     (excluding the post author) when a new post is created.
     Batches in groups of 2000 to respect OneSignal's limit.
+
+    TODO: retrying this task re-publishes every batch, including ones that
+    already succeeded, each with a fresh request_id. Since gossip-monger
+    dedupes on request_id, a failure partway through resends duplicate
+    notifications to earlier batches instead of a safe no-op. Fix by
+    splitting into per-batch subtasks (or persisting request_ids per batch)
+    if community sizes grow past a single 2000-member batch.
 
     Args:
         post_id: The primary key of the newly created Post.
@@ -113,6 +125,11 @@ def send_push_notification_to_community_members(self, post_id: int) -> None:
             small_icon=None,
             url=f"https://academia.opencrafts.io/post/{post_id}",
         )
-        publish(
-            GOSSIP_MONGER_EXCHANGE, GOSSIP_MONGER_ROUTING_KEY, notification.to_json()
-        )
+        try:
+            publish(
+                GOSSIP_MONGER_EXCHANGE,
+                GOSSIP_MONGER_ROUTING_KEY,
+                notification.to_json(),
+            )
+        except Exception as exc:
+            raise self.retry(exc=exc)
