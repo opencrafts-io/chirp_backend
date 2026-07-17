@@ -29,6 +29,8 @@ from posts.serializers import (
 )
 from posts.tasks import (
     send_push_notification_to_community_members,
+    send_push_notification_to_parent_comment_author_on_reply,
+    send_push_notification_to_post_author_on_comment,
     send_push_notification_to_post_creator,
 )
 from users.models import User
@@ -41,6 +43,15 @@ def notify_on_post_creation(post_id):
     """
     send_push_notification_to_post_creator.delay(post_id)
     send_push_notification_to_community_members.delay(post_id)
+
+
+def notify_on_comment_creation(comment_id):
+    """
+    Orchestrator to trigger all asynchronous notification tasks
+    associated with a new comment.
+    """
+    send_push_notification_to_post_author_on_comment.delay(comment_id)
+    send_push_notification_to_parent_comment_author_on_reply.delay(comment_id)
 
 
 class PostCreateView(CreateAPIView):
@@ -378,6 +389,11 @@ class CommentListCreateView(ListCreateAPIView):
         context = super().get_serializer_context()
         context["current_depth"] = 0  # start depth counting
         return context
+
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            comment = serializer.save()
+            transaction.on_commit(lambda: notify_on_comment_creation(comment.id))
 
 
 class CommentRetrieveView(RetrieveAPIView):
