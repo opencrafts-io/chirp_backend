@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from typing import List, Dict, Optional
 import uuid
 
@@ -63,10 +64,13 @@ class GossipMongerNotificationPayLoad:
             "buttons": self.buttons,
         }
 
-        meta = {
+        metadata = {
             "event_type": self.EVENT_TYPE,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "source_service_id": self.SOURCE_SERVICE_ID,
             "request_id": str(uuid.uuid4()),
         }
 
-        return json.dumps({"notification": notification, "meta": meta}, indent=4)
+        return json.dumps(
+            {"notification": notification, "metadata": metadata}, indent=4
+        )
