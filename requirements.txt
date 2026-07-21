@@ -39,7 +39,7 @@ Markdown==3.10.2
 msgpack==1.1.2
 packaging==26.2
 pika==1.3.2
-pillow==12.2.0
+pillow==12.3.0
 prompt_toolkit==3.0.52
 psycopg2-binary==2.9.12
 py-ubjson==0.16.1
