@@ -7,6 +7,7 @@ A Django-based microservice for a simple social media platform called Chirp.
 - 👥 Create and manage groups with admin/member roles
 - 📧 Send group invitations and manage memberships
 - 💬 Post messages in groups with permission controls
+- 📊 Attach polls to posts (single/multi-choice, optional end time, anonymous voting)
 - 📩 Send direct messages with privacy protection
 - 🔐 JWT-based authentication and authorization
 - 🏥 Health check endpoint for server monitoring.
@@ -115,6 +116,27 @@ Authorization: Bearer <jwt_token>
 - `POST /groups/accept_invite/{invite_id}/` - Accept group invitation
 - `GET|POST /groups/{group_name}/posts/` - View/create group posts
 - `GET|POST /messages/` - View/send direct messages
+
+### Polls
+A post may carry a poll. Every post payload includes `poll` (`null` when absent):
+
+```json
+{
+  "id": 41, "post": 1203, "question": "Which unit first?",
+  "allows_multiple": false, "is_anonymous": false, "ends_at": "2026-09-14T18:00:00Z",
+  "total_votes": 27, "my_votes": [88],
+  "options": [{ "id": 87, "text": "Calculus", "position": 0, "vote_count": 12 }]
+}
+```
+
+- `POST /posts/create/` — add `"poll": {"question", "allows_multiple", "is_anonymous", "ends_at"?, "options": [{"text", "position"}]}` to the normal body. Rules: question 3–200 chars, 2–10 options of 1–100 chars, case-insensitively unique, `ends_at` ≥ 5 minutes ahead. Polls can't be edited after creation.
+- `POST /polls/{poll_id}/vote/` `{"option_ids": [88]}` — **replaces** the caller's selection (single-choice polls accept exactly one id). Returns the updated poll. `400` when the poll is closed or an id doesn't belong to it.
+- `DELETE /polls/{poll_id}/vote/` — retracts the caller's selection (idempotent). Returns the updated poll. `400` once the poll has closed, so final results stay final.
+- `GET /polls/{poll_id}/voters/?option_id=&page=&page_size=` — paginated voters `{user_id, user, option_ids, voted_at}`. On anonymous polls only the post author may call this (`403` otherwise).
+
+All three poll endpoints apply feed visibility rules: `403` for non-members of a private community, for banned members, and when the caller and the post author have blocked each other.
+
+`total_votes` counts distinct voters; `vote_count` is per option. Both are recomputed inside the vote transaction.
 
 ### Example Usage
 ```bash

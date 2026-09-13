@@ -1,5 +1,6 @@
 from django.core.files.storage import default_storage
 from django.db import models
+from django.utils import timezone
 
 from communities.models import Community
 from posts.managers import PostQuerySet
@@ -243,3 +244,105 @@ class CommentVote(models.Model):
 
     class Meta:
         unique_together = ("comment", "user")
+
+
+class Poll(models.Model):
+    """
+    A poll attached to a post. Vote-derived counters (`total_votes`,
+    `PollOption.vote_count`) are denormalized like `Post.upvotes`, but are
+    recomputed from `PollVote` rows inside the vote transaction (see
+    `recount`) rather than incremented, so they cannot drift.
+    """
+
+    QUESTION_MAX_LENGTH = 200
+    MIN_OPTIONS = 2
+    MAX_OPTIONS = 10
+
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="poll")
+    question = models.CharField(max_length=QUESTION_MAX_LENGTH)
+    allows_multiple = models.BooleanField(default=False)
+    is_anonymous = models.BooleanField(default=False)
+    ends_at = models.DateTimeField(null=True, blank=True)
+    # Number of distinct voters, not the sum of option counts.
+    total_votes = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Poll '{self.question}' on post {self.post_id}"
+
+    @property
+    def is_closed(self) -> bool:
+        return self.ends_at is not None and self.ends_at <= timezone.now()
+
+    def recount(self) -> None:
+        """
+        Recompute every option's `vote_count` and this poll's `total_votes`
+        from the `PollVote` table. Call inside the transaction that mutated
+        the votes.
+        """
+        counts = dict(
+            PollVote.objects.filter(poll=self)
+            .values_list("option_id")
+            .annotate(n=models.Count("id"))
+            .values_list("option_id", "n")
+        )
+        for option in self.options.all():
+            new_count = counts.get(option.id, 0)
+            if option.vote_count != new_count:
+                PollOption.objects.filter(id=option.id).update(vote_count=new_count)
+                option.vote_count = new_count
+
+        self.total_votes = (
+            PollVote.objects.filter(poll=self).values("user").distinct().count()
+        )
+        Poll.objects.filter(id=self.id).update(total_votes=self.total_votes)
+
+
+class PollOption(models.Model):
+    TEXT_MAX_LENGTH = 100
+
+    poll = models.ForeignKey(Poll, on_delete=models.CASCADE, related_name="options")
+    text = models.CharField(max_length=TEXT_MAX_LENGTH)
+    # Zero-based display order.
+    position = models.PositiveSmallIntegerField()
+    vote_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["poll", "position"], name="unique_poll_option_position"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.text} ({self.vote_count})"
+
+
+class PollVote(models.Model):
+    """
+    One row per (user, option). A user in a multi-choice poll has several
+    rows; a user in a single-choice poll has at most one.
+    """
+
+    poll = models.ForeignKey(Poll, on_delete=models.CASCADE, related_name="votes")
+    option = models.ForeignKey(
+        PollOption, on_delete=models.CASCADE, related_name="votes"
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="poll_votes")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["poll", "option", "user"], name="unique_poll_vote_per_option"
+            )
+        ]
+        indexes = [models.Index(fields=["poll", "user"])]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} voted {self.option_id} on poll {self.poll_id}"

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from posts.models import Post
+from posts.models import Poll, PollOption, Post
 
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
@@ -14,6 +14,37 @@ class PostAdmin(admin.ModelAdmin):
         "downvotes",
         "created_at",
     )
+
+
+class PollOptionInline(admin.TabularInline):
+    model = PollOption
+    extra = 0
+    fields = ("position", "text", "vote_count")
+    readonly_fields = ("vote_count",)
+    ordering = ("position",)
+
+
+@admin.register(Poll)
+class PollAdmin(admin.ModelAdmin):
+    list_display = (
+        "question",
+        "post",
+        "allows_multiple",
+        "is_anonymous",
+        "total_votes",
+        "ends_at",
+        "created_at",
+    )
+    list_filter = ("allows_multiple", "is_anonymous", "created_at")
+    search_fields = ("question", "post__title")
+    readonly_fields = ("total_votes", "created_at", "updated_at")
+    inlines = [PollOptionInline]
+
+    def save_related(self, request, form, formsets, change):
+        # Adding/removing options through the inline cascades votes away;
+        # bring the denormalized counters back in line with the vote table.
+        super().save_related(request, form, formsets, change)
+        form.instance.recount()
 
 
 #     list_filter = ('group', 'created_at', 'user_name')

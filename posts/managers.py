@@ -71,3 +71,27 @@ class PostQuerySet(models.QuerySet):
         Useful for 'Latest' or 'Discovery' feeds.
         """
         return self.order_by("-created_at")
+
+    def with_polls(self, user_id=None):
+        """
+        Eagerly loads each post's poll, its options, and the requesting
+        user's own votes (exposed on the poll as `my_vote_rows`), so
+        serializing `poll.my_votes` for a page of posts costs a fixed number
+        of queries instead of one per post.
+        """
+        from django.apps import apps
+        from django.db.models import Prefetch
+
+        PollVote = apps.get_model("posts", "PollVote")
+
+        queryset = self.select_related("poll").prefetch_related("poll__options")
+        if user_id:
+            my_votes = (
+                PollVote.objects.filter(user_id=user_id)
+                .only("id", "poll_id", "option_id")
+                .order_by("option__position", "option_id")
+            )
+            queryset = queryset.prefetch_related(
+                Prefetch("poll__votes", queryset=my_votes, to_attr="my_vote_rows")
+            )
+        return queryset
