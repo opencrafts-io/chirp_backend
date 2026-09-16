@@ -1,6 +1,6 @@
+from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import transaction
-from django.db import transaction
-from django.db.models import Q, QuerySet
+from django.db.models import Max, Q, QuerySet
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
@@ -14,14 +14,25 @@ from rest_framework.generics import (
     RetrieveAPIView,
 )
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework.views import APIView
 from communities.models import CommunityMembership
 from interactions.models import Block
 from interactions.utils import get_mutual_blocked_ids
-from posts.models import Attachment, Comment, Post, PostView, PostVotes
+from posts.models import (
+    Attachment,
+    Comment,
+    Poll,
+    PollVote,
+    Post,
+    PostView,
+    PostVotes,
+)
 from posts.serializers import (
     AttachmentSerializer,
     CommentSerializer,
+    PollSerializer,
+    PollVoteRequestSerializer,
+    PollVoterSerializer,
     PostSerializer,
     PostViewSerializer,
     PostVoteSerializer,
@@ -33,6 +44,40 @@ from posts.tasks import (
     send_push_notification_to_post_creator,
 )
 from users.models import User
+
+
+def get_request_user(request) -> User:
+    """
+    Resolve the acting `User` from the `user_id` the auth layer attached to
+    the request, raising the same ValidationErrors the other views use.
+    """
+    user_id = getattr(request, "user_id", None)
+    if not user_id:
+        raise ValidationError(
+            {"error": "Failed to parse your information from request context"}
+        )
+    try:
+        return User.objects.get(user_id=user_id)
+    except User.DoesNotExist:
+        raise ValidationError({"error": f"User with id {user_id} does not exist"})
+
+
+def ensure_poll_access(poll: Poll, user: User) -> None:
+    """
+    Mirror feed visibility for poll mutations/reads: private communities
+    require a non-banned membership, banned members are refused everywhere,
+    and mutual user blocks with the post author hide the poll entirely.
+    """
+    post = poll.post
+    membership = CommunityMembership.objects.filter(
+        community_id=post.community_id, user=user
+    ).first()
+    if membership is not None and membership.banned:
+        raise PermissionDenied("You are banned from this community.")
+    if post.community.private and membership is None:
+        raise PermissionDenied("This poll belongs to a private community.")
+    if post.author_id in get_mutual_blocked_ids(user):
+        raise PermissionDenied("This poll is not available.")
 
 
 def notify_on_post_creation(post_id):
@@ -170,6 +215,7 @@ class PostsFeedView(ListAPIView):
                 "attachments",
                 "comments__author",
             )
+            .with_polls(user_id)
             .distinct()
         )
 
@@ -180,23 +226,29 @@ class ListPostView(ListAPIView):
     """Lists all posts on the system"""
 
     serializer_class = PostSerializer
-    queryset = Post.objects.all()
+
+    def get_queryset(self):
+        return Post.objects.with_polls(getattr(self.request, "user_id", None))
 
 
 class RetrievePostByIDView(RetrieveAPIView):
     """Retrieves a post by its id"""
 
     serializer_class = PostSerializer
-    queryset = Post.objects.all()
     lookup_field = "id"
+
+    def get_queryset(self):
+        return Post.objects.with_polls(getattr(self.request, "user_id", None))
 
 
 class RetrievePostByAuthorView(RetrieveAPIView):
     """Retrieves a post by its author's id"""
 
     serializer_class = PostSerializer
-    queryset = Post.objects.all()
     lookup_field = "author"
+
+    def get_queryset(self):
+        return Post.objects.with_polls(getattr(self.request, "user_id", None))
 
 
 class PostListByCommunityView(ListAPIView):
@@ -210,7 +262,11 @@ class PostListByCommunityView(ListAPIView):
     def get_queryset(self):
         # Retrieves the posts for a specific community
         community_id = self.kwargs.get(self.lookup_url_kwarg)
-        return Post.objects.filter(community_id=community_id).hot()
+        return (
+            Post.objects.filter(community_id=community_id)
+            .with_polls(getattr(self.request, "user_id", None))
+            .hot()
+        )
 
 
 class DestroyPostView(DestroyAPIView):
@@ -245,9 +301,11 @@ class PostSearchView(ListAPIView):
         if not q or len(q) < 2:
             return Post.objects.none()
 
-        return Post._default_manager.filter(
-            Q(content__icontains=q) | Q(title__icontains=q)
-        ).order_by("title")
+        return (
+            Post.objects.filter(Q(content__icontains=q) | Q(title__icontains=q))
+            .with_polls(getattr(self.request, "user_id", None))
+            .order_by("title")
+        )
 
 
 # Post viewers metrics
@@ -425,3 +483,144 @@ class CommentDestroyView(DestroyAPIView):
         if instance.author != user:
             raise PermissionDenied("You can only delete your own comments.")
         instance.delete()
+
+
+# Polls
+class PollVoteView(APIView):
+    """
+    POST   replaces the caller's selection on a poll with `option_ids`.
+    DELETE removes the caller's selection entirely (idempotent).
+
+    Both return the full, up-to-date poll (server-authoritative counts and
+    the caller's `my_votes`) so the client can reconcile optimistic state.
+    """
+
+    def _locked_poll(self, poll_id: int, user: User) -> Poll:
+        """Lock just the poll row (not the joined post) and check access."""
+        try:
+            poll = (
+                Poll.objects.select_for_update(of=("self",))
+                .select_related("post__community")
+                .get(id=poll_id)
+            )
+        except Poll.DoesNotExist:
+            raise ValidationError({"error": f"Poll with id {poll_id} does not exist"})
+        ensure_poll_access(poll, user)
+        return poll
+
+    def _serialize(self, poll: Poll) -> Response:
+        # Re-fetch options so the response carries the recounted totals.
+        poll = Poll.objects.prefetch_related("options").get(id=poll.id)
+        return Response(
+            PollSerializer(poll, context={"request": self.request}).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request, poll_id: int, *args, **kwargs):
+        user = get_request_user(request)
+        body = PollVoteRequestSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        option_ids = list(dict.fromkeys(body.validated_data["option_ids"]))
+
+        with transaction.atomic():
+            poll = self._locked_poll(poll_id, user)
+
+            if poll.is_closed:
+                raise ValidationError({"error": "This poll has closed."})
+            if not poll.allows_multiple and len(option_ids) > 1:
+                raise ValidationError(
+                    {"error": "This poll only allows a single choice."}
+                )
+            valid_ids = set(poll.options.values_list("id", flat=True))
+            unknown = [oid for oid in option_ids if oid not in valid_ids]
+            if unknown:
+                raise ValidationError(
+                    {"error": f"Options {unknown} do not belong to this poll."}
+                )
+
+            PollVote.objects.filter(poll=poll, user=user).delete()
+            PollVote.objects.bulk_create(
+                [PollVote(poll=poll, option_id=oid, user=user) for oid in option_ids]
+            )
+            poll.recount()
+
+        return self._serialize(poll)
+
+    def delete(self, request, poll_id: int, *args, **kwargs):
+        user = get_request_user(request)
+
+        with transaction.atomic():
+            poll = self._locked_poll(poll_id, user)
+            # Final results must stay final: no retractions after close.
+            if poll.is_closed:
+                raise ValidationError({"error": "This poll has closed."})
+            PollVote.objects.filter(poll=poll, user=user).delete()
+            poll.recount()
+
+        return self._serialize(poll)
+
+
+class PollVotersListView(ListAPIView):
+    """
+    Paginated list of who voted on a poll, one row per voter with every
+    option they picked. Optional `option_id` narrows to voters of that
+    option. On anonymous polls only the post author may call this.
+    """
+
+    serializer_class = PollVoterSerializer
+
+    def get_poll(self) -> Poll:
+        try:
+            return Poll.objects.select_related("post__community").get(
+                id=self.kwargs["poll_id"]
+            )
+        except Poll.DoesNotExist:
+            raise ValidationError(
+                {"error": f"Poll with id {self.kwargs['poll_id']} does not exist"}
+            )
+
+    def get_queryset(self):
+        user = get_request_user(self.request)
+        poll = self.get_poll()
+        ensure_poll_access(poll, user)
+
+        if poll.is_anonymous and poll.post.author_id != user.user_id:
+            raise PermissionDenied("Votes on this poll are anonymous.")
+
+        votes = PollVote.objects.filter(poll=poll)
+
+        option_id = self.request.query_params.get("option_id")
+        if option_id:
+            try:
+                option_id = int(option_id)
+            except ValueError:
+                raise ValidationError({"error": "option_id must be an integer."})
+            voter_ids = votes.filter(option_id=option_id).values("user_id")
+            votes = votes.filter(user_id__in=voter_ids)
+
+        # One row per voter: aggregate their option ids and latest vote time.
+        return (
+            votes.values("user_id")
+            .annotate(
+                option_ids=ArrayAgg("option_id", order_by="option__position"),
+                voted_at=Max("created_at"),
+            )
+            .order_by("-voted_at", "user_id")
+        )
+
+    @staticmethod
+    def _attach_users(rows):
+        """Attach User objects in one query for the nested `user` field."""
+        users = User.objects.in_bulk([row["user_id"] for row in rows])
+        for row in rows:
+            row["user"] = users.get(row["user_id"])
+        return rows
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        rows = self._attach_users(page if page is not None else list(queryset))
+        serializer = self.get_serializer(rows, many=True)
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data)

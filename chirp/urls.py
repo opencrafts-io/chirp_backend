@@ -27,6 +27,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("ping", views.PingView.as_view(), name="ping"),
     path("posts/", include("posts.urls")),
+    path("polls/", include("posts.poll_urls")),
     path("community/", include("communities.urls")),
     path("conversations/", include("conversations.urls")),
     path("messages/", include("dmessages.urls")),
